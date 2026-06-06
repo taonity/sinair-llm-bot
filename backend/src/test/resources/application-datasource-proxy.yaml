@@ -1,0 +1,17 @@
+decorator:
+  datasource:
+    datasource-proxy:
+      logging: slf4j
+      query:
+        enable-logging: true
+        log-level: info
+        logger-name: DB
+      slow-query:
+        enable-logging: true
+        log-level: info
+        logger-name: DB
+        threshold: 300
+      multiline: false
+      format-sql: true
+      json-format: false
+      count-query: true

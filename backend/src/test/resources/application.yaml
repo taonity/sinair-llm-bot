@@ -1,0 +1,41 @@
+server:
+  port: 8080
+  forward-headers-strategy: native
+  servlet:
+    session:
+      cookie:
+        domain: 127.0.0.1
+        name: JSESSIONID-TEST
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google-fullstack-starter:
+            provider: google
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-fullstack-starter
+            authorization-grant-type: authorization_code
+            scope: openid,profile,email
+        provider:
+          google:
+            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
+            token-uri: http://127.0.0.1:9561/oauth2/token
+            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo
+
+app:
+  minimised-http-servlet-logging: false
+  default-success-url: /
+  login-url: /
+  csrf-cookie-name: XSRF-TOKEN-TEST
+  cookie:
+    secure: false
+    same-site: Lax
+
+#logging:
+#  level:
+#    root: DEBUG

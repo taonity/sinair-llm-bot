@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:16
+    volumes:
+      - volume-db:/var/lib/postgresql/data
+    env_file:
+      - ../${COMPOSE_ENV_FILE:-.env}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 100
+

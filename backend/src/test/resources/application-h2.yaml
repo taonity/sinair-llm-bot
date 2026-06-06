@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+  datasource:
+    url: jdbc:h2:mem:db;MODE=PostgreSQL
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+  flyway:
+    cleanDisabled: false
+    locations:
+      - filesystem:../templates/docker/flyway/sql/tables
+      - filesystem:../templates/docker/flyway/sql/conflicts/h2

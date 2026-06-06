@@ -1,0 +1,9 @@
+---
+#logging:
+#  level:
+#    org.example.fullstackstarter: DEBUG
+
+#spring:
+#  profiles:
+#    group:
+#      local:

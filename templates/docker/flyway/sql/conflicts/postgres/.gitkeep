@@ -1,0 +1,2 @@
+# Postgres-specific Flyway migration overrides
+# Place Postgres-compatible versions of migrations here when needed.

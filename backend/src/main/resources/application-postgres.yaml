@@ -1,0 +1,9 @@
+postgres-url: jdbc:postgresql://${POSTGRES_ADDRESS:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:fullstack_starter_db}
+
+spring:
+  datasource:
+    url: ${postgres-url}
+    username: ${POSTGRES_APP_USER:d}
+    password: ${POSTGRES_APP_PASSWORD:d}
+  flyway:
+    enabled: false

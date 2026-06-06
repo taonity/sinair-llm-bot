@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- ==================== Human-readable (plain-log profile) ==================== -->
+    <springProfile name="plain-log">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+                <layout class="org.example.fullstackstarter.observability.logging.MaskingPatternLayout">
+                    <maskPattern>\"x-xsrf-token\"\s*:\s*\"(.*?)\"</maskPattern>
+                    <maskPattern>\"JSESSIONID\"\s*:\s*\"(.*?)\"</maskPattern>
+                    <maskPattern>\"XSRF-TOKEN\"\s*:\s*\"(.*?)\"</maskPattern>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] [cid=%X{correlationId}] [uid=%X{userId}] [%X{method} %X{uri}] %-5level %logger{36} - %msg%n</pattern>
+                </layout>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ==================== JSON structured (default) ==================== -->
+    <springProfile name="!plain-log">
+        <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="org.example.fullstackstarter.observability.logging.MaskingStructuredLogEncoder">
+                <format>logstash</format>
+                <charset>UTF-8</charset>
+                <maskPattern>\"x-xsrf-token\"\s*:\s*\"(.*?)\"</maskPattern>
+                <maskPattern>\"JSESSIONID\"\s*:\s*\"(.*?)\"</maskPattern>
+                <maskPattern>\"XSRF-TOKEN\"\s*:\s*\"(.*?)\"</maskPattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

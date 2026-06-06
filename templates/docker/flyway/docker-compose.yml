@@ -1,0 +1,12 @@
+services:
+  flyway:
+    image: flyway/flyway:10.18.0
+    command: migrate
+    environment:
+      FLYWAY_PLACEHOLDER_PREFIX: "{{ "
+      FLYWAY_PLACEHOLDER_SUFFIX: " }}"
+    env_file:
+      - ../${COMPOSE_ENV_FILE:-.env}
+    volumes:
+      - ./flyway.conf:/flyway/conf/flyway.conf
+      - ./sql:/flyway/sql

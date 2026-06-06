@@ -1,0 +1,51 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths-ignore:
+      - '**/*.md'
+      - 'images/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-validation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/backend-validation.yml
+
+  frontend-validation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/frontend-validation.yml
+
+  smoke-tests:
+    needs: [backend-validation, frontend-validation]
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build frontend Docker image
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/fullstack-starter-frontend frontend/
+
+    - name: Build backend Docker image and run smoke tests
+      run: mvn -B -P build-docker-image,smoke-tests verify
+

@@ -1,0 +1,24 @@
+name: Deploy (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - stage
+          - prod
+
+jobs:
+  deploy:
+    uses: taonity/docker-webhook/.github/workflows/deploy.yml@main
+    with:
+      project_name: fullstack-starter
+      environment: ${{ inputs.environment }}
+    secrets:
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+
+

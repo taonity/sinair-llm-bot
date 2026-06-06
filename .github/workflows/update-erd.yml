@@ -1,0 +1,27 @@
+name: Update ERD Diagram
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_generate:
+        description: 'Force diagram regeneration'
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      force_generate:
+        type: boolean
+        default: false
+
+jobs:
+  update-erd:
+    uses: taonity/mermerd-flyway-github-action/.github/workflows/mermerd.yml@main
+    with:
+      migration_paths: 'templates/docker/flyway/sql/init,templates/docker/flyway/sql/tables,templates/docker/flyway/sql/conflicts/postgres'
+      commit_message: 'chore: update mermerd ERD diagram [skip ci]'
+      flyway_placeholder_prefix: '{{ '
+      flyway_placeholder_suffix: ' }}'
+      flyway_placeholders: 'app_user=dummy,app_password=dummy,db_name=mermerd_db'
+      force_generate: ${{ inputs.force_generate }}
+    permissions:
+      contents: write

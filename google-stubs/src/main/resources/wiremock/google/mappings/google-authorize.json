@@ -1,0 +1,13 @@
+{
+  "request": {
+    "urlPath": "/oauth2/authorize",
+    "method": "GET"
+  },
+  "response": {
+    "status": 303,
+    "headers": {
+      "Location": "{{{request.query.redirect_uri.[0]}}}?code=stub-auth-code&state={{{request.query.state.[0]}}}"
+    },
+    "transformers": ["response-template"]
+  }
+}

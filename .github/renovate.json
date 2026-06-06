@@ -1,0 +1,68 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "schedule": ["before 4am"],
+  "ignoreDeps": [
+    "org.example:fullstack-starter"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "[GitHub Actions] minor and patch",
+      "groupSlug": "github-actions-minor-patch",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "[GitHub Actions] major",
+      "groupSlug": "github-actions-major",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["maven"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "[Maven] minor and patch",
+      "groupSlug": "maven-minor-patch",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["maven"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "[Maven] major",
+      "groupSlug": "maven-major",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "[npm] minor and patch",
+      "groupSlug": "npm-minor-patch",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "[npm] major",
+      "groupSlug": "npm-major",
+      "prTitleStrict": true
+    },
+    {
+      "matchManagers": ["docker-compose", "dockerfile"],
+      "groupName": "[Docker] all",
+      "groupSlug": "docker-all",
+      "prTitleStrict": true
+    },
+    {
+      "packageNames": ["com.google.cloud.tools:jib-maven-plugin"],
+      "allowedVersions": "3.4.2"
+    },
+    {
+      "packageNames": ["postgres"],
+      "allowedVersions": "16"
+    }
+  ]
+}

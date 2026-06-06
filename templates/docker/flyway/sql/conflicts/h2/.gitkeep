@@ -1,0 +1,2 @@
+# H2-specific Flyway migration overrides
+# Place H2-compatible versions of migrations here when the default Postgres syntax is incompatible.
