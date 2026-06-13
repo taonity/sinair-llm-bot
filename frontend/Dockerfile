@@ -26,6 +26,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Git info passed as build args (since .git is excluded via .dockerignore)
+ARG GIT_COMMIT_SHA=unknown
+ARG GIT_COMMIT_SHORT=unknown
+ARG GIT_BRANCH=unknown
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
+ENV GIT_COMMIT_SHORT=$GIT_COMMIT_SHORT
+ENV GIT_BRANCH=$GIT_BRANCH
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
