@@ -169,7 +169,7 @@ jobs:
     needs: release
     uses: taonity/docker-webhook/.github/workflows/deploy.yml@main
     with:
-      project_name: fullstack-starter
+      project_name: sinair-llm-bot
       environment: stage
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -187,7 +187,7 @@ jobs:
     needs: approve-prod
     uses: taonity/docker-webhook/.github/workflows/deploy.yml@main
     with:
-      project_name: fullstack-starter
+      project_name: sinair-llm-bot
       environment: prod
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}

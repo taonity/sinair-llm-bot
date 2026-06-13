@@ -20,7 +20,7 @@ export interface BuildInfo {
 export function getBuildInfo(): BuildInfo {
   return {
     app: {
-      name: 'fullstack-starter-frontend',
+      name: 'sinair-llm-bot-frontend',
     },
     git: {
       commit: process.env.GIT_COMMIT_SHA || 'unknown',

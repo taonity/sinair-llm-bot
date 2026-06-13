@@ -1,9 +1,9 @@
 ---
 logging:
   level:
-#    org.example.fullstackstarter.observability.logging.HttpServletLoggingService: debug
-    org.example.fullstackstarter.web.exception.GlobalExceptionHandler: debug
-#    org.example.fullstackstarter: debug
+#    org.taonity.sinairllmbot.observability.logging.HttpServletLoggingService: debug
+    org.taonity.sinairllmbot.web.exception.GlobalExceptionHandler: debug
+#    org.taonity.sinairllmbot: debug
     DB: info
     # org.springframework.security: TRACE
 #    root: trace
@@ -28,8 +28,8 @@ spring:
     oauth2:
       client:
         registration:
-          google-fullstack-starter:
-            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-fullstack-starter
+          google-sinair-llm-bot:
+            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-sinair-llm-bot
   jpa:
     properties:
       hibernate:
@@ -74,7 +74,7 @@ decorator:
 #    placeholders:
 #      app_user: d
 #      app_password: d
-#      db_name: fullstack_starter_db
+#      db_name: sinair_llm_bot_db
 #
 #app:
 #  additional-profiles: flyway-clean-migrate

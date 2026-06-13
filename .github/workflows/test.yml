@@ -44,7 +44,7 @@ jobs:
         cache: maven
 
     - name: Build frontend Docker image
-      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/fullstack-starter-frontend frontend/
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/sinair-llm-bot-frontend frontend/
 
     - name: Build backend Docker image and run smoke tests
       run: mvn -B -P build-docker-image,smoke-tests verify

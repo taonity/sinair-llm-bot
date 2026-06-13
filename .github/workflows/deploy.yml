@@ -15,7 +15,7 @@ jobs:
   deploy:
     uses: taonity/docker-webhook/.github/workflows/deploy.yml@main
     with:
-      project_name: fullstack-starter
+      project_name: sinair-llm-bot
       environment: ${{ inputs.environment }}
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}

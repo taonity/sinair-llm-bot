@@ -14,11 +14,11 @@ spring:
     oauth2:
       client:
         registration:
-          google-fullstack-starter:
+          google-sinair-llm-bot:
             provider: google
             client-id: test-google-client-id
             client-secret: test-google-client-secret
-            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-fullstack-starter
+            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-sinair-llm-bot
             authorization-grant-type: authorization_code
             scope: openid,profile,email
         provider:

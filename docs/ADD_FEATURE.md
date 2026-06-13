@@ -4,7 +4,7 @@ This guide shows how to add a new feature to the backend following the package-p
 
 ## Step 1: Create the Package Structure
 
-Under `backend/src/main/kotlin/org/example/fullstackstarter/`, create a new package:
+Under `backend/src/main/kotlin/org/taonity/sinairllmbot/`, create a new package:
 
 ```
 yourfeature/

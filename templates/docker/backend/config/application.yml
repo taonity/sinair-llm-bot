@@ -1,7 +1,7 @@
 ---
 #logging:
 #  level:
-#    org.example.fullstackstarter: DEBUG
+#    org.taonity.sinairllmbot: DEBUG
 
 #spring:
 #  profiles:

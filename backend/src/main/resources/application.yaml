@@ -39,14 +39,14 @@ management:
       enabled: true
   metrics:
     tags:
-      application: fullstack-starter
+      application: sinair-llm-bot
 
 spring:
   profiles:
     group:
       local: plain-log
   application:
-    name: fullstack-starter
+    name: sinair-llm-bot
 
 logging:
   structured:

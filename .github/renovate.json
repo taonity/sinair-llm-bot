@@ -5,7 +5,7 @@
   ],
   "schedule": ["before 4am"],
   "ignoreDeps": [
-    "org.example:fullstack-starter"
+    "org.example:sinair-llm-bot"
   ],
   "packageRules": [
     {

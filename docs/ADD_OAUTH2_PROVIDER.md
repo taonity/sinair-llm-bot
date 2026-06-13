@@ -74,7 +74,7 @@ class UserEntity(
 Update `frontend/src/app/(app)/page.tsx` to show login buttons for each provider:
 
 ```tsx
-<a href={`${config.publicBackendUrl}/oauth2/authorization/google-fullstack-starter`}>Sign in with Google</a>
+<a href={`${config.publicBackendUrl}/oauth2/authorization/google-sinair-llm-bot`}>Sign in with Google</a>
 <a href={`${config.publicBackendUrl}/oauth2/authorization/github`}>Sign in with GitHub</a>
 ```
 

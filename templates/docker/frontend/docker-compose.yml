@@ -1,6 +1,6 @@
 services:
   frontend:
-    image: ${DOCKER_REGISTRY:-local}/fullstack-starter-frontend:latest
+    image: ${DOCKER_REGISTRY:-local}/sinair-llm-bot-frontend:latest
     env_file:
       - ../${COMPOSE_ENV_FILE:-.env}
     healthcheck:

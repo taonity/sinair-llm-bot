@@ -21,7 +21,7 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 ```bash
 cd frontend
-docker build -t fullstack-starter-frontend .
+docker build -t sinair-llm-bot-frontend .
 ```
 
 ## Docker Compose
@@ -37,13 +37,13 @@ docker compose -f docker-compose.yml -f docker-compose.ports-local.yml up
 
 Set environment variables in your `.env` file:
 ```env
-COMPOSE_PROJECT_NAME=fullstack-starter
+COMPOSE_PROJECT_NAME=sinair-llm-bot
 SPRING_PROFILES_ACTIVE=postgres
 GOOGLE_CLIENT_ID=your-real-client-id
 GOOGLE_CLIENT_SECRET=your-real-secret
 POSTGRES_USER=dbadmin
 POSTGRES_PASSWORD=strong-password
-POSTGRES_DB=fullstack_starter
+POSTGRES_DB=sinair_llm_bot
 POSTGRES_APP_USER=app
 POSTGRES_APP_PASSWORD=app-password
 ```
@@ -84,7 +84,7 @@ Internet ──────────▶│  Frontend   │ :3000
 | `GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret | — |
 | `POSTGRES_ADDRESS` | PostgreSQL host | `db` |
 | `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `POSTGRES_DB` | Database name | `fullstack_starter` |
+| `POSTGRES_DB` | Database name | `sinair_llm_bot` |
 | `POSTGRES_APP_USER` | App database user | `app` |
 | `POSTGRES_APP_PASSWORD` | App database password | `app` |
 | `LOCAL_BACKEND_URL` | Backend URL for frontend proxy | `http://app:8080` |

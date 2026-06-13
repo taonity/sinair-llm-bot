@@ -1,17 +1,17 @@
 services:
   backend:
-    image: ${DOCKER_REGISTRY:-local}/fullstack-starter-backend:latest
+    image: ${DOCKER_REGISTRY:-local}/sinair-llm-bot-backend:latest
     environment:
       JDK_JAVA_OPTIONS: --add-opens java.base/java.lang=ALL-UNNAMED
       JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
 #      LOGGING_LEVEL_ROOT: TRACE
-#      LOGGING_LEVEL_ORG_EXAMPLE_FULLSTACKSTARTER: DEBUG
+#      LOGGING_LEVEL_ORG_TAONITY_SINAIRLLMBOT: DEBUG
     command: --spring.profiles.active=$SPRING_PROFILES_ACTIVE
 
     env_file:
       - ../${COMPOSE_ENV_FILE:-.env}
     volumes:
-      - ./config:/fullstack-starter/config
+      - ./config:/sinair-llm-bot/config
     healthcheck:
       test: curl localhost:8080/actuator/health || exit 1
       interval: 10s

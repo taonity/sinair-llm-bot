@@ -4,7 +4,7 @@
 
 Multi-module Maven monorepo (Spring Boot 4 / Kotlin backend + Next.js TypeScript frontend).
 
-- **`backend/`** — Main backend. Kotlin, Spring Boot 4, JPA/Hibernate, Spring Security OAuth2 (Google login). Package-per-feature layout under `org.example.fullstackstarter`: `hello/`, `user/`, `security/`, `observability/`, `web/`, `local/`.
+- **`backend/`** — Main backend. Kotlin, Spring Boot 4, JPA/Hibernate, Spring Security OAuth2 (Google login). Package-per-feature layout under `org.taonity.sinairllmbot`: `hello/`, `user/`, `security/`, `observability/`, `web/`, `local/`.
 - **`google-contracts/`** — WireMock stubs for Google OAuth2 (JSON mappings in `src/main/resources/mappings/`). Used by `stub-google` profile for local development without real Google credentials.
 - **`frontend/`** — Next.js app (`src/app/` App Router). All backend calls go through Next.js API routes (`src/app/api/`) which proxy to the backend via `src/lib/backend.ts` using `fetchFromBackend()`.
 - **`templates/docker/`** — Docker Compose templates with Flyway migrations in `flyway/sql/tables/`.

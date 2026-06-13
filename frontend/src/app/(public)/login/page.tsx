@@ -60,8 +60,8 @@ export default function LoginPage() {
 
     const config = await getRuntimeConfig()
     const loginUrl = config.publicBackendUrl
-      ? `${config.publicBackendUrl}/oauth2/authorization/google-fullstack-starter`
-      : '/oauth2/authorization/google-fullstack-starter'
+      ? `${config.publicBackendUrl}/oauth2/authorization/google-sinair-llm-bot`
+      : '/oauth2/authorization/google-sinair-llm-bot'
 
     window.location.href = loginUrl
   }
@@ -69,7 +69,7 @@ export default function LoginPage() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1 className="login-title">Fullstack Starter</h1>
+        <h1 className="login-title">Sinair LLM Bot</h1>
         <p className="login-subtitle">
           Sign in to access your application
         </p>

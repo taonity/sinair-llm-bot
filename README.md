@@ -1,4 +1,4 @@
-# Fullstack Starter
+# Sinair LLM Bot
 
 A template for building full-stack web applications with Google OAuth2 authentication.
 
@@ -29,7 +29,7 @@ The project has all its resources stubbed for the most comfortable local develop
 Only one profile from a resource group can be used. For example, the set for the production environment looks like
 `postgres,prod-google`, and for local development — `h2,stub-google,local`.
 
-Use IntelliJ to run the backend locally. Add a Run/Debug configuration with Main class `org.example.fullstackstarter.MainKt`
+Use IntelliJ to run the backend locally. Add a Run/Debug configuration with Main class `org.taonity.sinairllmbot.MainKt`
 and VM options `-Dspring.profiles.active=h2,stub-google,local` and run the backend.
 
 To run it from PS use a command like this:
@@ -46,7 +46,7 @@ Docker Compose runs the backend and frontend with Postgres and Flyway migrations
 Run this. These are some shared networks required for production deployment.
 ```bash
 docker network create prodenv-shared-internal
-docker network create fullstack-starter-shared
+docker network create sinair-llm-bot-shared
 ```
 Run this
 ```bash
@@ -63,7 +63,7 @@ mvn clean -P build-docker-image,build-automation-docker-compose-project install 
 # Installs npm modules for Next.js frontend
 npm install --prefix frontend/
 # Builds the latest image of the frontend app using Dockerfile
-docker build -t fullstack-starter-frontend frontend/
+docker build -t sinair-llm-bot-frontend frontend/
 # Runs Docker Compose template with images from Dockerhub. Make sure you placed all required env vars.
 docker compose -f templates/docker/docker-compose.yml up -d
 ```
