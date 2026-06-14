@@ -135,6 +135,37 @@ erDiagram
         character_varying picture_url 
     }
 
+    chat_event {
+        character_varying dedup_key UK "{NOT_NULL}"
+        character_varying event_data 
+        timestamp_without_time_zone event_time "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        boolean is_girl "{NOT_NULL}"
+        boolean is_moder "{NOT_NULL}"
+        boolean is_owner "{NOT_NULL}"
+        character_varying member_color 
+        integer member_id "{NOT_NULL}"
+        character_varying member_name "{NOT_NULL}"
+        timestamp_without_time_zone received_at "{NOT_NULL}"
+        character_varying room_target "{NOT_NULL}"
+        character_varying status "{NOT_NULL}"
+        integer user_id "{NOT_NULL}"
+    }
+
+    chat_message {
+        character_varying dedup_key UK "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        character_varying message_style "{NOT_NULL}"
+        text message_text "{NOT_NULL}"
+        timestamp_without_time_zone received_at "{NOT_NULL}"
+        integer recipient_member_id "{NOT_NULL}"
+        character_varying room_target "{NOT_NULL}"
+        character_varying sender_color 
+        character_varying sender_login "{NOT_NULL}"
+        integer sender_member_id "{NOT_NULL}"
+        timestamp_without_time_zone sent_at "{NOT_NULL}"
+    }
+
 ```
 <!-- mermerd-end -->
 
