@@ -1,0 +1,46 @@
+# Sinair LLM Bot — Project Journal
+
+## Vision
+
+A bot that uses LLM to seamlessly communicate in a sinair.net group chat with 3-10 people.
+Must support: personalities, memory of chat users, chat history awareness.
+
+Chat library: https://github.com/iassasin/wschatapi
+Chat constraints: UI shows only last ~100 messages; on room join server re-sends ~100 last messages/events.
+
+## Architecture
+
+- **backend/** — Spring Boot/Kotlin. Stores chat data, will host LLM integration later.
+- **chat-collector/** — Node.js service using @iassasin/wschatapi. Connects to chat via WebSocket, forwards messages/events to backend for storage.
+- **frontend/** — Next.js (template, not actively used for bot yet).
+
+## Done
+
+- [x] Chat data storage schema (chat_message + chat_event tables)
+- [x] Flyway migration: V100001__create_chat_tables.sql
+- [x] Backend `chat/` feature: entity, repository, service, controller, DTOs
+- [x] Deduplication logic:
+  - Messages WITH id: dedup_key = "ext:{id}"
+  - Messages WITHOUT id: dedup_key = "hash:{sha256(room|sender|text|time)}"
+  - Events: dedup_key = "hash:{sha256(room|member|status|time|data)}"
+- [x] Backend ingest endpoint: POST /api/chat/ingest (permitAll for internal collector)
+- [x] Chat collector service (chat-collector/) with batching and auto-reconnect
+- [x] Chat collector Dockerfile and Docker Compose deployment
+
+## TODO
+
+- [ ] Install chat-collector dependencies and test connection
+- [ ] Add proper service-to-service auth for ingest endpoint (API key header)
+- [ ] Implement LLM integration (personality, memory, context window)
+- [ ] Bot response logic — decide when and what to reply
+- [ ] Handle nick_change events to track user identity across name changes
+- [ ] Export training data in fine-tuning format (conversations)
+- [ ] Add Docker Compose service for chat-collector
+- [ ] Tests for ChatIngestService deduplication
+
+## Notes
+
+- Some messages/events have no IDs — dedup uses composite hash
+- Every room join re-sends ~100 last messages — dedup handles this
+- typing/stop_typing events are filtered out (no training value)
+- Collector batches items (default: 10 or every 5s) before sending to backend

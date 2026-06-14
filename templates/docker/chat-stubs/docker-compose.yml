@@ -1,0 +1,4 @@
+services:
+  chat-stubs:
+    image: ${DOCKER_REGISTRY:-local}/sinair-llm-bot-chat-stubs:latest
+    restart: unless-stopped

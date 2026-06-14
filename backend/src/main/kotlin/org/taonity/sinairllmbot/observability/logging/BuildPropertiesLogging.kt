@@ -2,10 +2,12 @@ package org.taonity.sinairllmbot.observability.logging
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.boot.CommandLineRunner
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 
 @Component
+@ConditionalOnBean(BuildProperties::class)
 class BuildPropertiesLogging(
     private val buildProperties: BuildProperties
 

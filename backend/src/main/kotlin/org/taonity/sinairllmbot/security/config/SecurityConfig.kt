@@ -38,7 +38,8 @@ class SecurityConfig(
                 requests.dispatcherTypeMatchers(DispatcherType.FORWARD).permitAll()
                     .requestMatchers(
                         "/actuator/**",
-                        "/"
+                        "/",
+                        "/api/chat/ingest"
                     ).permitAll()
                     .anyRequest().authenticated()
             }
@@ -56,7 +57,8 @@ class SecurityConfig(
                 csrfTokenRepository.setCookieCustomizer { builder ->
                     builder.secure(appProperties.cookie.secure).sameSite(appProperties.cookie.sameSite)
                 }
-                c.csrfTokenRepository(csrfTokenRepository)
+                c.ignoringRequestMatchers("/api/chat/ingest")
+                    .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(spaCsrfTokenRequestHandler)
             }
             .oauth2Login { o ->

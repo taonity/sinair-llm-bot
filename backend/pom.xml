@@ -358,6 +358,9 @@
                             </from>
                             <to>
                                 <image>${docker.registry}/${project.parent.artifactId}-${project.artifactId}:${project.version}</image>
+                                <tags>
+                                    <tag>latest</tag>
+                                </tags>
                             </to>
                             <container>
                                 <creationTime>${maven.build.timestamp}</creationTime>

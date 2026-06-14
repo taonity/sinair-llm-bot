@@ -1,0 +1,14 @@
+services:
+  chat-collector:
+    image: ${DOCKER_REGISTRY:-local}/sinair-llm-bot-chat-collector:latest
+    env_file:
+      - ../${COMPOSE_ENV_FILE:-.env}
+    environment:
+      BACKEND_URL: http://backend:8080/api/chat/ingest
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

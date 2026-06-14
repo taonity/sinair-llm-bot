@@ -2,6 +2,7 @@
 #logging:
 #  level:
 #    org.taonity.sinairllmbot: DEBUG
+#    org.springframework.security: TRACE
 
 #spring:
 #  profiles:

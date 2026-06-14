@@ -32,6 +32,16 @@ services:
       flyway:
         condition: service_completed_successfully
 
+  chat-collector:
+    extends:
+      file: chat-collector/docker-compose.yml
+      service: chat-collector
+    networks:
+      backend:
+    depends_on:
+      backend:
+        condition: service_healthy
+
   frontend:
     extends:
       file: frontend/docker-compose.yml

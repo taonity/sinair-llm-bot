@@ -38,6 +38,7 @@ class SmokeIT {
         composeProject.assertServiceCompletedSuccessfully("flyway")
         composeProject.assertServiceHealthy("app")
         composeProject.assertServiceHealthy("frontend")
+        composeProject.assertServiceHealthy("chat-collector")
     }
 
     private fun locateRepositoryRoot(): Path {

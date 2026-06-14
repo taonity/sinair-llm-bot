@@ -5,7 +5,7 @@ logging:
     org.taonity.sinairllmbot.web.exception.GlobalExceptionHandler: debug
 #    org.taonity.sinairllmbot: debug
     DB: info
-    # org.springframework.security: TRACE
+#    org.springframework.security: TRACE
 #    root: trace
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

@@ -1,0 +1,38 @@
+name: Chat Collector Validation
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up Node 24
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: chat-collector/package-lock.json
+    - name: Install dependencies
+      run: npm ci --prefix chat-collector
+    - name: Build Docker image
+      run: docker build -t sinair-llm-bot-chat-collector chat-collector/
+
+  tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up Node 24
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: chat-collector/package-lock.json
+    - name: Install dependencies
+      run: npm ci --prefix chat-collector
+    - name: Run tests
+      run: npm test --prefix chat-collector

@@ -1,0 +1,14 @@
+{
+  "name": "chat-stubs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket stub server mimicking sinair.net chat protocol for local development",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.0.0"
+  }
+}

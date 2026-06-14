@@ -40,6 +40,37 @@ h
 #### Frontend
 I recommend opening /frontend directory in VS Code. Run `npm install`, and then `npm run dev`.
 
+#### Chat Collector
+Collects messages from sinair.net chat and stores them in the backend for LLM fine-tuning.
+
+```bash
+cd chat-collector
+npm install
+
+# With chat-stubs (fake data):
+npm run dev:local
+
+# With real sinair.net server (edit .env.prod first):
+npm run dev:prod
+```
+
+See [chat-collector/README.md](chat-collector/README.md) for full details.
+
+#### Chat Stubs (local only)
+A WebSocket mock server for local development. Not deployed to any environment.
+
+```bash
+cd chat-stubs
+npm install
+npm start
+```
+
+For Docker local development, use the override file:
+```bash
+cd templates/docker
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
+```
+
 ### Docker Compose deployment
 Docker Compose runs the backend and frontend with Postgres and Flyway migrations.
 

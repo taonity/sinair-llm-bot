@@ -1,0 +1,24 @@
+{
+  "name": "chat-collector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket collector for sinair.net chat - stores messages and events for LLM fine-tuning",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "dev:local": "cross-env ENV_FILE=.env.local node --watch src/index.js",
+    "dev:prod": "cross-env ENV_FILE=.env.prod node --watch src/index.js",
+    "start:local": "cross-env ENV_FILE=.env.local node src/index.js",
+    "start:prod": "cross-env ENV_FILE=.env.prod node src/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@iassasin/wschatapi": "^2.0.0",
+    "ws": "^8.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.0",
+    "vitest": "^3.0.0"
+  }
+}

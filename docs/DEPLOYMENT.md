@@ -30,7 +30,7 @@ docker build -t sinair-llm-bot-frontend .
 
 ```bash
 cd templates/docker
-docker compose -f docker-compose.yml -f docker-compose.ports-local.yml up
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 ```
 
 ### Production

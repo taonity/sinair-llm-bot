@@ -29,8 +29,12 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     uses: ./.github/workflows/frontend-validation.yml
 
+  chat-collector-validation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/chat-collector-validation.yml
+
   smoke-tests:
-    needs: [backend-validation, frontend-validation]
+    needs: [backend-validation, frontend-validation, chat-collector-validation]
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -45,6 +49,9 @@ jobs:
 
     - name: Build frontend Docker image
       run: docker build -t ${{ secrets.DOCKER_USERNAME }}/sinair-llm-bot-frontend frontend/
+
+    - name: Build chat-collector Docker image
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/sinair-llm-bot-chat-collector chat-collector/
 
     - name: Build backend Docker image and run smoke tests
       run: mvn -B -P build-docker-image,smoke-tests verify
