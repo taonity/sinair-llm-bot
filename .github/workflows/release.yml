@@ -85,13 +85,6 @@ jobs:
         echo "imageArtifactId=$imageArtifactId" >> "$GITHUB_OUTPUT"
         echo "Successfully extracted artifactId $artifactId, imageArtifactId $imageArtifactId"
 
-    - name: Extract back-end maven version
-      id: extract_backend_version
-      run: |
-        backendVersion=$(mvn -pl backend help:evaluate "-Dexpression=project.version" -q -DforceStdout)
-        echo "backendVersion=$backendVersion" >> "$GITHUB_OUTPUT"
-        echo "Successfully extracted backendVersion $backendVersion"
-
     - name: Extract front-end npm packageName
       id: extract_frontend_package_name
       run: |
@@ -99,17 +92,13 @@ jobs:
         echo "packageName=$packageName" >> "$GITHUB_OUTPUT"
         echo "Successfully extracted packageName $packageName"
 
-    - name: Build back-end with Maven and optionally run tests
-      run: |
-        mvn -v
-        mvn -B -P build-docker-image package -DskipTests
-
-    - name: Bump version and push tag
+    - name: Compute next version tag
       id: github_tag_action
       uses: anothrNick/github-tag-action@1.70.0
       env:
         GITHUB_TOKEN: ${{ secrets.TAGGING_GITHUB_TOKEN }}
         WITH_V: true
+        DRY_RUN: true
 
     - name: Extract tag
       id: extract_tag
@@ -119,21 +108,34 @@ jobs:
         echo "tag=$tag" >> "$GITHUB_OUTPUT"
         echo "Successfully extracted tag $tag"
 
+    - name: Build back-end with Maven
+      env:
+        VERSIONING_GIT_TAG: ${{ steps.github_tag_action.outputs.new_tag }}
+      run: |
+        username=${{ secrets.DOCKER_USERNAME }}
+        mvn -v
+        mvn -B -P build-docker-image package -DskipTests -Ddocker.registry="$username"
+
     - name: Retag back-end docker image
       run: |
         username=${{ secrets.DOCKER_USERNAME }}
         imageArtifactId=${{ steps.extract_backend_artifact_id.outputs.imageArtifactId }}
-        backendVersion=${{ steps.extract_backend_version.outputs.backendVersion }}
         tag=${{ steps.extract_tag.outputs.tag }}
-        docker tag "$username/$imageArtifactId:$backendVersion" "$username/$imageArtifactId:$tag"
-        docker tag "$username/$imageArtifactId:$backendVersion" "$username/$imageArtifactId:latest"
+        docker tag "$username/$imageArtifactId:$tag" "$username/$imageArtifactId:latest"
 
     - name: Build front-end docker image
       run: |
         username=${{ secrets.DOCKER_USERNAME }}
         packageName=${{ steps.extract_frontend_package_name.outputs.packageName }}
         tag=${{ steps.extract_tag.outputs.tag }}
-        docker build -t "$username/$packageName" -t "$username/$packageName:$tag" frontend/
+        commitSha=$(git rev-parse HEAD)
+        commitShort=$(git rev-parse --short HEAD)
+        branch=$(git rev-parse --abbrev-ref HEAD)
+        docker build \
+          --build-arg GIT_COMMIT_SHA="$commitSha" \
+          --build-arg GIT_COMMIT_SHORT="$commitShort" \
+          --build-arg GIT_BRANCH="$branch" \
+          -t "$username/$packageName" -t "$username/$packageName:$tag" frontend/
 
     - name: Login to DockerHub
       uses: docker/login-action@v4
@@ -156,6 +158,14 @@ jobs:
         tag=${{ steps.extract_tag.outputs.tag }}
         docker push "$username/$imageArtifactId:$tag"
         docker push "$username/$imageArtifactId:latest"
+
+    - name: Push version tag
+      run: |
+        raw_tag=${{ steps.github_tag_action.outputs.new_tag }}
+        git tag "$raw_tag"
+        git push origin "$raw_tag"
+      env:
+        GITHUB_TOKEN: ${{ secrets.TAGGING_GITHUB_TOKEN }}
 
   update-erd:
     needs: release
@@ -192,5 +202,6 @@ jobs:
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+
 
 
