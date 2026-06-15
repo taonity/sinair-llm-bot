@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { logger } from './logger.js';
 
 let messageBuffer = [];
 let eventBuffer = [];
@@ -18,6 +19,7 @@ export function bufferMessage(msg) {
 
 export function bufferEvent(event) {
     eventBuffer.push(event);
+    logger.debug(`[batcher] Event buffered (total=${eventBuffer.length}/${config.batchSize}): status=${event.status}, member=${event.memberName}`);
     if (eventBuffer.length >= config.batchSize) {
         flush();
     }
@@ -54,7 +56,7 @@ async function flush() {
         });
 
         if (!response.ok) {
-            console.error(`[ingest] Backend returned ${response.status}: ${await response.text()}`);
+            logger.error(`[ingest] Backend returned ${response.status}: ${await response.text()}`);
             // Re-add to buffer on failure
             messageBuffer.unshift(...messages);
             eventBuffer.unshift(...events);
@@ -62,9 +64,9 @@ async function flush() {
         }
 
         const result = await response.json();
-        console.log(`[ingest] Stored: ${result.messagesStored} msgs, ${result.eventsStored} events | Dupes: ${result.messagesDuplicate} msgs, ${result.eventsDuplicate} events`);
+        logger.info(`[ingest] Stored: ${result.messagesStored} msgs, ${result.eventsStored} events | Dupes: ${result.messagesDuplicate} msgs, ${result.eventsDuplicate} events`);
     } catch (err) {
-        console.error(`[ingest] Failed to send to backend:`, err.message);
+        logger.error(`[ingest] Failed to send to backend:`, err.message);
         // Re-add to buffer on failure
         messageBuffer.unshift(...messages);
         eventBuffer.unshift(...events);

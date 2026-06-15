@@ -1,4 +1,5 @@
+import { logger } from './logger.js';
 import { startCollector } from './collector.js';
 
-console.log('[main] Chat Collector starting...');
+logger.info('[main] Chat Collector starting...');
 startCollector();

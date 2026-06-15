@@ -35,6 +35,7 @@ export const config = {
     backendUrl: requireEnv('BACKEND_URL'),
     batchSize: parseInt(requireEnv('BATCH_SIZE'), 10),
     batchFlushInterval: parseInt(requireEnv('BATCH_FLUSH_INTERVAL'), 10),
+    logLevel: (process.env.LOG_LEVEL || 'info').toLowerCase(),
 };
 
 function requireEnv(name) {
