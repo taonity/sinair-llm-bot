@@ -1,0 +1,8 @@
+name: stage
+variables:
+  - name: backendBaseUrl
+    value: https://fullstack-starter-api-stage.taonity.org
+  - secret: true
+    name: XSRF-TOKEN-FULLSTACK-STARTER-STAGE
+  - secret: true
+    name: cookies

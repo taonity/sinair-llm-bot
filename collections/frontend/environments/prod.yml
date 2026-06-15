@@ -1,0 +1,4 @@
+name: prod
+variables:
+  - name: frontendUrl
+    value: https://fullstack-starter.taonity.org

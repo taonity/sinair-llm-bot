@@ -1,0 +1,4 @@
+name: stage
+variables:
+  - name: frontendUrl
+    value: https://fullstack-starter-stage.taonity.org

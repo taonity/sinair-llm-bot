@@ -1,0 +1,4 @@
+name: local
+variables:
+  - name: frontendUrl
+    value: http://localhost:3000

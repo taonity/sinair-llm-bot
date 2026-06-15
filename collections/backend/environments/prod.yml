@@ -1,0 +1,6 @@
+name: prod
+variables:
+  - name: backendBaseUrl
+    value: https://fullstack-starter-api.taonity.org
+  - secret: true
+    name: XSRF-TOKEN-FULLSTACK-STARTER-PROD

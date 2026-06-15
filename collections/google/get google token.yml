@@ -1,0 +1,71 @@
+info:
+  name: get google token
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://oauth2.googleapis.com/token
+  headers:
+    - name: Content-Type
+      value: application/x-www-form-urlencoded
+  body:
+    type: form-urlencoded
+    data:
+      - name: grant_type
+        value: urn:ietf:params:oauth:grant-type:jwt-bearer
+      - name: assertion
+        value: "{{gcp_jwt_assertion}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const crypto = require('crypto');
+
+        // 1. Get credentials from environment
+        const clientEmail = bru.getEnvVar('gcp_client_email');
+        var privateKey = bru.getEnvVar('gcp_private_key');
+        privateKey = privateKey.replace(/\\n/g, '\n'); 
+        const scope = bru.getEnvVar('gcp_scope');
+
+        // 2. Build JWT Header and Claim Set
+        const header = b64(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+
+        const now = Math.floor(Date.now() / 1000);
+        const claimSet = b64(JSON.stringify({
+          iss: clientEmail,
+          scope: scope,
+          aud: 'https://oauth2.googleapis.com/token',
+          exp: now + 3600,
+          iat: now
+        }));
+
+        // 3. Sign the JWT payload using the private key
+        const signatureInput = `${header}.${claimSet}`;
+        const signer = crypto.createSign('RSA-SHA256');
+        signer.update(signatureInput);
+        const signature = signer.sign(privateKey, 'base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        const jwt = `${signatureInput}.${signature}`;
+
+        bru.setVar('gcp_jwt_assertion', jwt);
+
+        // Helper function for Base64URL encoding
+        function b64(str) {
+          return Buffer.from(str).toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+        }
+    - type: after-response
+      code: bru.setVar('gcp_access_token', res.body.access_token);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

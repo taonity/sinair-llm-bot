@@ -1,0 +1,18 @@
+info:
+  name: /hello
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{backendBaseUrl}}/hello"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

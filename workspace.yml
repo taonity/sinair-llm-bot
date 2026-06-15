@@ -1,0 +1,20 @@
+opencollection: 1.0.0
+info:
+  name: "Fullstack Starter"
+  type: workspace
+
+collections:
+  - name: "artist-insight"
+    path: "collections/artist-insight"
+  - name: "frontend"
+    path: "collections/frontend"
+  - name: "spotify"
+    path: "collections/spotify"
+  - name: "backend"
+    path: "collections/backend"
+  - name: "google"
+    path: "collections/google"
+
+specs:
+
+docs: ''

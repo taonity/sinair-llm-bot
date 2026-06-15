@@ -1,0 +1,18 @@
+info:
+  name: /__admin/scenarios/reset
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{wiremockBaseUrl}}/__admin/scenarios/reset"
+  body:
+    type: json
+    data: ""
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

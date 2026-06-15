@@ -1,0 +1,17 @@
+info:
+  name: get userinfo
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: https://www.googleapis.com/oauth2/v1/userinfo
+  auth:
+    type: bearer
+    token: "{{gcp_access_token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

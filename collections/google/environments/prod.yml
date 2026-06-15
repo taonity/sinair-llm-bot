@@ -1,0 +1,12 @@
+name: prod
+variables:
+  - name: wiremockBaseUrl
+    value: http://127.0.0.1:8100
+  - name: gcp_scope
+    value: https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile
+  - secret: true
+    name: gcp_client_email
+  - secret: true
+    name: gcp_private_key
+  - secret: true
+    name: gcp_jwt_assertion
