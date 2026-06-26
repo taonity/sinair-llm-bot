@@ -49,7 +49,8 @@ export async function startCollector() {
         logger.debug(`[collector] userStatusChange — room=${room?.target}, member=${userobj?.name}, status=${userobj?.status} (raw=${JSON.stringify(userobj)})`);
 
         // Skip transient statuses that don't add training value
-        if (userobj.status === UserStatus.typing || userobj.status === UserStatus.stop_typing) {
+        if (userobj.status === UserStatus.typing || userobj.status === UserStatus.stop_typing
+            || userobj.status === UserStatus.away || userobj.status === UserStatus.back) {
             logger.debug(`[collector] Skipping transient status: ${userobj.status}`);
             return;
         }
