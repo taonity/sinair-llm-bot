@@ -35,7 +35,23 @@ app:
   cookie:
     secure: false
     same-site: Lax
-
+  llm:
+    base-url: http://127.0.0.1:9999/v1
+    api-key: test-key
+    tiers:
+      gate:
+        model: test/gate-model
+      cheap:
+        model: test/cheap-model
+      smart:
+        model: test/smart-model
+  bot:
+    enabled: false
+    rooms: '#chat'
+    persona:
+      name: segfault
+      language: Russian
+      prompt: test persona
 #logging:
 #  level:
 #    root: DEBUG

@@ -17,6 +17,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>google-stubs</module>
+        <module>llm-stubs</module>
         <module>backend</module>
     </modules>
 

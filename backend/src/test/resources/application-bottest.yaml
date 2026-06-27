@@ -1,0 +1,50 @@
+# Test profile for the bot conversation scenario test.
+# Self-contained in-memory schema (no Flyway/filesystem deps), bot enabled, fast debounce.
+spring:
+  datasource:
+    url: jdbc:h2:mem:bottest;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+
+app:
+  llm:
+    # base-url + api-key come from the stub-llm profile (application-stub-llm.yaml)
+    active-reply-tier: cheap
+    gate-tier: gate
+    tiers:
+      gate:
+        model: stub/gate
+      cheap:
+        model: stub/cheap
+      smart:
+        model: stub/smart
+  bot:
+    enabled: true
+    rooms: '#chat'
+    persona:
+      name: segfault
+      language: Russian
+      prompt: You are segfault, a sarcastic dev in a tech chat.
+    decision:
+      debounce-seconds: 1
+      cooldown-seconds: 1
+      max-replies-per-window: 20
+      window-minutes: 30
+      spontaneous-probability: 0
+    context:
+      recent-message-count: 25
+      summary-refresh-every-messages: 1000
+      max-summary-chars: 1500
+      max-message-chars: 600

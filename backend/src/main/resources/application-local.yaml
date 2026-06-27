@@ -62,19 +62,21 @@ decorator:
 
 ---
 ############# clean migrates local pg db
-#spring:
-#  flyway:
-#    enabled: true
-#    clean-disabled: false
-#    locations:
-#      - filesystem:templates/docker/flyway/sql/tables
-#    placeholder-replacement: true
-#    placeholder-prefix: "{{ "
-#    placeholder-suffix: " }}"
-#    placeholders:
-#      app_user: d
-#      app_password: d
-#      db_name: sinair_llm_bot_db
-#
-#app:
-#  additional-profiles: flyway-clean-migrate
+spring:
+  flyway:
+    enabled: true
+    clean-disabled: false
+    locations:
+      - filesystem:templates/docker/flyway/sql/tables
+    placeholder-replacement: true
+    placeholder-prefix: "{{ "
+    placeholder-suffix: " }}"
+    placeholders:
+      app_user: d
+      app_password: d
+      db_name: sinair_llm_bot_db
+
+app:
+  additional-profiles: flyway-clean-migrate
+  bot:
+    rooms: '#test'

@@ -1,6 +1,7 @@
 package org.taonity.sinairllmbot.chat.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.taonity.sinairllmbot.bot.service.BotMessageOrchestrator
 import org.taonity.sinairllmbot.chat.dto.ChatEventDto
 import org.taonity.sinairllmbot.chat.dto.ChatMessageDto
 import org.taonity.sinairllmbot.chat.dto.IngestRequest
@@ -11,13 +12,16 @@ import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.security.MessageDigest
 import java.time.Instant
 
 @Service
 class ChatIngestService(
     private val chatMessageRepository: ChatMessageRepository,
-    private val chatEventRepository: ChatEventRepository
+    private val chatEventRepository: ChatEventRepository,
+    private val botMessageOrchestrator: BotMessageOrchestrator
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -29,6 +33,7 @@ class ChatIngestService(
         var messagesDuplicate = 0
         var eventsStored = 0
         var eventsDuplicate = 0
+        val storedMessages = mutableListOf<ChatMessageEntity>()
 
         for (msg in request.messages) {
             val dedupKey = computeMessageDedupKey(msg)
@@ -36,7 +41,7 @@ class ChatIngestService(
                 messagesDuplicate++
                 continue
             }
-            chatMessageRepository.save(
+            val saved = chatMessageRepository.save(
                 ChatMessageEntity(
                     dedupKey = dedupKey,
                     roomTarget = msg.roomTarget,
@@ -50,6 +55,7 @@ class ChatIngestService(
                     receivedAt = Instant.now()
                 )
             )
+            storedMessages.add(saved)
             messagesStored++
         }
 
@@ -80,6 +86,17 @@ class ChatIngestService(
         }
 
         LOGGER.info { "Ingest complete: $messagesStored messages stored, $messagesDuplicate duplicates skipped, $eventsStored events stored, $eventsDuplicate duplicates skipped" }
+
+        // Run the bot pipeline only after the transaction commits, so the async worker sees the rows.
+        if (storedMessages.isNotEmpty()) {
+            val toProcess = storedMessages.toList()
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    botMessageOrchestrator.onMessagesStored(toProcess)
+                }
+            })
+        }
+
         return IngestResponse(messagesStored, messagesDuplicate, eventsStored, eventsDuplicate)
     }
 

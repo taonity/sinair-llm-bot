@@ -26,14 +26,28 @@ Chat constraints: UI shows only last ~100 messages; on room join server re-sends
 - [x] Backend ingest endpoint: POST /api/chat/ingest (permitAll for internal collector)
 - [x] Chat collector service (chat-collector/) with batching and auto-reconnect
 - [x] Chat collector Dockerfile and Docker Compose deployment
+- [x] LLM bot architecture (backend `bot/` feature)
+  - OpenRouter (OpenAI-compatible chat completions) via Spring RestClient
+  - Configurable model tiers (gate/cheap/smart) + app.llm.active-reply-tier switch
+  - 3-stage request strategy: heuristic gate (0 tokens) -> interest classifier (gate tier) -> reply generator (cheap/smart)
+  - Rolling room summary + presence line (from chat_event) for token-efficient context
+  - Per-room cooldown + sliding-window rate limit; optional spontaneous chime-in
+  - Persona = `segfault` (configurable), blends into the chat
+  - Outbound queue: backend stores replies, collector polls GET /api/chat/outbound, sends via WS, POSTs /ack
+  - Migration V100002 (outbound_message, room_summary)
+- [x] Per-room quiet-period debounce (judge a burst once after it settles)
+- [x] Full-stub local stack: llm-stubs WireMock module + `stub-llm` profile (like google-stubs/stub-google); chat-stubs /nick handling; bot env wired in templates/docker (.env.test, docker-compose.local.yml)
+- [x] Automation test: backend BotConversationScenarioTest (few-messages scenario; uses `stub-llm` WireMock; run with `mvn -pl backend -am test -Dtest=BotConversationScenarioTest -Dsurefire.failIfNoSpecifiedTests=false`)
 
 ## TODO
 
+- [ ] Provision OpenRouter API key (LLM_API_KEY) and flip BOT_ENABLED=true / BOT_SEND_ENABLED=true to go live
+- [ ] Tune persona prompt + spontaneous-probability after first live runs
+- [ ] Handle nick_change events for user identity continuity (presence already uses events)
 - [ ] Install chat-collector dependencies and test connection
 - [ ] Add proper service-to-service auth for ingest endpoint (API key header)
 - [ ] Implement LLM integration (personality, memory, context window)
 - [ ] Bot response logic — decide when and what to reply
-- [ ] Handle nick_change events to track user identity across name changes
 - [ ] Export training data in fine-tuning format (conversations)
 - [ ] Add Docker Compose service for chat-collector
 - [ ] Tests for ChatIngestService deduplication

@@ -2,9 +2,19 @@ import { WsChat, WsChatEvents, UserStatus, MessageStyle } from '@iassasin/wschat
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
+import { startSender, stopSender } from './sender.js';
 
 let chat = null;
 let reconnectTimeout = null;
+const roomsByTarget = new Map();
+
+/** Sends a message to a joined room. Returns false if the room is not currently joined. */
+function sendChatMessage(target, text) {
+    const room = roomsByTarget.get(target);
+    if (!room) return false;
+    room.sendMessage(text);
+    return true;
+}
 
 export async function startCollector() {
     logger.info(`[collector] Connecting to ${config.chatWsUrl}...`);
@@ -17,6 +27,8 @@ export async function startCollector() {
     chat.on(WsChatEvents.close, () => {
         logger.warn('[collector] Disconnected from chat server');
         stopFlushTimer();
+        stopSender();
+        roomsByTarget.clear();
         scheduleReconnect();
     });
 
@@ -79,10 +91,16 @@ export async function startCollector() {
 
         for (const roomTarget of config.chatRooms) {
             const room = await chat.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
+            roomsByTarget.set(room.target, room);
+            if (config.botNick) {
+                room.sendMessage(`/nick ${config.botNick}`);
+                logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
+            }
             logger.info(`[collector] Joined room: ${room.target}`);
         }
 
         startFlushTimer();
+        startSender(sendChatMessage);
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
         scheduleReconnect();

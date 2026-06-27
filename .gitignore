@@ -50,3 +50,5 @@ h2_db.lock.db
 h2_db.trace.db
 
 logs.log
+data
+be-logs.log
