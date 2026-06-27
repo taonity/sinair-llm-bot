@@ -16,6 +16,7 @@ class ChatMessageEntity(
     val dedupKey: String,
     val roomTarget: String,
     val senderMemberId: Int,
+    val senderUserId: Int = 0,
     val senderLogin: String,
     val senderColor: String? = null,
     val messageText: String,

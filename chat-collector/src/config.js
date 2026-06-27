@@ -39,6 +39,7 @@ export const config = {
     // Bot sending: when enabled, the collector polls the backend for queued replies and sends them.
     botSendEnabled: (process.env.BOT_SEND_ENABLED || 'false').toLowerCase() === 'true',
     botNick: process.env.BOT_NICK || null,
+    botColor: process.env.BOT_COLOR || null,
     outboundUrl: process.env.OUTBOUND_URL || requireEnv('BACKEND_URL').replace(/\/ingest$/, '/outbound'),
     outboundPollInterval: parseInt(process.env.OUTBOUND_POLL_INTERVAL || '3000', 10),
 };

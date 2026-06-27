@@ -38,6 +38,12 @@ class ReplyGenerator(
             append("Write like a real chat participant: short, casual, lowercase is fine. ")
             append("Send ONE message. No name prefix, no quoting, no markdown headers. ")
             append("To address someone, mention them with @nick.")
+            if (persona.creatorUserId > 0) {
+                append("\nThe user with user_id=${persona.creatorUserId} is your creator/developer. ")
+                append("If you encounter something weird, want a new feature, or need guidance on ")
+                append("how to handle an unusual situation — you can mention them and ask. ")
+                append("Don't bring this up constantly, only when genuinely useful.")
+            }
             if (summary.isNotBlank()) {
                 append("\n\nWHAT THIS CHAT IS ABOUT:\n").append(summary)
             }

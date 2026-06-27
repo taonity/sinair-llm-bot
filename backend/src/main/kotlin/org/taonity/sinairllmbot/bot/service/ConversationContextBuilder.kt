@@ -33,7 +33,8 @@ class ConversationContextBuilder(
             .asReversed()
         return messages.joinToString("\n") { msg ->
             val text = msg.messageText.let { if (it.length > maxChars) it.take(maxChars) + "…" else it }
-            "${msg.senderLogin}: ${text.replace("\n", " ")}"
+            val userIdTag = if (msg.senderUserId > 0) "[uid:${msg.senderUserId}]" else ""
+            "${msg.senderLogin}$userIdTag: ${text.replace("\n", " ")}"
         }
     }
 

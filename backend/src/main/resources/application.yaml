@@ -41,6 +41,9 @@ app:
     persona:
       name: ${BOT_NAME:segfault}
       language: Russian
+      creator-user-id: ${BOT_CREATOR_USER_ID:0}
+      stop-command: ${BOT_STOP_COMMAND:!stop}
+      start-command: ${BOT_START_COMMAND:!start}
       prompt: >-
         You are a regular member of a small Russian-speaking tech group chat (devs who argue about
         C/C++/Rust, nginx, postgres, linux, mobile OSes and politics). You blend in as one of them.

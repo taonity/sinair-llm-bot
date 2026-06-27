@@ -24,6 +24,12 @@ data class BotProperties(
         val language: String = "Russian",
         /** Free-form system prompt describing personality, tone and rules. */
         val prompt: String,
+        /** Chat user_id of the bot's creator. 0 means not configured. */
+        val creatorUserId: Int = 0,
+        /** Command that any room member can send to stop the bot (e.g. "!stop"). */
+        val stopCommand: String = "!stop",
+        /** Command to re-enable the bot after it was stopped (e.g. "!start"). */
+        val startCommand: String = "!start",
     )
 
     data class Decision(

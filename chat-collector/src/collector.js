@@ -43,10 +43,12 @@ export async function startCollector() {
 
     chat.on(WsChatEvents.message, (room, msgobj) => {
         logger.debug(`[collector] message event — room=${room?.target}, from=${msgobj?.from_login}`);
+        const member = room?.getMemberById?.(msgobj.from);
         const dto = {
             externalId: msgobj.id || null,
             roomTarget: msgobj.target,
             senderMemberId: msgobj.from,
+            senderUserId: member?.user_id || 0,
             senderLogin: msgobj.from_login,
             senderColor: msgobj.color || null,
             messageText: msgobj.message,
@@ -92,6 +94,10 @@ export async function startCollector() {
         for (const roomTarget of config.chatRooms) {
             const room = await chat.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
             roomsByTarget.set(room.target, room);
+            if (config.botColor) {
+                room.sendMessage(`/color ${config.botColor}`);
+                logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
+            }
             if (config.botNick) {
                 room.sendMessage(`/nick ${config.botNick}`);
                 logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);

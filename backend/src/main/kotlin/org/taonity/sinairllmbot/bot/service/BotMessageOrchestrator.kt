@@ -10,6 +10,7 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
@@ -35,6 +36,9 @@ class BotMessageOrchestrator(
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
+
+    /** Rooms where the bot has been muted via the stop command. */
+    private val mutedRooms: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @PostConstruct
     fun logConfig() {
@@ -65,10 +69,30 @@ class BotMessageOrchestrator(
             runCatching { roomSummaryService.refreshIfStale(roomTarget) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
-            val shouldReply = when (heuristicGate.evaluate(trigger)) {
+            val gateDecision = heuristicGate.evaluate(trigger)
+
+            // Handle stop/start commands from any room member.
+            if (gateDecision == GateDecision.STOP_BOT) {
+                mutedRooms.add(roomTarget)
+                LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
+                return
+            }
+            if (gateDecision == GateDecision.START_BOT) {
+                val wasRemoved = mutedRooms.remove(roomTarget)
+                if (wasRemoved) {
+                    LOGGER.info { "Bot un-muted in $roomTarget by @${trigger.senderLogin}" }
+                }
+                return
+            }
+
+            // Don't reply if the bot is muted in this room.
+            if (roomTarget in mutedRooms) return
+
+            val shouldReply = when (gateDecision) {
                 GateDecision.IGNORE -> false
                 GateDecision.REPLY_NOW -> cooldownTracker.canReply(roomTarget)
                 GateDecision.MAYBE -> decideAmbiguous(roomTarget)
+                GateDecision.STOP_BOT, GateDecision.START_BOT -> false // already handled above
             }
             if (!shouldReply) return
 

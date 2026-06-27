@@ -46,6 +46,7 @@ class ChatIngestService(
                     dedupKey = dedupKey,
                     roomTarget = msg.roomTarget,
                     senderMemberId = msg.senderMemberId,
+                    senderUserId = msg.senderUserId,
                     senderLogin = msg.senderLogin,
                     senderColor = msg.senderColor,
                     messageText = msg.messageText,

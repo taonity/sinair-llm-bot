@@ -32,6 +32,14 @@ class HeuristicGate(
             return GateDecision.IGNORE
         }
 
+        // Stop/start commands are handled separately by the orchestrator.
+        if (text.equals(botProperties.persona.stopCommand, ignoreCase = true)) {
+            return GateDecision.STOP_BOT
+        }
+        if (text.equals(botProperties.persona.startCommand, ignoreCase = true)) {
+            return GateDecision.START_BOT
+        }
+
         if (isDirectlyAddressed(text, botName)) {
             return GateDecision.REPLY_NOW
         }
@@ -67,4 +75,6 @@ enum class GateDecision {
     REPLY_NOW,
     MAYBE,
     IGNORE,
+    STOP_BOT,
+    START_BOT,
 }
