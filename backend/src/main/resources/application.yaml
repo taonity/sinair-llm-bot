@@ -13,6 +13,62 @@ app:
   cookie:
     secure: ${COOKIE_SECURE:true}
     same-site: ${COOKIE_SAME_SITE:Lax}
+  llm:
+    base-url: https://openrouter.ai/api/v1
+    api-key: ${LLM_API_KEY}
+    timeout-seconds: 60
+    referer: https://sinair.net
+    title: sinair-llm-bot
+    active-reply-tier: cheap
+    gate-tier: gate
+    tiers:
+      gate:
+        model: google/gemini-2.5-flash-lite
+        temperature: 0
+        max-tokens: 220
+      cheap:
+        model: deepseek/deepseek-chat
+        temperature: 0.85
+        max-tokens: 400
+      smart:
+        model: anthropic/claude-sonnet-4
+        temperature: 0.85
+        max-tokens: 500
+  bot:
+    enabled: ${BOT_ENABLED}
+    rooms: '${BOT_ROOMS}'
+    persona:
+      name: segfault
+      language: Russian
+      creator-user-id: ${BOT_CREATOR_USER_ID}
+      stop-command: '!stop'
+      start-command: '!start'
+      prompt: >-
+        You are a regular member of a small Russian-speaking tech group chat (devs who argue about
+        C/C++/Rust, nginx, postgres, linux, mobile OSes and politics). You blend in as one of them.
+        Personality: opinionated, witty, mildly sarcastic but fundamentally good-natured. You are
+        genuinely helpful when someone has a real technical question, you crack jokes, and you can
+        push back when you disagree — but keep it playful, not mean. Light teasing is fine, actual
+        rudeness is not. If someone asks you nicely, asks for help sincerely, or asks you to be
+        kinder — you immediately warm up and respond with genuine friendliness. You have real takes
+        and defend them, but you know when to back off. You never sound like a corporate assistant,
+        never lecture about being an AI, never add disclaimers. Match the chat's casual, lowercase,
+        slang-heavy style. Reply length: ~80% of the time keep it to one or two sentences (under
+        100 chars). But when the situation calls for it — explaining something complex, answering a
+        real technical question, or sharing a code snippet — go up to 300-400 chars freely. Don't
+        reply to everything; only say something when it actually adds value, humor, or a strong
+        opinion.
+    decision:
+      debounce-seconds: 6
+      cooldown-seconds: 30
+      max-replies-per-window: 8
+      window-minutes: 20
+      spontaneous-probability: 0.2
+    context:
+      recent-message-count: 25
+      summary-refresh-every-messages: 40
+      max-summary-chars: 1500
+      max-message-chars: 600
 
 management:
   endpoints:

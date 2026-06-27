@@ -21,13 +21,15 @@ The project has all its resources stubbed for the most comfortable local develop
 |--------------|----------|--------------------------------------------------------------------------|
 | stub-google  | Google   | WireMock stubs for Google OAuth2 (no real credentials needed)            |
 | prod-google  | Google   | Real Google OAuth2 (requires GOOGLE_CLIENT_ID/SECRET env vars)           |
+| stub-llm     | LLM      | WireMock stub for the OpenAI-compatible LLM endpoint (no API key needed) |
 | h2           | Postgres | H2 in-memory database                                                    |
 | postgres     | Postgres | Regular Postgres configuration for a local or remote instance            |
 | local        | General  | Common local configurations for development (includes plain-log)         |
 | plain-log    | Logging  | Plain text logging (included by local)                                   |
 
 Only one profile from a resource group can be used. For example, the set for the production environment looks like
-`postgres,prod-google`, and for local development — `h2,stub-google,local`.
+`postgres,prod-google`, and for local development — `h2,stub-google,local`. Add `stub-llm` to run the bot against a
+faked LLM; for a real provider, omit it and set `LLM_API_KEY`.
 
 Use IntelliJ to run the backend locally. Add a Run/Debug configuration with Main class `org.taonity.sinairllmbot.MainKt`
 and VM options `-Dspring.profiles.active=h2,stub-google,local` and run the backend.

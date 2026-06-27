@@ -1,0 +1,10 @@
+# LLM stub profile: route the bot's LLM calls to the in-process WireMock stub (port 9562).
+# Mirrors application-stub-google.yaml. Use for local dev / e2e without a real provider.
+app:
+  llm:
+    base-url: http://127.0.0.1:9562/v1
+    api-key: stub-llm-key
+
+logging:
+  level:
+    WireMock: warn

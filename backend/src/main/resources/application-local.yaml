@@ -40,6 +40,14 @@ app:
   cookie:
     secure: false
     same-site: Lax
+  llm:
+    base-url: https://openrouter.ai/api/v1
+    api-key: ${LLM_API_KEY:local-dummy-key}
+  bot:
+    rooms: '#test'
+    persona:
+      name: segfault-local
+      creator-user-id: ${BOT_CREATOR_USER_ID:0}
 
 decorator:
   datasource:
@@ -78,3 +86,5 @@ decorator:
 #
 #app:
 #  additional-profiles: flyway-clean-migrate
+#  bot:
+#    rooms: '#test'

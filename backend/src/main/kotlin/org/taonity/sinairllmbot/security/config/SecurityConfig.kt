@@ -39,7 +39,9 @@ class SecurityConfig(
                     .requestMatchers(
                         "/actuator/**",
                         "/",
-                        "/api/chat/ingest"
+                        "/api/chat/ingest",
+                        "/api/chat/outbound",
+                        "/api/chat/outbound/**"
                     ).permitAll()
                     .anyRequest().authenticated()
             }
@@ -57,7 +59,7 @@ class SecurityConfig(
                 csrfTokenRepository.setCookieCustomizer { builder ->
                     builder.secure(appProperties.cookie.secure).sameSite(appProperties.cookie.sameSite)
                 }
-                c.ignoringRequestMatchers("/api/chat/ingest")
+                c.ignoringRequestMatchers("/api/chat/ingest", "/api/chat/outbound", "/api/chat/outbound/**")
                     .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(spaCsrfTokenRequestHandler)
             }

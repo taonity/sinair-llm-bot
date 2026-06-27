@@ -2,9 +2,19 @@ import { WsChat, WsChatEvents, UserStatus, MessageStyle } from '@iassasin/wschat
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
+import { startSender, stopSender } from './sender.js';
 
 let chat = null;
 let reconnectTimeout = null;
+const roomsByTarget = new Map();
+
+/** Sends a message to a joined room. Returns false if the room is not currently joined. */
+function sendChatMessage(target, text) {
+    const room = roomsByTarget.get(target);
+    if (!room) return false;
+    room.sendMessage(text);
+    return true;
+}
 
 export async function startCollector() {
     logger.info(`[collector] Connecting to ${config.chatWsUrl}...`);
@@ -17,6 +27,8 @@ export async function startCollector() {
     chat.on(WsChatEvents.close, () => {
         logger.warn('[collector] Disconnected from chat server');
         stopFlushTimer();
+        stopSender();
+        roomsByTarget.clear();
         scheduleReconnect();
     });
 
@@ -31,10 +43,12 @@ export async function startCollector() {
 
     chat.on(WsChatEvents.message, (room, msgobj) => {
         logger.debug(`[collector] message event — room=${room?.target}, from=${msgobj?.from_login}`);
+        const member = room?.getMemberById?.(msgobj.from);
         const dto = {
             externalId: msgobj.id || null,
             roomTarget: msgobj.target,
             senderMemberId: msgobj.from,
+            senderUserId: member?.user_id || 0,
             senderLogin: msgobj.from_login,
             senderColor: msgobj.color || null,
             messageText: msgobj.message,
@@ -79,10 +93,20 @@ export async function startCollector() {
 
         for (const roomTarget of config.chatRooms) {
             const room = await chat.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
+            roomsByTarget.set(room.target, room);
+            if (config.botColor) {
+                room.sendMessage(`/color ${config.botColor}`);
+                logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
+            }
+            if (config.botNick) {
+                room.sendMessage(`/nick ${config.botNick}`);
+                logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
+            }
             logger.info(`[collector] Joined room: ${room.target}`);
         }
 
         startFlushTimer();
+        startSender(sendChatMessage);
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
         scheduleReconnect();

@@ -1,0 +1,27 @@
+{
+  "priority": 2,
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/chat/completions",
+    "bodyPatterns": [
+      { "contains": "running summary" }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "id": "stub-summary",
+      "object": "chat.completion",
+      "model": "stub/gate",
+      "choices": [
+        {
+          "index": 0,
+          "message": { "role": "assistant", "content": "Чат обсуждает технологии (rust, nginx, postgres) и политику." },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+    }
+  }
+}

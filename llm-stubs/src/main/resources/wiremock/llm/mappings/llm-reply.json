@@ -1,0 +1,24 @@
+{
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "id": "stub-reply",
+      "object": "chat.completion",
+      "model": "stub/cheap",
+      "choices": [
+        {
+          "index": 0,
+          "message": { "role": "assistant", "content": "ну такое, nginx норм, но не повод его боготворить)" },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+    }
+  }
+}
