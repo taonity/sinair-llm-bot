@@ -38,20 +38,43 @@ app:
   llm:
     base-url: http://127.0.0.1:9999/v1
     api-key: test-key
+    timeout-seconds: 60
+    active-reply-tier: cheap
+    gate-tier: gate
     tiers:
       gate:
         model: test/gate-model
+        temperature: 0
+        max-tokens: 220
       cheap:
         model: test/cheap-model
+        temperature: 0.85
+        max-tokens: 400
       smart:
         model: test/smart-model
+        temperature: 0.85
+        max-tokens: 500
   bot:
     enabled: false
     rooms: '#chat'
     persona:
       name: segfault
       language: Russian
+      creator-user-id: 0
+      stop-command: '!stop'
+      start-command: '!start'
       prompt: test persona
+    decision:
+      debounce-seconds: 6
+      cooldown-seconds: 45
+      max-replies-per-window: 8
+      window-minutes: 30
+      spontaneous-probability: 0.15
+    context:
+      recent-message-count: 25
+      summary-refresh-every-messages: 40
+      max-summary-chars: 1500
+      max-message-chars: 600
 #logging:
 #  level:
 #    root: DEBUG

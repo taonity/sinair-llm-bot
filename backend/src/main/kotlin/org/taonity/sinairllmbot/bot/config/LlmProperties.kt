@@ -16,20 +16,20 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class LlmProperties(
     val baseUrl: String,
     val apiKey: String,
-    val timeoutSeconds: Long = 60,
+    val timeoutSeconds: Long,
     /** Optional OpenRouter attribution headers. */
-    val referer: String? = null,
-    val title: String? = null,
+    val referer: String?,
+    val title: String?,
     /** Which tier generates replies: "cheap" or "smart". */
-    val activeReplyTier: String = "cheap",
+    val activeReplyTier: String,
     /** Tier used by the interest classifier and summarizer. */
-    val gateTier: String = "gate",
-    val tiers: Map<String, Tier> = emptyMap(),
+    val gateTier: String,
+    val tiers: Map<String, Tier>,
 ) {
     data class Tier(
         val model: String,
-        val temperature: Double = 0.8,
-        val maxTokens: Int = 400,
+        val temperature: Double,
+        val maxTokens: Int,
     )
 
     fun tier(name: String): Tier =

@@ -29,7 +29,7 @@ The project has all its resources stubbed for the most comfortable local develop
 
 Only one profile from a resource group can be used. For example, the set for the production environment looks like
 `postgres,prod-google`, and for local development — `h2,stub-google,local`. Add `stub-llm` to run the bot against a
-faked LLM; for a real provider, omit it and set `LLM_BASE_URL` / `LLM_API_KEY`.
+faked LLM; for a real provider, omit it and set `LLM_API_KEY`.
 
 Use IntelliJ to run the backend locally. Add a Run/Debug configuration with Main class `org.taonity.sinairllmbot.MainKt`
 and VM options `-Dspring.profiles.active=h2,stub-google,local` and run the backend.

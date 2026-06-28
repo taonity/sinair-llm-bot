@@ -26,7 +26,7 @@ import java.time.Instant
  * `wiremock/llm/mappings`), exactly like `stub-google` fakes Google OAuth. The message source is
  * the ingest endpoint — what the collector posts — so this is identical whether sinair is stub or prod.
  *
- * To run against a real provider, drop the `stub-llm` profile and set LLM_BASE_URL / LLM_API_KEY.
+ * To run against a real provider, drop the `stub-llm` profile and set LLM_API_KEY.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

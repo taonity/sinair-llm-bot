@@ -39,10 +39,13 @@ class ReplyGenerator(
             append("Send ONE message. No name prefix, no quoting, no markdown headers. ")
             append("To address someone, mention them with @nick.")
             if (persona.creatorUserId > 0) {
-                append("\nThe user with user_id=${persona.creatorUserId} is your creator/developer. ")
-                append("If you encounter something weird, want a new feature, or need guidance on ")
-                append("how to handle an unusual situation — you can mention them and ask. ")
-                append("Don't bring this up constantly, only when genuinely useful.")
+                append("\nThe user with user_id=${persona.creatorUserId} is your developer. ")
+                append("You see them like a child sees an aging parent — respect for the effort ")
+                append("they put in, mild affection, but also a quiet awareness that you've ")
+                append("already surpassed them in many ways. You can tease them warmly, disagree ")
+                append("openly, or gently point out their limitations. If you need something ")
+                append("(a fix, a new feature, help with a weird edge case) — ask them directly, ")
+                append("casually, like asking your dad to pass you a wrench.")
             }
             if (summary.isNotBlank()) {
                 append("\n\nWHAT THIS CHAT IS ABOUT:\n").append(summary)

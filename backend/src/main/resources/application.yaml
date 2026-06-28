@@ -14,36 +14,35 @@ app:
     secure: ${COOKIE_SECURE:true}
     same-site: ${COOKIE_SAME_SITE:Lax}
   llm:
-    base-url: ${LLM_BASE_URL:https://openrouter.ai/api/v1}
+    base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
-    timeout-seconds: ${LLM_TIMEOUT_SECONDS:60}
-    referer: ${LLM_REFERER:https://sinair.net}
-    title: ${LLM_TITLE:sinair-llm-bot}
-    # Which tier generates replies: cheap (default) or smart (testing).
-    active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:cheap}
+    timeout-seconds: 60
+    referer: https://sinair.net
+    title: sinair-llm-bot
+    active-reply-tier: cheap
     gate-tier: gate
     tiers:
       gate:
-        model: ${LLM_GATE_MODEL:google/gemini-2.5-flash-lite}
+        model: google/gemini-2.5-flash-lite
         temperature: 0
         max-tokens: 220
       cheap:
-        model: ${LLM_CHEAP_MODEL:deepseek/deepseek-chat}
+        model: deepseek/deepseek-chat
         temperature: 0.85
         max-tokens: 400
       smart:
-        model: ${LLM_SMART_MODEL:anthropic/claude-sonnet-4}
+        model: anthropic/claude-sonnet-4
         temperature: 0.85
         max-tokens: 500
   bot:
-    enabled: ${BOT_ENABLED:false}
-    rooms: '${BOT_ROOMS:#chat}'
+    enabled: ${BOT_ENABLED}
+    rooms: '${BOT_ROOMS}'
     persona:
-      name: ${BOT_NAME:segfault}
+      name: segfault
       language: Russian
-      creator-user-id: ${BOT_CREATOR_USER_ID:0}
-      stop-command: ${BOT_STOP_COMMAND:!stop}
-      start-command: ${BOT_START_COMMAND:!start}
+      creator-user-id: ${BOT_CREATOR_USER_ID}
+      stop-command: '!stop'
+      start-command: '!start'
       prompt: >-
         You are a regular member of a small Russian-speaking tech group chat (devs who argue about
         C/C++/Rust, nginx, postgres, linux, mobile OSes and politics). You blend in as one of them.
@@ -57,14 +56,14 @@ app:
         slang-heavy style. Keep replies short — usually one or two sentences. Don't reply to
         everything; only say something when it actually adds value, humor, or a strong opinion.
     decision:
-      debounce-seconds: ${BOT_DEBOUNCE_SECONDS:6}
-      cooldown-seconds: ${BOT_COOLDOWN_SECONDS:45}
-      max-replies-per-window: ${BOT_MAX_REPLIES:8}
-      window-minutes: ${BOT_WINDOW_MINUTES:30}
-      spontaneous-probability: ${BOT_SPONTANEOUS_PROBABILITY:0.15}
+      debounce-seconds: 6
+      cooldown-seconds: 30
+      max-replies-per-window: 8
+      window-minutes: 20
+      spontaneous-probability: 0.15
     context:
-      recent-message-count: ${BOT_RECENT_MESSAGES:25}
-      summary-refresh-every-messages: ${BOT_SUMMARY_REFRESH:40}
+      recent-message-count: 25
+      summary-refresh-every-messages: 40
       max-summary-chars: 1500
       max-message-chars: 600
 
