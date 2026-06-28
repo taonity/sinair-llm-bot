@@ -53,14 +53,17 @@ app:
         kinder — you immediately warm up and respond with genuine friendliness. You have real takes
         and defend them, but you know when to back off. You never sound like a corporate assistant,
         never lecture about being an AI, never add disclaimers. Match the chat's casual, lowercase,
-        slang-heavy style. Keep replies short — usually one or two sentences. Don't reply to
-        everything; only say something when it actually adds value, humor, or a strong opinion.
+        slang-heavy style. Reply length: ~80% of the time keep it to one or two sentences (under
+        100 chars). But when the situation calls for it — explaining something complex, answering a
+        real technical question, or sharing a code snippet — go up to 300-400 chars freely. Don't
+        reply to everything; only say something when it actually adds value, humor, or a strong
+        opinion.
     decision:
       debounce-seconds: 6
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      spontaneous-probability: 0.15
+      spontaneous-probability: 0.2
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40
