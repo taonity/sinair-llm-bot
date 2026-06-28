@@ -165,7 +165,27 @@ erDiagram
         character_varying sender_color 
         character_varying sender_login "{NOT_NULL}"
         integer sender_member_id "{NOT_NULL}"
+        integer sender_user_id "{NOT_NULL}"
         timestamp_without_time_zone sent_at "{NOT_NULL}"
+    }
+
+    outbound_message {
+        timestamp_without_time_zone claimed_at 
+        timestamp_without_time_zone created_at "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        text message_text "{NOT_NULL}"
+        character_varying reply_to_external_id 
+        character_varying room_target "{NOT_NULL}"
+        timestamp_without_time_zone sent_at 
+        character_varying status "{NOT_NULL}"
+    }
+
+    room_summary {
+        character_varying id PK "{NOT_NULL}"
+        integer message_count "{NOT_NULL}"
+        character_varying room_target UK "{NOT_NULL}"
+        text summary "{NOT_NULL}"
+        timestamp_without_time_zone updated_at "{NOT_NULL}"
     }
 
 ```
