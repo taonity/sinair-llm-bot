@@ -9,6 +9,7 @@ import type {
   ConsoleRole,
   OutboundMessage,
   PageResponse,
+  PageLocation,
   PendingRequest,
   RoomSummary,
   StubLogin,
@@ -82,32 +83,53 @@ export const consoleApi = {
   changeUserRole: (googleId: string, role: ConsoleRole) =>
     mutate<UserSummary>(`/users/${encodeURIComponent(googleId)}/role`, 'PUT', { role }),
 
-  listChatMessages: (page: number) =>
-    get<PageResponse<ChatMessage>>(buildListQuery('/chat-messages', page)),
+  listChatMessages: (page: number, size: number, q?: string, field?: string) =>
+    get<PageResponse<ChatMessage>>(buildListQuery('/chat-messages', page, size, q, field)),
 
   deleteChatMessage: (id: string) => mutate(`/chat-messages/${encodeURIComponent(id)}`, 'DELETE'),
 
-  listChatEvents: (page: number) =>
-    get<PageResponse<ChatEvent>>(buildListQuery('/chat-events', page)),
+  locateChatMessage: (id: string, size: number) =>
+    get<PageLocation>(`/chat-messages/${encodeURIComponent(id)}/page?size=${size}`),
+
+  listChatEvents: (page: number, size: number, q?: string, field?: string) =>
+    get<PageResponse<ChatEvent>>(buildListQuery('/chat-events', page, size, q, field)),
 
   deleteChatEvent: (id: string) => mutate(`/chat-events/${encodeURIComponent(id)}`, 'DELETE'),
 
-  listOutboundMessages: (page: number) =>
-    get<PageResponse<OutboundMessage>>(buildListQuery('/outbound-messages', page)),
+  locateChatEvent: (id: string, size: number) =>
+    get<PageLocation>(`/chat-events/${encodeURIComponent(id)}/page?size=${size}`),
+
+  listOutboundMessages: (page: number, size: number, q?: string, field?: string) =>
+    get<PageResponse<OutboundMessage>>(buildListQuery('/outbound-messages', page, size, q, field)),
 
   deleteOutboundMessage: (id: string) =>
     mutate(`/outbound-messages/${encodeURIComponent(id)}`, 'DELETE'),
+
+  locateOutboundMessage: (id: string, size: number) =>
+    get<PageLocation>(`/outbound-messages/${encodeURIComponent(id)}/page?size=${size}`),
 
   listSummaries: () => get<RoomSummary[]>('/summaries'),
 
   updateSummary: (id: string, summary: string) =>
     mutate<RoomSummary>(`/summaries/${encodeURIComponent(id)}`, 'PUT', { summary }),
 
-  listAuditLogs: (page: number) =>
-    get<PageResponse<AuditLog>>(`/audit-logs?page=${page}&size=50`),
+  listAuditLogs: (page: number, size: number, q?: string, field?: string) =>
+    get<PageResponse<AuditLog>>(buildListQuery('/audit-logs', page, size, q, field)),
 }
 
-function buildListQuery(path: string, page: number): string {
-  const params = new URLSearchParams({ page: String(page), size: '50' })
+function buildListQuery(
+  path: string,
+  page: number,
+  size: number,
+  q?: string,
+  field?: string,
+): string {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (q && q.trim()) {
+    params.set('q', q.trim())
+    if (field && field !== 'all') {
+      params.set('field', field)
+    }
+  }
   return `${path}?${params.toString()}`
 }

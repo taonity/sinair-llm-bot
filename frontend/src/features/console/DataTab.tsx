@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RotateCw, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowRightToLine, RotateCw, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -26,28 +27,33 @@ import type { PageResponse } from './types'
 export type Column<T> = {
   key: string
   label: string
-  /** Plain-text value used for searching and as the default cell content. */
   value: (row: T) => string
   render?: (row: T) => React.ReactNode
   cellClassName?: string
   headClassName?: string
-  /** Tailwind classes sizing the loading skeleton bar to match real content. */
   skeleton?: string
+  /** Backend field id this column maps to; when set, the column is offered as a search scope. */
+  searchKey?: string
 }
 
 type DataTabProps<T> = {
   columns: Column<T>[]
   rowKey: (row: T) => string
-  load: (page: number) => Promise<PageResponse<T>>
+  load: (page: number, size: number, q?: string, field?: string) => Promise<PageResponse<T>>
+  /** Resolves the page index where a searched row lives in the unfiltered list, enabling the jump action. */
+  locate?: (row: T, size: number) => Promise<number>
+  /** Reads the room name off a row so it can be shown once instead of as a per-row column. */
+  roomAccessor?: (row: T) => string
   canEdit?: boolean
   onDelete?: (row: T) => Promise<unknown>
   emptyLabel: string
   onError: (message: string) => void
 }
 
-const SKELETON_ROWS = 8
+const PAGE_SIZES = [20, 50, 100]
+const DEFAULT_PAGE_SIZE = 50
+const SKELETON_ROWS = 10
 
-/** Varied bar widths so loading rows don't look like a rigid grid. */
 const SKELETON_BAR_WIDTHS = [
   'w-[85%]',
   'w-[58%]',
@@ -63,22 +69,30 @@ export function DataTab<T>({
   columns,
   rowKey,
   load,
+  locate,
+  roomAccessor,
   canEdit = false,
   onDelete,
   emptyLabel,
   onError,
 }: DataTabProps<T>) {
   const [page, setPage] = useState(0)
+  const [size, setSize] = useState(DEFAULT_PAGE_SIZE)
   const [data, setData] = useState<PageResponse<T> | null>(null)
   const [loading, setLoading] = useState(true)
-  const [filterColumn, setFilterColumn] = useState('all')
   const [query, setQuery] = useState('')
+  const [activeQuery, setActiveQuery] = useState('')
+  const [field, setField] = useState('all')
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [jumpingId, setJumpingId] = useState<string | null>(null)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const reload = useCallback(
-    async (targetPage: number) => {
+    async (targetPage: number, targetSize: number, q: string, searchField: string) => {
       setLoading(true)
       try {
-        const result = await load(targetPage)
+        const result = await load(targetPage, targetSize, q.trim() || undefined, searchField)
         setData(result)
         setPage(result.page)
       } catch {
@@ -90,36 +104,78 @@ export function DataTab<T>({
     [load, onError],
   )
 
+  // Initial load only. Subsequent loads are triggered explicitly by user actions
+  // (search, paging, page-size, jump) so that a programmatic search-clear during a
+  // jump can't reset the page back to 0.
   useEffect(() => {
-    void reload(0)
+    void reload(0, DEFAULT_PAGE_SIZE, '', 'all')
   }, [reload])
 
-  const filtered = useMemo(() => {
-    if (!data) return []
-    const q = query.trim().toLowerCase()
-    if (!q) return data.content
-    const cols =
-      filterColumn === 'all' ? columns : columns.filter((c) => c.key === filterColumn)
-    return data.content.filter((row) =>
-      cols.some((c) => c.value(row).toLowerCase().includes(q)),
-    )
-  }, [data, query, filterColumn, columns])
-
-  const columnCount = columns.length + (canEdit ? 1 : 0)
-
-  const filterItems = useMemo(
-    () => ({ all: 'All columns', ...Object.fromEntries(columns.map((c) => [c.key, c.label])) }),
-    [columns],
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    },
+    [],
   )
+
+  // Debounce the search box; a new search always starts from the first page.
+  const onSearchChange = (value: string) => {
+    setQuery(value)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setActiveQuery(value)
+      void reload(0, size, value, field)
+    }, 300)
+  }
+
+  const onFieldChange = (next: string) => {
+    setField(next)
+    if (activeQuery.trim()) {
+      void reload(0, size, activeQuery, next)
+    }
+  }
+
+  const onSizeChange = (next: number) => {
+    setSize(next)
+    void reload(0, next, activeQuery, field)
+  }
+
+  const searching = activeQuery.trim().length > 0
+  const rows = data?.content ?? []
+  const columnCount = columns.length + (locate ? 1 : 0) + (canEdit ? 1 : 0)
+  const firstRow = rows[0]
+  const roomName = roomAccessor && firstRow ? roomAccessor(firstRow) : null
+  const searchableColumns = columns.filter((c) => c.searchKey)
 
   const remove = async (row: T) => {
     if (!onDelete) return
     if (!confirm('Delete this row? This action cannot be undone.')) return
     try {
       await onDelete(row)
-      await reload(page)
+      await reload(page, size, activeQuery, field)
     } catch {
       onError('Failed to delete row.')
+    }
+  }
+
+  const jumpTo = async (row: T) => {
+    if (!locate) return
+    const id = rowKey(row)
+    setJumpingId(id)
+    try {
+      const targetPage = await locate(row, size)
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+      setQuery('')
+      setActiveQuery('')
+      await reload(targetPage, size, '', field)
+      setHighlightId(id)
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      highlightTimer.current = setTimeout(() => setHighlightId(null), 3000)
+    } catch {
+      onError('Failed to locate the selected row.')
+    } finally {
+      setJumpingId(null)
     }
   }
 
@@ -127,28 +183,42 @@ export function DataTab<T>({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Select items={filterItems} value={filterColumn} onValueChange={(v) => setFilterColumn(v ?? 'all')}>
-            <SelectTrigger size="sm" className="w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All columns</SelectItem>
-              {columns.map((c) => (
-                <SelectItem key={c.key} value={c.key}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {roomName && (
+            <Badge variant="outline" className="font-normal">
+              Room: {roomName}
+            </Badge>
+          )}
+          {searchableColumns.length > 0 && (
+            <Select
+              items={{
+                all: 'All columns',
+                ...Object.fromEntries(searchableColumns.map((c) => [c.searchKey!, c.label])),
+              }}
+              value={field}
+              onValueChange={(v) => v && onFieldChange(v)}
+            >
+              <SelectTrigger size="sm" className="h-7 w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All columns</SelectItem>
+                {searchableColumns.map((c) => (
+                  <SelectItem key={c.searchKey} value={c.searchKey!}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input
-            className="h-7 max-w-xs"
-            placeholder="Search current page…"
+            className="h-7 w-56"
+            placeholder="Search all rows…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onSearchChange(e.target.value)}
           />
-          {query.trim() && (
+          {searching && data && (
             <span className="text-xs text-muted-foreground">
-              {filtered.length} match{filtered.length === 1 ? '' : 'es'}
+              {data.totalElements} match{data.totalElements === 1 ? '' : 'es'} across all rows
             </span>
           )}
         </div>
@@ -156,7 +226,7 @@ export function DataTab<T>({
           variant="ghost"
           size="sm"
           disabled={loading}
-          onClick={() => reload(page)}
+          onClick={() => reload(page, size, activeQuery, field)}
         >
           <RotateCw className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -164,7 +234,7 @@ export function DataTab<T>({
       </div>
 
       <div className="overflow-hidden rounded-lg border">
-        <Table className="table-fixed">
+        <Table className="table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50">
           <TableHeader>
             <TableRow className="bg-muted/40">
               {columns.map((c) => (
@@ -172,7 +242,8 @@ export function DataTab<T>({
                   {c.label}
                 </TableHead>
               ))}
-              {canEdit && <TableHead className="w-[88px] pr-4 text-right">Actions</TableHead>}
+              {locate && <TableHead className="w-[48px]" />}
+              {canEdit && <TableHead className="w-[64px] pr-4 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -190,6 +261,7 @@ export function DataTab<T>({
                       />
                     </TableCell>
                   ))}
+                  {locate && <TableCell />}
                   {canEdit && (
                     <TableCell className="pr-4 text-right">
                       <Button
@@ -207,36 +279,56 @@ export function DataTab<T>({
               ))}
 
             {!loading &&
-              filtered.map((row) => (
-                <TableRow key={rowKey(row)}>
-                  {columns.map((c) => (
-                    <TableCell key={c.key} className={c.cellClassName}>
-                      {c.render ? c.render(row) : c.value(row)}
-                    </TableCell>
-                  ))}
-                  {canEdit && (
-                    <TableCell className="pr-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label="Delete row"
-                        onClick={() => remove(row)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
+              rows.map((row) => {
+                const id = rowKey(row)
+                return (
+                  <TableRow key={id} className={cn(highlightId === id && 'bg-primary/10')}>
+                    {columns.map((c) => (
+                      <TableCell key={c.key} className={c.cellClassName}>
+                        {c.render ? c.render(row) : c.value(row)}
+                      </TableCell>
+                    ))}
+                    {locate && (
+                      <TableCell className="text-right">
+                        {searching && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="Jump to this row"
+                            title="Jump to this row in the full list"
+                            disabled={jumpingId === id}
+                            onClick={() => jumpTo(row)}
+                          >
+                            <ArrowRightToLine />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
+                    {canEdit && (
+                      <TableCell className="pr-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label="Delete row"
+                          onClick={() => remove(row)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
 
-            {!loading && filtered.length === 0 && (
+            {!loading && rows.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={columnCount}
                   className="h-20 text-center text-muted-foreground"
                 >
-                  {query.trim() ? 'No rows match your search.' : emptyLabel}
+                  {searching ? 'No rows match your search.' : emptyLabel}
                 </TableCell>
               </TableRow>
             )}
@@ -244,14 +336,34 @@ export function DataTab<T>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{data ? `${data.totalElements} total` : ''}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span>{data ? `${data.totalElements} total` : ''}</span>
+          <span className="text-border">·</span>
+          <span>Rows per page</span>
+          <Select
+            items={Object.fromEntries(PAGE_SIZES.map((s) => [String(s), String(s)]))}
+            value={String(size)}
+            onValueChange={(v) => v && onSizeChange(Number(v))}
+          >
+            <SelectTrigger size="sm" className="h-7 w-[72px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZES.map((s) => (
+                <SelectItem key={s} value={String(s)}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             disabled={loading || page <= 0}
-            onClick={() => reload(page - 1)}
+            onClick={() => reload(page - 1, size, activeQuery, field)}
           >
             Previous
           </Button>
@@ -260,7 +372,7 @@ export function DataTab<T>({
             variant="outline"
             size="sm"
             disabled={loading || !data || page + 1 >= data.totalPages}
-            onClick={() => reload(page + 1)}
+            onClick={() => reload(page + 1, size, activeQuery, field)}
           >
             Next
           </Button>

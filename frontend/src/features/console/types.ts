@@ -44,6 +44,10 @@ export interface PageResponse<T> {
   hasMore: boolean
 }
 
+export interface PageLocation {
+  page: number
+}
+
 export interface ChatMessage {
   id: string
   roomTarget: string

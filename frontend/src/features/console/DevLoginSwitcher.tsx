@@ -15,7 +15,11 @@ export function DevLoginSwitcher() {
   const [logins, setLogins] = useState<StubLogin[] | null>(null)
   const [backendUrl, setBackendUrl] = useState('')
 
+  // Opt-out flag: run the frontend with NEXT_PUBLIC_HIDE_DEV_LOGIN=true to hide the switcher.
+  const hidden = process.env.NEXT_PUBLIC_HIDE_DEV_LOGIN === 'true'
+
   useEffect(() => {
+    if (hidden) return
     let active = true
     void (async () => {
       try {
@@ -33,9 +37,9 @@ export function DevLoginSwitcher() {
     return () => {
       active = false
     }
-  }, [])
+  }, [hidden])
 
-  if (!logins || logins.length === 0) return null
+  if (hidden || !logins || logins.length === 0) return null
 
   return (
     <div className="fixed right-3 bottom-3 z-50 flex flex-col gap-1.5 rounded-lg border bg-card/95 p-2 shadow-lg backdrop-blur">

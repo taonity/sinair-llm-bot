@@ -50,28 +50,23 @@ const MESSAGE_COLUMNS: Column<ChatMessage>[] = [
     value: (m) => m.sentAt,
     render: (m) => formatTime(m.sentAt),
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
-    headClassName: 'w-[170px]',
+    headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
-  },
-  {
-    key: 'roomTarget',
-    label: 'Room',
-    value: (m) => m.roomTarget,
-    cellClassName: 'truncate',
-    headClassName: 'w-[90px]',
   },
   {
     key: 'senderLogin',
     label: 'Sender',
     value: (m) => m.senderLogin,
     cellClassName: 'truncate font-medium',
-    headClassName: 'w-[160px]',
+    headClassName: 'w-[150px]',
+    searchKey: 'senderLogin',
   },
   {
     key: 'messageText',
     label: 'Message',
     value: (m) => m.messageText,
-    cellClassName: 'whitespace-normal break-words',
+    cellClassName: 'whitespace-normal break-words leading-snug',
+    searchKey: 'messageText',
   },
 ]
 
@@ -82,37 +77,33 @@ const EVENT_COLUMNS: Column<ChatEvent>[] = [
     value: (e) => e.eventTime,
     render: (e) => formatTime(e.eventTime),
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
-    headClassName: 'w-[170px]',
+    headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
-  },
-  {
-    key: 'roomTarget',
-    label: 'Room',
-    value: (e) => e.roomTarget,
-    cellClassName: 'truncate',
-    headClassName: 'w-[90px]',
   },
   {
     key: 'memberName',
     label: 'Member',
     value: (e) => e.memberName,
     cellClassName: 'truncate font-medium',
-    headClassName: 'w-[160px]',
+    headClassName: 'w-[30%]',
+    searchKey: 'memberName',
   },
   {
     key: 'status',
     label: 'Status',
     value: (e) => e.status,
     render: (e) => statusBadge(e.status),
-    headClassName: 'w-[140px]',
+    headClassName: 'w-[20%]',
     skeleton: 'h-5 w-16 rounded-full',
+    searchKey: 'status',
   },
   {
     key: 'eventData',
     label: 'Data',
     value: (e) => e.eventData ?? '',
     render: (e) => e.eventData ?? '—',
-    cellClassName: 'whitespace-normal break-words',
+    cellClassName: 'whitespace-normal break-words leading-snug',
+    searchKey: 'eventData',
   },
 ]
 
@@ -123,15 +114,8 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     value: (m) => m.createdAt,
     render: (m) => formatTime(m.createdAt),
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
-    headClassName: 'w-[170px]',
+    headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
-  },
-  {
-    key: 'roomTarget',
-    label: 'Room',
-    value: (m) => m.roomTarget,
-    cellClassName: 'truncate',
-    headClassName: 'w-[90px]',
   },
   {
     key: 'status',
@@ -140,12 +124,14 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     render: (m) => statusBadge(m.status),
     headClassName: 'w-[120px]',
     skeleton: 'h-5 w-14 rounded-full',
+    searchKey: 'status',
   },
   {
     key: 'messageText',
     label: 'Message',
     value: (m) => m.messageText,
-    cellClassName: 'whitespace-normal break-words',
+    cellClassName: 'whitespace-normal break-words leading-snug',
+    searchKey: 'messageText',
   },
   {
     key: 'sentAt',
@@ -153,7 +139,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     value: (m) => m.sentAt ?? '',
     render: (m) => formatTime(m.sentAt),
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
-    headClassName: 'w-[170px]',
+    headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
   },
 ]
@@ -230,7 +216,9 @@ export default function DataConsole() {
             <DataTab<ChatMessage>
               columns={MESSAGE_COLUMNS}
               rowKey={(m) => m.id}
-              load={(page) => consoleApi.listChatMessages(page)}
+              load={(page, size, q, field) => consoleApi.listChatMessages(page, size, q, field)}
+              locate={(m, size) => consoleApi.locateChatMessage(m.id, size).then((r) => r.page)}
+              roomAccessor={(m) => m.roomTarget}
               canEdit={canEdit}
               onDelete={(m) => consoleApi.deleteChatMessage(m.id)}
               emptyLabel="No chat messages."
@@ -244,7 +232,9 @@ export default function DataConsole() {
             <DataTab<ChatEvent>
               columns={EVENT_COLUMNS}
               rowKey={(e) => e.id}
-              load={(page) => consoleApi.listChatEvents(page)}
+              load={(page, size, q, field) => consoleApi.listChatEvents(page, size, q, field)}
+              locate={(e, size) => consoleApi.locateChatEvent(e.id, size).then((r) => r.page)}
+              roomAccessor={(e) => e.roomTarget}
               canEdit={canEdit}
               onDelete={(e) => consoleApi.deleteChatEvent(e.id)}
               emptyLabel="No events."
@@ -258,7 +248,9 @@ export default function DataConsole() {
             <DataTab<OutboundMessage>
               columns={OUTBOUND_COLUMNS}
               rowKey={(m) => m.id}
-              load={(page) => consoleApi.listOutboundMessages(page)}
+              load={(page, size, q, field) => consoleApi.listOutboundMessages(page, size, q, field)}
+              locate={(m, size) => consoleApi.locateOutboundMessage(m.id, size).then((r) => r.page)}
+              roomAccessor={(m) => m.roomTarget}
               canEdit={canEdit}
               onDelete={(m) => consoleApi.deleteOutboundMessage(m.id)}
               emptyLabel="No outbound messages."

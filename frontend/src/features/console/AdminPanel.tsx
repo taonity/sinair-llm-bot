@@ -40,14 +40,16 @@ const AUDIT_COLUMNS: Column<AuditLog>[] = [
     label: 'Action',
     value: (a) => a.action,
     cellClassName: 'truncate font-medium',
-    headClassName: 'w-[160px]',
+    headClassName: 'w-[22%]',
+    searchKey: 'action',
   },
   {
     key: 'targetType',
     label: 'Target',
     value: (a) => a.targetType,
     cellClassName: 'truncate',
-    headClassName: 'w-[130px]',
+    headClassName: 'w-[16%]',
+    searchKey: 'targetType',
   },
   {
     key: 'targetId',
@@ -55,9 +57,10 @@ const AUDIT_COLUMNS: Column<AuditLog>[] = [
     value: (a) => a.targetId ?? '',
     render: (a) => <span className="font-mono text-xs">{a.targetId ?? '—'}</span>,
     cellClassName: 'truncate',
-    headClassName: 'w-[150px]',
+    headClassName: 'w-[28%]',
+    searchKey: 'targetId',
   },
-  { key: 'actorEmail', label: 'Actor', value: (a) => a.actorEmail, cellClassName: 'truncate' },
+  { key: 'actorEmail', label: 'Actor', value: (a) => a.actorEmail, cellClassName: 'truncate', searchKey: 'actorEmail' },
 ]
 
 export function AdminPanel({
@@ -200,7 +203,7 @@ export function AdminPanel({
           <DataTab<AuditLog>
             columns={AUDIT_COLUMNS}
             rowKey={(a) => a.id}
-            load={(page) => consoleApi.listAuditLogs(page)}
+            load={(page, size, q, field) => consoleApi.listAuditLogs(page, size, q, field)}
             emptyLabel="No audit entries."
             onError={onError}
           />

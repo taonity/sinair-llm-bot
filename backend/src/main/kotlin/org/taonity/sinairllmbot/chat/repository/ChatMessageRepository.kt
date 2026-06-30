@@ -19,6 +19,24 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
 
     fun countByRoomTarget(roomTarget: String): Long
 
+    @Query(
+        """
+        SELECT m FROM ChatMessageEntity m
+        WHERE ((:field = 'all' OR :field = 'messageText') AND LOWER(m.messageText) LIKE LOWER(CONCAT('%', :q, '%')))
+           OR ((:field = 'all' OR :field = 'senderLogin') AND LOWER(m.senderLogin) LIKE LOWER(CONCAT('%', :q, '%')))
+           OR (:field = 'all' AND LOWER(m.roomTarget) LIKE LOWER(CONCAT('%', :q, '%')))
+        """,
+    )
+    fun search(q: String, field: String, pageable: Pageable): Page<ChatMessageEntity>
+
+    @Query(
+        """
+        SELECT COUNT(m) FROM ChatMessageEntity m
+        WHERE m.sentAt > :sentAt OR (m.sentAt = :sentAt AND m.id > :id)
+        """,
+    )
+    fun countOrderedBefore(sentAt: Instant, id: String): Long
+
     @Query("SELECT DISTINCT m.roomTarget FROM ChatMessageEntity m WHERE m.sentAt < :cutoff")
     fun findDistinctRoomTargetBySentAtBefore(cutoff: Instant): List<String>
 

@@ -30,9 +30,18 @@ class ConsoleDataController(
     fun chatMessages(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @RequestParam(required = false) room: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<ChatMessageDto> = consoleDataService.listChatMessages(principal, room, page, size)
+    ): PageResponse<ChatMessageDto> = consoleDataService.listChatMessages(principal, room, q, field, page, size)
+
+    @GetMapping("/chat-messages/{id}/page")
+    fun locateChatMessage(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+        @RequestParam(defaultValue = "25") size: Int,
+    ): PageLocation = PageLocation(consoleDataService.locateChatMessagePage(principal, id, size))
 
     @DeleteMapping("/chat-messages/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -45,9 +54,18 @@ class ConsoleDataController(
     fun chatEvents(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @RequestParam(required = false) room: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<ChatEventDto> = consoleDataService.listChatEvents(principal, room, page, size)
+    ): PageResponse<ChatEventDto> = consoleDataService.listChatEvents(principal, room, q, field, page, size)
+
+    @GetMapping("/chat-events/{id}/page")
+    fun locateChatEvent(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+        @RequestParam(defaultValue = "25") size: Int,
+    ): PageLocation = PageLocation(consoleDataService.locateChatEventPage(principal, id, size))
 
     @DeleteMapping("/chat-events/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -60,9 +78,18 @@ class ConsoleDataController(
     fun outboundMessages(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @RequestParam(required = false) room: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<OutboundMessageDto> = consoleDataService.listOutboundMessages(principal, room, page, size)
+    ): PageResponse<OutboundMessageDto> = consoleDataService.listOutboundMessages(principal, room, q, field, page, size)
+
+    @GetMapping("/outbound-messages/{id}/page")
+    fun locateOutboundMessage(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+        @RequestParam(defaultValue = "25") size: Int,
+    ): PageLocation = PageLocation(consoleDataService.locateOutboundMessagePage(principal, id, size))
 
     @DeleteMapping("/outbound-messages/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -86,7 +113,11 @@ class ConsoleDataController(
     @GetMapping("/audit-logs")
     fun auditLogs(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
-    ): PageResponse<AuditLogDto> = consoleDataService.listAuditLogs(principal, page, size)
+    ): PageResponse<AuditLogDto> = consoleDataService.listAuditLogs(principal, q, field, page, size)
 }
+
+data class PageLocation(val page: Int)

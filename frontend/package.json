@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 -H 127.0.0.1",
+    "dev:nologin": "set NEXT_PUBLIC_HIDE_DEV_LOGIN=true&& next dev -p 3000 -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "prod": "next build && next start",

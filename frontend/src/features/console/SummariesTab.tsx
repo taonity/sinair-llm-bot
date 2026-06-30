@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { consoleApi } from './api'
@@ -20,7 +19,6 @@ export function SummariesTab({
   const [summaries, setSummaries] = useState<RoomSummary[] | null>(null)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -61,7 +59,7 @@ export function SummariesTab({
               <Skeleton className="h-3 w-44" />
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <Skeleton className="h-[8.5rem] w-full" />
+              <Skeleton className="h-[300px] w-full" />
               <Skeleton className="h-8 w-16" />
             </CardContent>
           </Card>
@@ -70,29 +68,13 @@ export function SummariesTab({
     )
   }
 
-  const q = query.trim().toLowerCase()
-  const visible = q
-    ? summaries.filter(
-        (s) => s.roomTarget.toLowerCase().includes(q) || s.summary.toLowerCase().includes(q),
-      )
-    : summaries
-
   return (
     <div className="flex flex-col gap-3">
-      <Input
-        className="h-7 max-w-xs"
-        placeholder="Search room or summary…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      {visible.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {q ? 'No summaries match your search.' : 'No summaries yet.'}
-        </p>
+      {summaries.length === 0 && (
+        <p className="text-sm text-muted-foreground">No summaries yet.</p>
       )}
 
-      {visible.map((s) => {
+      {summaries.map((s) => {
         const dirty = (drafts[s.id] ?? '') !== s.summary
         return (
           <Card key={s.id}>
@@ -106,8 +88,7 @@ export function SummariesTab({
               <Textarea
                 value={drafts[s.id] ?? ''}
                 readOnly={!canEdit}
-                rows={5}
-                className="resize-y font-mono text-xs"
+                className="min-h-[300px] resize-y font-mono text-xs"
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [s.id]: e.target.value }))}
               />
               {canEdit && (
