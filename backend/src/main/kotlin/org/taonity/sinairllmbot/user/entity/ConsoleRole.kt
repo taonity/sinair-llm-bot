@@ -22,12 +22,9 @@ enum class ConsoleRole {
 
     fun canEdit(): Boolean = this == EDITOR || this == ADMIN || this == OWNER
 
-    /** ADMIN and OWNER both have admin capabilities (approve requests, manage users). */
     fun isAdmin(): Boolean = this == ADMIN || this == OWNER
 
-    /** Only the OWNER may grant or revoke admin/owner roles. */
     fun isOwner(): Boolean = this == OWNER
 
-    /** Privilege level; higher means more access. */
     fun rank(): Int = ordinal
 }

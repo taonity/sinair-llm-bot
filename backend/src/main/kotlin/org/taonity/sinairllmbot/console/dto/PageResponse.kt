@@ -2,7 +2,6 @@ package org.taonity.sinairllmbot.console.dto
 
 import org.springframework.data.domain.Page
 
-/** Generic page wrapper returned by console list endpoints. */
 data class PageResponse<T>(
     val content: List<T>,
     val page: Int,

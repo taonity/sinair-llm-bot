@@ -14,7 +14,6 @@ interface ChatEventRepository : JpaRepository<ChatEventEntity, String> {
 
     fun findByRoomTarget(roomTarget: String, pageable: Pageable): Page<ChatEventEntity>
 
-    /** Most recent presence/status events in a room, newest first. */
     fun findByRoomTargetOrderByEventTimeDesc(roomTarget: String, pageable: Pageable): List<ChatEventEntity>
 
     @Modifying

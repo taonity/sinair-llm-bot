@@ -35,7 +35,6 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
-    // Check if already authenticated by trying /api/hello
     fetch('/api/hello')
       .then((res) => {
         if (res.ok) {

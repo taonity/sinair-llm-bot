@@ -6,10 +6,6 @@ import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 import org.taonity.sinairllmbot.user.entity.UserEntity
 import org.taonity.sinairllmbot.user.repository.UserRepository
 
-/**
- * Resolves the current user and enforces console role requirements. Throws
- * [ConsoleForbiddenException] (mapped to HTTP 403) when the user lacks the required role.
- */
 @Service
 class AccessGuard(
     private val userRepository: UserRepository,

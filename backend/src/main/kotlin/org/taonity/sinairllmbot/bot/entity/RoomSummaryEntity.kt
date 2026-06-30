@@ -9,7 +9,6 @@ import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import java.time.Instant
 
-/** Rolling, compressed summary of a room's recent conversation, refreshed periodically. */
 @Entity
 @Table(name = "room_summary")
 class RoomSummaryEntity(

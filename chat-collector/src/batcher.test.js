@@ -28,12 +28,10 @@ describe('batcher', () => {
             bufferMessage({ externalId: '1', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
             bufferMessage({ externalId: '2', roomTarget: '#test', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
 
-            // Not flushed yet (batch size = 3)
             expect(global.fetch).not.toHaveBeenCalled();
 
             bufferMessage({ externalId: '3', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
 
-            // Should have flushed
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
             const [url, options] = global.fetch.mock.calls[0];
@@ -52,15 +50,9 @@ describe('batcher', () => {
             bufferMessage({ externalId: '2', roomTarget: '#test', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
             bufferMessage({ externalId: '3', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
 
-            // Wait for flush to complete (with error)
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
-            // Messages should be re-buffered — next flush attempt will include them
-            // Trigger another batch
             bufferMessage({ externalId: '4', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi again', messageStyle: 'message', sentAt: 1003 });
-
-            // Wait — the buffer now has 4 messages (3 re-buffered + 1 new), exceeds batchSize so flush triggers
-            // but the new message makes it 4, which is >= 3 so flush is triggered
         });
     });
 

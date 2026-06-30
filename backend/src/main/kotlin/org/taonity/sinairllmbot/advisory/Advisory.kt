@@ -7,12 +7,6 @@ enum class Advisory(
     private val detailTemplate: String,
     private val severity: Severity
 ) {
-    // Add project-specific advisories here, e.g.:
-    // EXTERNAL_SERVICE_PROBLEM(
-    //     "Problems with external service",
-    //     "Sorry! We have some problems with an external service. The fix is on the way.",
-    //     Severity.ERROR
-    // ),
     ;
 
     fun toDto(args: List<String> = emptyList()): AdvisoryDto {

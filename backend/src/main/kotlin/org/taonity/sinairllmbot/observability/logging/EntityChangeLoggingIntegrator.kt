@@ -25,6 +25,5 @@ class EntityChangeLoggingIntegrator : Integrator {
     }
 
     override fun disintegrate(sessionFactory: SessionFactoryImplementor, serviceRegistry: SessionFactoryServiceRegistry) {
-        // nothing to clean up
     }
 }

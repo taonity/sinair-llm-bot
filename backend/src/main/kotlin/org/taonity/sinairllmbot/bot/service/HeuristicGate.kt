@@ -16,7 +16,6 @@ class HeuristicGate(
     private val botProperties: BotProperties,
 ) {
     private companion object {
-        // Short, content-free messages that never deserve a reply on their own.
         private val NOISE_TOKENS = setOf(
             "pass", "test", "ok", "ок", "норм", "+", "-", "ага", "угу", "да", "нет", "lol", "хм",
         )
@@ -27,12 +26,10 @@ class HeuristicGate(
         val botName = botProperties.persona.name
         val text = message.messageText.trim()
 
-        // Never react to our own messages.
         if (message.senderLogin.equals(botName, ignoreCase = true)) {
             return GateDecision.IGNORE
         }
 
-        // Stop/start commands are handled separately by the orchestrator.
         if (text.equals(botProperties.persona.stopCommand, ignoreCase = true)) {
             return GateDecision.STOP_BOT
         }

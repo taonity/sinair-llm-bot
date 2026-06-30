@@ -218,7 +218,6 @@ const ROLE_LABELS: Record<ConsoleRole, string> = {
   OWNER: 'Owner',
 }
 
-/** Admin/owner user list with inline role management. */
 function UsersCard({
   access,
   onError,

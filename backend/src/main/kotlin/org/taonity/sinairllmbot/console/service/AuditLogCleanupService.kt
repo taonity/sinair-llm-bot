@@ -8,7 +8,6 @@ import org.taonity.sinairllmbot.console.repository.AuditLogRepository
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-/** Enforces the 2-week retention policy for audit logs. */
 @Service
 class AuditLogCleanupService(
     private val auditLogRepository: AuditLogRepository,

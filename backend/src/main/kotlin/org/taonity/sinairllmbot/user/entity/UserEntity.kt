@@ -32,7 +32,6 @@ class UserEntity(
         return this
     }
 
-    /** Promote the user to an admin with approved access (used for config-bootstrapped admins). */
     fun grantAdmin(): UserEntity {
         this.role = ConsoleRole.ADMIN
         this.accessStatus = AccessRequestStatus.APPROVED
@@ -40,7 +39,6 @@ class UserEntity(
         return this
     }
 
-    /** Promote the user to the owner with approved access (used for config-bootstrapped owners). */
     fun grantOwner(): UserEntity {
         this.role = ConsoleRole.OWNER
         this.accessStatus = AccessRequestStatus.APPROVED

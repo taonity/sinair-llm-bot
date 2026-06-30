@@ -37,7 +37,6 @@ class BotMessageOrchestrator(
         private val LOGGER = KotlinLogging.logger {}
     }
 
-    /** Rooms where the bot has been muted via the stop command. */
     private val mutedRooms: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @PostConstruct
@@ -45,7 +44,6 @@ class BotMessageOrchestrator(
         LOGGER.info { "Bot config: enabled=${botProperties.enabled}, rooms=${botProperties.rooms}, name=${botProperties.persona.name}, debounce=${botProperties.decision.debounceSeconds}s, cooldown=${botProperties.decision.cooldownSeconds}s" }
     }
 
-    /** Called (async, after commit) when new messages are ingested. Schedules a debounced evaluation. */
     @Async
     fun onMessagesStored(storedMessages: List<ChatMessageEntity>) {
         if (!botProperties.enabled || storedMessages.isEmpty()) return
@@ -65,13 +63,11 @@ class BotMessageOrchestrator(
         runCatching {
             val trigger = latestNonBotMessage(roomTarget) ?: return
 
-            // Keep long-term context fresh (cheap tier, only when stale).
             runCatching { roomSummaryService.refreshIfStale(roomTarget) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
             val gateDecision = heuristicGate.evaluate(trigger)
 
-            // Handle stop/start commands from any room member.
             if (gateDecision == GateDecision.STOP_BOT) {
                 mutedRooms.add(roomTarget)
                 LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
@@ -85,14 +81,13 @@ class BotMessageOrchestrator(
                 return
             }
 
-            // Don't reply if the bot is muted in this room.
             if (roomTarget in mutedRooms) return
 
             val shouldReply = when (gateDecision) {
                 GateDecision.IGNORE -> false
                 GateDecision.REPLY_NOW -> cooldownTracker.canReply(roomTarget)
                 GateDecision.MAYBE -> decideAmbiguous(roomTarget)
-                GateDecision.STOP_BOT, GateDecision.START_BOT -> false // already handled above
+                GateDecision.STOP_BOT, GateDecision.START_BOT -> false
             }
             if (!shouldReply) return
 
@@ -121,7 +116,6 @@ class BotMessageOrchestrator(
         if (!cooldownTracker.canReply(roomTarget)) return false
         val verdict = interestClassifier.shouldRespond(roomTarget)
         if (verdict.respond) return true
-        // Occasionally chime in unprompted to feel alive.
         return Random.nextDouble() < botProperties.decision.spontaneousProbability
     }
 }

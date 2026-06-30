@@ -57,7 +57,6 @@ async function flush() {
 
         if (!response.ok) {
             logger.error(`[ingest] Backend returned ${response.status}: ${await response.text()}`);
-            // Re-add to buffer on failure
             messageBuffer.unshift(...messages);
             eventBuffer.unshift(...events);
             return;
@@ -67,11 +66,9 @@ async function flush() {
         logger.info(`[ingest] Stored: ${result.messagesStored} msgs, ${result.eventsStored} events | Dupes: ${result.messagesDuplicate} msgs, ${result.eventsDuplicate} events`);
     } catch (err) {
         logger.error(`[ingest] Failed to send to backend:`, err.message);
-        // Re-add to buffer on failure
         messageBuffer.unshift(...messages);
         eventBuffer.unshift(...events);
     }
 }
 
-// Flush remaining on exit
 process.on('beforeExit', () => flush());

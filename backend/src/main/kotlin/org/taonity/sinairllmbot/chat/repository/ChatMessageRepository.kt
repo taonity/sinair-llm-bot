@@ -15,7 +15,6 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
 
     fun findByRoomTarget(roomTarget: String, pageable: Pageable): Page<ChatMessageEntity>
 
-    /** Most recent messages in a room, newest first. Caller reverses for chronological order. */
     fun findByRoomTargetOrderBySentAtDesc(roomTarget: String, pageable: Pageable): List<ChatMessageEntity>
 
     fun countByRoomTarget(roomTarget: String): Long

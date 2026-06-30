@@ -21,7 +21,6 @@ class ConversationContextBuilder(
     private val botProperties: BotProperties,
 ) {
     private companion object {
-        // Statuses that mean the member is currently present.
         private val PRESENT_STATUSES = setOf("online", "back", "away")
         private const val EVENT_SCAN_LIMIT = 120
     }

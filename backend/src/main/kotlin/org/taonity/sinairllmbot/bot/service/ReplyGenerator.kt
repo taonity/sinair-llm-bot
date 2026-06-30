@@ -74,7 +74,6 @@ class ReplyGenerator(
         return reply
     }
 
-    /** Strips wrapping quotes, an accidental "nick:" prefix, and caps length. */
     private fun sanitize(raw: String): String {
         var text = raw.trim().trim('"').trim()
         val selfPrefix = "${botProperties.persona.name}:"

@@ -34,13 +34,11 @@ class RoomSummaryService(
     fun currentSummary(roomTarget: String): String =
         roomSummaryRepository.findByRoomTarget(roomTarget)?.summary.orEmpty()
 
-    /** Refreshes the summary if enough new messages have arrived since the last refresh. */
     @Transactional
     fun refreshIfStale(roomTarget: String) {
         refreshInternal(roomTarget, force = false)
     }
 
-    /** Forces a summary refresh regardless of message count. Used before retention cleanup. */
     @Transactional
     fun forceRefresh(roomTarget: String) {
         refreshInternal(roomTarget, force = true)

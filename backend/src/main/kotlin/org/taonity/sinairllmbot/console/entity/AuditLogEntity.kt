@@ -25,10 +25,8 @@ class AuditLogEntity(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val action: AuditAction,
-    /** The kind of record affected, e.g. "chat_message", "room_summary", "access_request". */
     @Column(name = "target_type", nullable = false)
     val targetType: String,
-    /** Identifier of the affected record. Never contains the record's contents. */
     @Column(name = "target_id")
     val targetId: String? = null,
     @Column(name = "actor_google_id", nullable = false)

@@ -41,14 +41,12 @@ class BotConversationScenarioTest {
     fun `bot ignores noise but replies when addressed`() {
         drainOutbound()
 
-        // 1) Pure noise must not trigger a reply (heuristic gate, zero tokens).
         ingest(
             message("aps", "pass", sentAt = now()),
         )
         Thread.sleep(2500) // past the 1s debounce + pipeline
         assertThat(claimOutbound()).describedAs("noise should not trigger a reply").isEmpty()
 
-        // 2) A message addressing the bot must produce exactly one reply.
         val base = now()
         ingest(
             message("DJ1", "кто-нибудь поднимал nginx за последние пару лет?", sentAt = base - 20),
@@ -61,8 +59,6 @@ class BotConversationScenarioTest {
         assertThat(replies[0].roomTarget).isEqualTo("#chat")
         assertThat(replies[0].messageText).isEqualTo(STUB_REPLY)
     }
-
-    // --- helpers ---
 
     private fun ingest(vararg messages: ChatMessageDto) {
         mockMvc.perform(

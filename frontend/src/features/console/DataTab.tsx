@@ -28,7 +28,6 @@ export type Column<T> = {
   label: string
   /** Plain-text value used for searching and as the default cell content. */
   value: (row: T) => string
-  /** Optional custom cell renderer. */
   render?: (row: T) => React.ReactNode
   cellClassName?: string
   headClassName?: string

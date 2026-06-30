@@ -37,8 +37,8 @@ const AUTO_TRAFFIC = (process.env.CHAT_STUBS_AUTO_TRAFFIC || 'true').toLowerCase
 const wss = new WebSocketServer({ port: PORT, path: '/ws/chat' });
 
 const connectedClients = new Set();
-const clientRooms = new WeakMap(); // ws -> Set<string>
-const clientIdentity = new WeakMap(); // ws -> { login, memberId }
+const clientRooms = new WeakMap();
+const clientIdentity = new WeakMap();
 let memberIdSeq = 10;
 
 console.log(`[chat-stubs] WebSocket stub server listening on ws://0.0.0.0:${PORT}/ws/chat`);
@@ -88,7 +88,6 @@ function handlePacket(ws, packet) {
             break;
 
         case PacketType.message:
-            // Client sending a message — echo it back as if delivered
             handleClientMessage(ws, packet);
             break;
 
@@ -127,7 +126,6 @@ function handleJoin(ws, packet) {
 
     console.log(`[chat-stubs] Join room: ${target} (loadHistory=${packet.load_history})`);
 
-    // Send join confirmation
     send(ws, {
         type: PacketType.join,
         sequenceId: packet.sequenceId,
@@ -144,7 +142,6 @@ function handleJoin(ws, packet) {
         list: generateOnlineList(target),
     });
 
-    // Send history messages if requested
     if (packet.load_history) {
         const history = generateHistoryMessages(target, 50);
         for (const msg of history) {
@@ -178,7 +175,6 @@ function handleClientMessage(ws, packet) {
         return;
     }
 
-    // Broadcast to every client present in the room, attributed to the sender's nick.
     const outPacket = {
         type: PacketType.message,
         id: String(Date.now()),
@@ -199,7 +195,6 @@ function handleClientMessage(ws, packet) {
     }
 }
 
-// Periodically send fake messages to all connected clients
 setInterval(() => {
     if (!AUTO_TRAFFIC) return;
     for (const ws of connectedClients) {
@@ -213,7 +208,6 @@ setInterval(() => {
     }
 }, MESSAGE_INTERVAL);
 
-// Periodically send status events
 setInterval(() => {
     if (!AUTO_TRAFFIC) return;
     for (const ws of connectedClients) {

@@ -44,7 +44,7 @@ export function generateHistoryMessages(roomTarget, count = 50) {
     for (let i = count; i > 0; i--) {
         const user = FAKE_USERS[Math.floor(Math.random() * FAKE_USERS.length)];
         const text = SAMPLE_MESSAGES[Math.floor(Math.random() * SAMPLE_MESSAGES.length)];
-        const time = now - i * 30; // one message every 30 seconds going back
+        const time = now - i * 30;
 
         messages.push({
             type: PacketType.message,

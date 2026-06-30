@@ -48,8 +48,6 @@ class ConsoleDataService(
         Sort.by(Sort.Direction.DESC, sortProperty),
     )
 
-    // ---- Chat messages ----
-
     fun listChatMessages(
         principal: GoogleUserPrincipal,
         room: String?,
@@ -75,8 +73,6 @@ class ConsoleDataService(
         chatMessageRepository.deleteById(id)
         auditService.record(AuditAction.DELETE_CHAT_MESSAGE, "chat_message", id, actor)
     }
-
-    // ---- Chat events ----
 
     fun listChatEvents(
         principal: GoogleUserPrincipal,
@@ -104,8 +100,6 @@ class ConsoleDataService(
         auditService.record(AuditAction.DELETE_CHAT_EVENT, "chat_event", id, actor)
     }
 
-    // ---- Outbound messages ----
-
     fun listOutboundMessages(
         principal: GoogleUserPrincipal,
         room: String?,
@@ -132,8 +126,6 @@ class ConsoleDataService(
         auditService.record(AuditAction.DELETE_OUTBOUND_MESSAGE, "outbound_message", id, actor)
     }
 
-    // ---- Room summaries ----
-
     fun listSummaries(principal: GoogleUserPrincipal): List<RoomSummaryDto> {
         accessGuard.requireView(principal)
         return roomSummaryRepository.findAll()
@@ -151,8 +143,6 @@ class ConsoleDataService(
         auditService.record(AuditAction.EDIT_SUMMARY, "room_summary", id, actor)
         return RoomSummaryDto.from(saved)
     }
-
-    // ---- Audit logs (admin only) ----
 
     fun listAuditLogs(principal: GoogleUserPrincipal, page: Int, size: Int): PageResponse<AuditLogDto> {
         accessGuard.requireAdmin(principal)

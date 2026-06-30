@@ -3,10 +3,6 @@ import { logger } from './logger.js';
 
 let pollTimer = null;
 
-/**
- * Polls the backend for queued bot replies, sends them to the chat via the provided
- * `sendChatMessage(target, text)` callback, and acknowledges the ones delivered.
- */
 export function startSender(sendChatMessage) {
     if (!config.botSendEnabled) {
         logger.info('[sender] Bot sending disabled (BOT_SEND_ENABLED=false)');
@@ -30,7 +26,7 @@ export function startSender(sendChatMessage) {
                 const delivered = sendChatMessage(item.roomTarget, item.messageText);
                 if (delivered) {
                     sentIds.push(item.id);
-                    logger.info(`[sender] Sent reply to ${item.roomTarget}: ${item.messageText.slice(0, 80)}`);
+                    logger.info(`[sender] Sent reply to ${item.roomTarget}`);
                 } else {
                     logger.warn(`[sender] No joined room for ${item.roomTarget}, will retry later`);
                 }

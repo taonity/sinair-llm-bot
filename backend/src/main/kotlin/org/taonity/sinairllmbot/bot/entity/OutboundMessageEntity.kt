@@ -22,7 +22,6 @@ class OutboundMessageEntity(
     val id: String? = null,
     val roomTarget: String,
     val messageText: String,
-    /** External id of the message this reply reacts to, for traceability. */
     val replyToExternalId: String? = null,
     @Enumerated(EnumType.STRING)
     var status: OutboundStatus = OutboundStatus.PENDING,
