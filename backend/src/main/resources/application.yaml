@@ -17,7 +17,6 @@ app:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
     timeout-seconds: 60
-    referer: https://sinair.net
     title: sinair-llm-bot
     active-reply-tier: cheap
     gate-tier: gate

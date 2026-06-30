@@ -17,8 +17,7 @@ data class LlmProperties(
     val baseUrl: String,
     val apiKey: String,
     val timeoutSeconds: Long,
-    /** Optional OpenRouter attribution headers. */
-    val referer: String?,
+    /** Optional OpenRouter attribution header. */
     val title: String?,
     /** Which tier generates replies: "cheap" or "smart". */
     val activeReplyTier: String,

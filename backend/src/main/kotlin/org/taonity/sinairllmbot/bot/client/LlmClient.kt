@@ -47,7 +47,6 @@ class LlmClient(
                 .headers { headers ->
                     headers.setBearerAuth(llmProperties.apiKey)
                     headers.contentType = MediaType.APPLICATION_JSON
-                    llmProperties.referer?.let { headers.set("HTTP-Referer", it) }
                     llmProperties.title?.let { headers.set("X-Title", it) }
                 }
                 .body(request)

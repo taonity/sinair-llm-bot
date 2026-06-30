@@ -37,12 +37,23 @@ class RoomSummaryService(
     /** Refreshes the summary if enough new messages have arrived since the last refresh. */
     @Transactional
     fun refreshIfStale(roomTarget: String) {
+        refreshInternal(roomTarget, force = false)
+    }
+
+    /** Forces a summary refresh regardless of message count. Used before retention cleanup. */
+    @Transactional
+    fun forceRefresh(roomTarget: String) {
+        refreshInternal(roomTarget, force = true)
+    }
+
+    private fun refreshInternal(roomTarget: String, force: Boolean) {
         val existing = roomSummaryRepository.findByRoomTarget(roomTarget)
         val totalMessages = chatMessageRepository.countByRoomTarget(roomTarget).toInt()
         val sinceLast = totalMessages - (existing?.messageCount ?: 0)
-        if (existing != null && sinceLast < botProperties.context.summaryRefreshEveryMessages) {
+        if (!force && existing != null && sinceLast < botProperties.context.summaryRefreshEveryMessages) {
             return
         }
+        if (sinceLast == 0) return
 
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 60)
         if (transcript.isBlank()) return
