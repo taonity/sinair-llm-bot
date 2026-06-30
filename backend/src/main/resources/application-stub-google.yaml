@@ -10,15 +10,52 @@ spring:
             redirect-uri: http://127.0.0.1:8080/login/oauth2/code/google-sinair-llm-bot
             authorization-grant-type: authorization_code
             scope: profile,email
+          stub-alice:
+            provider: google-stub-alice
+            client-id: stub-google-client-id
+            client-secret: stub-google-client-secret
+            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/stub-alice
+            authorization-grant-type: authorization_code
+            scope: profile,email
+          stub-bob:
+            provider: google-stub-bob
+            client-id: stub-google-client-id
+            client-secret: stub-google-client-secret
+            redirect-uri: http://127.0.0.1:8080/login/oauth2/code/stub-bob
+            authorization-grant-type: authorization_code
+            scope: profile,email
         provider:
           google:
             authorization-uri: http://127.0.0.1:9561/oauth2/authorize
             token-uri: http://127.0.0.1:9561/oauth2/token
             user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo
+          google-stub-alice:
+            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
+            token-uri: http://127.0.0.1:9561/oauth2/token
+            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo/alice
+            user-name-attribute: sub
+          google-stub-bob:
+            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
+            token-uri: http://127.0.0.1:9561/oauth2/token
+            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo/bob
+            user-name-attribute: sub
 
 app:
   default-success-url: http://127.0.0.1:3000
   login-url: http://127.0.0.1:3000
+  console:
+    owner-emails:
+      - test@example.com
+    admin-emails: []
+  # Dev-only: lets the frontend offer "log in as" shortcuts for the stub users above.
+  dev:
+    stub-logins:
+      - registration-id: google-sinair-llm-bot
+        label: Owner (test@example.com)
+      - registration-id: stub-alice
+        label: Alice (no access)
+      - registration-id: stub-bob
+        label: Bob (no access)
 
 logging:
   level:

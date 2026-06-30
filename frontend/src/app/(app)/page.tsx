@@ -5,6 +5,10 @@ import { fetchAuthenticatedUserStatus, requestLogout } from '@/lib/auth'
 import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import { getCookie } from '@/lib/cookies'
 import ErrorNotification from '@/components/ErrorNotification'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import DataConsole from '@/features/console/DataConsole'
+import { DevLoginSwitcher } from '@/features/console/DevLoginSwitcher'
 
 interface HelloResponse {
   message: string
@@ -48,34 +52,32 @@ export default function Home() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="page-container">
-        <p>Loading...</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="page-container">
-      {error && (
-        <ErrorNotification message={error} onClose={() => setError(null)} />
-      )}
-
-      {hello && (
-        <>
-          <h1>{hello.message}</h1>
-          <p>Email: {hello.email}</p>
-          <button className="logout-button" onClick={handleLogout}>
+    <div className="flex justify-center px-6 py-4">
+      <div className="w-full max-w-[1200px]">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="text-lg font-semibold">Data console</span>
+            {loading ? (
+              <Skeleton className="h-4 w-40" />
+            ) : (
+              hello && (
+                <span className="truncate text-sm text-muted-foreground">{hello.email}</span>
+              )
+            )}
+          </div>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
             Log out
-          </button>
-          <hr style={{ marginTop: '1.5rem' }} />
-          <p style={{ color: '#666', fontSize: '0.9rem' }}>
-            This is a template project with Google OAuth2 authentication.
-            Edit this page to start building your app.
-          </p>
-        </>
-      )}
+          </Button>
+        </header>
+
+        <main className="pt-4">
+          {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
+          {!loading && hello && <DataConsole />}
+        </main>
+      </div>
+      {!loading && hello && <DevLoginSwitcher />}
     </div>
   )
 }
+

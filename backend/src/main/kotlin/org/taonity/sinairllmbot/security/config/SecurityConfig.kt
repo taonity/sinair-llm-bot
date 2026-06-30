@@ -39,6 +39,7 @@ class SecurityConfig(
                     .requestMatchers(
                         "/actuator/**",
                         "/",
+                        "/dev/**",
                         "/api/chat/ingest",
                         "/api/chat/outbound",
                         "/api/chat/outbound/**"

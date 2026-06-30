@@ -20,16 +20,16 @@ class ControllerTestsBaseClass {
     @Autowired
     lateinit var mockMvc: MockMvc
 
-    fun authorizeOAuth2(): MockHttpSession {
+    fun authorizeOAuth2(registrationId: String = "google-sinair-llm-bot"): MockHttpSession {
         val session = MockHttpSession()
         val authResult = mockMvc.perform(
-            get("/oauth2/authorization/google-sinair-llm-bot").session(session)
+            get("/oauth2/authorization/$registrationId").session(session)
         )
             .andExpect(status().is3xxRedirection)
             .andReturn()
         val state = getState(authResult)
         mockMvc.perform(
-            get("/login/oauth2/code/google-sinair-llm-bot")
+            get("/login/oauth2/code/$registrationId")
                 .session(session)
                 .param("code", "stub-auth-code")
                 .param("state", state)

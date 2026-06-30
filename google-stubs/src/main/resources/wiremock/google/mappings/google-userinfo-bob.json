@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/oauth2/v3/userinfo/bob"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "sub": "google-user-bob",
+      "name": "Bob Tester",
+      "given_name": "Bob",
+      "family_name": "Tester",
+      "email": "bob@example.com",
+      "email_verified": true,
+      "picture": "https://lh3.googleusercontent.com/a/default-user"
+    }
+  }
+}

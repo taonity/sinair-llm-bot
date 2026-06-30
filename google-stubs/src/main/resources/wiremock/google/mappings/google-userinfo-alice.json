@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/oauth2/v3/userinfo/alice"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "sub": "google-user-alice",
+      "name": "Alice Tester",
+      "given_name": "Alice",
+      "family_name": "Tester",
+      "email": "alice@example.com",
+      "email_verified": true,
+      "picture": "https://lh3.googleusercontent.com/a/default-user"
+    }
+  }
+}

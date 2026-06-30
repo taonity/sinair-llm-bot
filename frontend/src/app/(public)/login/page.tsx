@@ -5,6 +5,7 @@ import { checkBackendLiveness } from '@/lib/auth'
 import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import { getCookie, deleteCookie } from '@/lib/cookies'
 import ErrorNotification from '@/components/ErrorNotification'
+import { DevLoginSwitcher } from '@/features/console/DevLoginSwitcher'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   UNAUTHORIZED_ACCOUNT: 'Your account is not authorized to access this application.',
@@ -86,6 +87,7 @@ export default function LoginPage() {
           {isChecking ? 'Checking...' : 'Sign in with Google'}
         </button>
       </div>
+      <DevLoginSwitcher />
     </div>
   )
 }

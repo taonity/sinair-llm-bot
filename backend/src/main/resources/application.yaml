@@ -13,6 +13,11 @@ app:
   cookie:
     secure: ${COOKIE_SECURE:true}
     same-site: ${COOKIE_SAME_SITE:Lax}
+  console:
+    # Comma-separated list of Google account emails bootstrapped as data-console owners on login.
+    owner-emails: ${CONSOLE_OWNER_EMAILS:}
+    # Comma-separated list of Google account emails bootstrapped as data-console admins on login.
+    admin-emails: ${CONSOLE_ADMIN_EMAILS:}
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}

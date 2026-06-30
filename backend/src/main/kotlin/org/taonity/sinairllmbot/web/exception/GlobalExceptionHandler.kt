@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import org.taonity.sinairllmbot.console.exception.ConsoleForbiddenException
+import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -24,6 +26,20 @@ class GlobalExceptionHandler {
         LOGGER.error(e) { "Unhandled exception" }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ServerErrorResponse(ServerErrorCode.UNKNOWN))
+    }
+
+    @ExceptionHandler(ConsoleForbiddenException::class)
+    fun handleConsoleForbidden(e: ConsoleForbiddenException): ResponseEntity<ClientErrorResponse> {
+        LOGGER.debug(e) { "Console access forbidden" }
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(ClientErrorResponse(ClientErrorCode.FORBIDDEN, e.message ?: "Forbidden"))
+    }
+
+    @ExceptionHandler(ConsoleNotFoundException::class)
+    fun handleConsoleNotFound(e: ConsoleNotFoundException): ResponseEntity<ClientErrorResponse> {
+        LOGGER.debug(e) { "Console resource not found" }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ClientErrorResponse(ClientErrorCode.NOT_FOUND, e.message ?: "Not found"))
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)

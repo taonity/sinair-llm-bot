@@ -1,5 +1,6 @@
 package org.taonity.sinairllmbot.bot.repository
 
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
@@ -10,6 +11,8 @@ import java.time.Instant
 
 @Repository
 interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, String> {
+    fun findByRoomTarget(roomTarget: String, pageable: Pageable): Page<OutboundMessageEntity>
+
     fun findByRoomTargetAndStatusOrderByCreatedAtAsc(
         roomTarget: String,
         status: OutboundStatus,
