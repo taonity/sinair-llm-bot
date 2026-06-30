@@ -29,9 +29,16 @@ class LlmClient(
      * Runs a completion against the given tier.
      *
      * @param forceJson when true, asks the provider to constrain output to a JSON object.
+     * @param webSearch when true, attaches OpenRouter's web-search plugin so the model can ground
+     *                  its answer in live results (adds latency and per-search cost).
      * @return the assistant text content, or null on any failure (caller decides how to degrade).
      */
-    fun complete(tierName: String, messages: List<ChatMessage>, forceJson: Boolean = false): LlmResult? {
+    fun complete(
+        tierName: String,
+        messages: List<ChatMessage>,
+        forceJson: Boolean = false,
+        webSearch: Boolean = false,
+    ): LlmResult? {
         val tier = llmProperties.tier(tierName)
         val request = ChatCompletionRequest(
             model = tier.model,
@@ -39,6 +46,7 @@ class LlmClient(
             temperature = tier.temperature,
             maxTokens = tier.maxTokens,
             responseFormat = if (forceJson) ResponseFormat.JSON_OBJECT else null,
+            plugins = if (webSearch) listOf(Plugin.web(llmProperties.webSearchMaxResults)) else null,
         )
 
         return try {

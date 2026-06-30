@@ -33,7 +33,7 @@ class InterestClassifier(
         val system = buildString {
             append("You decide whether a chat bot named '").append(botProperties.persona.name)
             append("' should jump into a ").append(botProperties.persona.language)
-            append(" tech group chat right now. Reply only when the bot can add something valuable, ")
+            append(" group chat right now. Reply only when the bot can add something valuable, ")
             append("funny, or a strong opinion — not for small talk or to state the obvious. ")
             append("Respond with a JSON object: {\"respond\": boolean, \"reason\": string}. ")
             append("Default to respond=false.")

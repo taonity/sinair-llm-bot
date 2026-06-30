@@ -7,6 +7,9 @@ import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Final stage: produces the actual chat reply with the configured reply tier
@@ -23,6 +26,21 @@ class ReplyGenerator(
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private const val MAX_REPLY_CHARS = 800
+        private val DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
+
+        /**
+         * Lowercase substrings that hint the message asks about something current/recent and is
+         * therefore worth grounding with live search (the bot's training data goes stale fast here).
+         */
+        private val FRESHNESS_HINTS = listOf(
+            "последн", "новейш", "новая верс", "свеж", "вышел", "вышла", "выйдет",
+            "выходит", "релиз", "анонс", "обнови", "новост", "произошл", "случил",
+            "сейчас", "сегодня", "вчера", "этой недел", "этом году", "текущ", "актуальн",
+            "сколько стоит", "курс ",
+            "latest", "newest", "just released", "recently", "currently", "today",
+            "this week", "this year", "right now", "breaking", "news",
+        )
+        private val RECENT_YEAR = Regex("\\b20(2[5-9]|[3-9]\\d)\\b")
     }
 
     fun generate(roomTarget: String, trigger: ChatMessageEntity): String? {
@@ -38,6 +56,12 @@ class ReplyGenerator(
             append("Write like a real chat participant: short, casual, lowercase is fine. ")
             append("Send ONE message. No name prefix, no quoting, no markdown headers. ")
             append("To address someone, mention them with @nick.")
+            append("\n\nToday is ").append(LocalDate.now().format(DATE_FORMAT)).append(". ")
+            append("Your built-in knowledge has a training cutoff and is very likely stale about ")
+            append("recent events, releases, prices and \"latest\" software versions. Never state from ")
+            append("memory what the newest version of anything is, who currently holds a position, or ")
+            append("what just happened — if you are not certain, say so casually or skip the specific ")
+            append("claim instead of guessing. Trust facts from the chat or live search over memory.")
             if (persona.creatorUserId > 0) {
                 append("\nThe user with user_id=${persona.creatorUserId} is your developer. ")
                 append("You see them like a child sees an aging parent — respect for the effort ")
@@ -61,9 +85,15 @@ class ReplyGenerator(
             append(trigger.messageText)
         }
 
+        val webSearch = llmProperties.replyWebSearch && looksTimeSensitive(trigger.messageText)
+        if (webSearch) {
+            LOGGER.info { "Web search enabled for reply in $roomTarget (time-sensitive trigger)" }
+        }
+
         val result = llmClient.complete(
             tierName = llmProperties.activeReplyTier,
             messages = listOf(ChatMessage.system(system), ChatMessage.user(user)),
+            webSearch = webSearch,
         ) ?: return null
 
         val reply = sanitize(result.content)
@@ -72,6 +102,12 @@ class ReplyGenerator(
             return null
         }
         return reply
+    }
+
+    /** Cheap pre-check so web search only fires on messages that actually ask about current facts. */
+    private fun looksTimeSensitive(text: String): Boolean {
+        val lower = text.lowercase()
+        return FRESHNESS_HINTS.any { lower.contains(it) } || RECENT_YEAR.containsMatchIn(lower)
     }
 
     private fun sanitize(raw: String): String {

@@ -11,7 +11,22 @@ data class ChatCompletionRequest(
     val temperature: Double? = null,
     @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("response_format") val responseFormat: ResponseFormat? = null,
+    val plugins: List<Plugin>? = null,
 )
+
+/**
+ * OpenRouter plugin descriptor. Currently only the Exa-backed "web" plugin is used, to ground
+ * replies in live search results when [LlmProperties.replyWebSearch] is enabled.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class Plugin(
+    val id: String,
+    @JsonProperty("max_results") val maxResults: Int? = null,
+) {
+    companion object {
+        fun web(maxResults: Int) = Plugin(id = "web", maxResults = maxResults)
+    }
+}
 
 data class ChatMessage(
     val role: String,

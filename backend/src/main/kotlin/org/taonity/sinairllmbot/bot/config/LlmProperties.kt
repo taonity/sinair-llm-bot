@@ -21,6 +21,10 @@ data class LlmProperties(
     val activeReplyTier: String,
     val gateTier: String,
     val tiers: Map<String, Tier>,
+    /** When true, reply generation grounds the model with OpenRouter's web-search plugin. */
+    val replyWebSearch: Boolean = false,
+    /** Number of web results to fetch when web search is enabled (drives per-call search cost). */
+    val webSearchMaxResults: Int = 3,
 ) {
     data class Tier(
         val model: String,

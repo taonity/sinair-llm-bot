@@ -81,7 +81,7 @@ class RoomSummaryService(
         val instruction = buildString {
             append("You maintain a running summary of a ")
             append(botProperties.persona.language)
-            append(" tech group chat. ")
+            append(" group chat. ")
             append("Update the summary using the previous summary and the new transcript. ")
             append("Capture recurring topics, ongoing debates, who tends to argue which side, and notable facts. ")
             append("Be concise (max $maxChars characters). Write the summary in ")
