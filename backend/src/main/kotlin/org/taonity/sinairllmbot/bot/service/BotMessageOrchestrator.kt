@@ -24,7 +24,7 @@ class BotMessageOrchestrator(
     private val botProperties: BotProperties,
     private val botDebouncer: BotDebouncer,
     private val heuristicGate: HeuristicGate,
-    private val interestClassifier: InterestClassifier,
+    private val messageTriageService: MessageTriageService,
     private val replyGenerator: ReplyGenerator,
     private val roomSummaryService: RoomSummaryService,
     private val cooldownTracker: BotCooldownTracker,
@@ -76,15 +76,21 @@ class BotMessageOrchestrator(
 
             if (mutedRoomRegistry.isMuted(roomTarget)) return
 
+            if (gateDecision == GateDecision.IGNORE) return
+            if (!cooldownTracker.canReply(roomTarget)) return
+
+            // One cheap triage call decides indirect-addressing (respond) and freshness need at once.
+            val triage = messageTriageService.assess(roomTarget)
+
             val shouldReply = when (gateDecision) {
-                GateDecision.IGNORE -> false
-                GateDecision.REPLY_NOW -> cooldownTracker.canReply(roomTarget)
-                GateDecision.MAYBE -> decideAmbiguous(roomTarget)
-                GateDecision.STOP_BOT, GateDecision.START_BOT -> false
+                GateDecision.REPLY_NOW -> true
+                GateDecision.MAYBE ->
+                    triage.respond || Random.nextDouble() < botProperties.decision.spontaneousProbability
+                GateDecision.IGNORE, GateDecision.STOP_BOT, GateDecision.START_BOT -> false
             }
             if (!shouldReply) return
 
-            val reply = replyGenerator.generate(roomTarget, trigger) ?: return
+            val reply = replyGenerator.generate(roomTarget, trigger, triage.needsFreshInfo) ?: return
 
             outboundMessageRepository.save(
                 OutboundMessageEntity(
@@ -104,11 +110,4 @@ class BotMessageOrchestrator(
         chatMessageRepository
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, 5))
             .firstOrNull { !it.senderLogin.equals(botProperties.persona.name, ignoreCase = true) }
-
-    private fun decideAmbiguous(roomTarget: String): Boolean {
-        if (!cooldownTracker.canReply(roomTarget)) return false
-        val verdict = interestClassifier.shouldRespond(roomTarget)
-        if (verdict.respond) return true
-        return Random.nextDouble() < botProperties.decision.spontaneousProbability
-    }
 }

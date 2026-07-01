@@ -43,7 +43,12 @@ class ReplyGenerator(
         private val RECENT_YEAR = Regex("\\b20(2[5-9]|[3-9]\\d)\\b")
     }
 
-    fun generate(roomTarget: String, trigger: ChatMessageEntity): String? {
+    /**
+     * @param needsFreshInfo the cheap triage stage's judgment that answering requires up-to-date
+     *   information. Combined (union) with the keyword heuristic so obvious cases still trigger
+     *   even when the triage model is stingy; either signal enables live web search.
+     */
+    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsFreshInfo: Boolean = false): String? {
         val persona = botProperties.persona
         val presence = contextBuilder.presenceLine(roomTarget)
         val summary = roomSummaryService.currentSummary(roomTarget)
@@ -85,9 +90,11 @@ class ReplyGenerator(
             append(trigger.messageText)
         }
 
-        val webSearch = llmProperties.replyWebSearch && looksTimeSensitive(trigger.messageText)
+        val webSearch = llmProperties.replyWebSearch &&
+            (needsFreshInfo || looksTimeSensitive(trigger.messageText))
         if (webSearch) {
-            LOGGER.info { "Web search enabled for reply in $roomTarget (time-sensitive trigger)" }
+            val source = if (needsFreshInfo) "triage" else "heuristic"
+            LOGGER.info { "Web search enabled for reply in $roomTarget (fresh-info via $source)" }
         }
 
         val result = llmClient.complete(
