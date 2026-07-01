@@ -29,8 +29,9 @@ class LlmClient(
      * Runs a completion against the given tier.
      *
      * @param forceJson when true, asks the provider to constrain output to a JSON object.
-     * @param webSearch when true, attaches OpenRouter's web-search plugin so the model can ground
-     *                  its answer in live results (adds latency and per-search cost).
+     * @param webSearch when true, offers OpenRouter's `openrouter:web_search` server tool so the
+     *                  model can ground its answer in live results when it judges it useful (adds
+     *                  latency and per-search cost only when the model actually searches).
      * @return the assistant text content, or null on any failure (caller decides how to degrade).
      */
     fun complete(
@@ -46,7 +47,7 @@ class LlmClient(
             temperature = tier.temperature,
             maxTokens = tier.maxTokens,
             responseFormat = if (forceJson) ResponseFormat.JSON_OBJECT else null,
-            plugins = if (webSearch) listOf(Plugin.web(llmProperties.webSearchMaxResults)) else null,
+            tools = if (webSearch) listOf(Tool.webSearch()) else null,
         )
 
         return try {

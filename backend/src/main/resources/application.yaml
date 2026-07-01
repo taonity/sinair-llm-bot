@@ -25,12 +25,11 @@ app:
     title: sinair-llm-bot
     active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:smart}
     gate-tier: gate
-    # Web search (OpenRouter Exa-backed "web" plugin) for the reply tier. Off by default.
-    # When enabled it only fires on time-sensitive messages (asking about latest/recent/current
-    # facts), so most replies stay free; each searched reply adds ~$0.02
-    # (web-search-max-results x $4/1000 results) plus latency.
+    # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
+    # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
+    # current facts); within those, the model decides whether to actually search. Each performed
+    # search adds cost and latency.
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
-    web-search-max-results: 3
     tiers:
       gate:
         model: google/gemini-2.5-flash-lite

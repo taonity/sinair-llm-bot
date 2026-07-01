@@ -11,20 +11,20 @@ data class ChatCompletionRequest(
     val temperature: Double? = null,
     @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("response_format") val responseFormat: ResponseFormat? = null,
-    val plugins: List<Plugin>? = null,
+    val tools: List<Tool>? = null,
 )
 
 /**
- * OpenRouter plugin descriptor. Currently only the Exa-backed "web" plugin is used, to ground
- * replies in live search results when [LlmProperties.replyWebSearch] is enabled.
+ * OpenRouter tool descriptor. Currently only the built-in web-search server tool is used: offering
+ * it lets the model decide whether to fetch live, cited web results when grounding a reply (see
+ * [LlmProperties.replyWebSearch]). It replaces the deprecated `web` plugin / `:online` model suffix.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-data class Plugin(
-    val id: String,
-    @JsonProperty("max_results") val maxResults: Int? = null,
+data class Tool(
+    val type: String,
 ) {
     companion object {
-        fun web(maxResults: Int) = Plugin(id = "web", maxResults = maxResults)
+        fun webSearch() = Tool(type = "openrouter:web_search")
     }
 }
 
