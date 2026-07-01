@@ -32,6 +32,14 @@ interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, Strin
     )
     fun countOrderedBefore(createdAt: Instant, id: String): Long
 
+    @Query(
+        """
+        SELECT COUNT(m) FROM OutboundMessageEntity m
+        WHERE m.createdAt < :createdAt OR (m.createdAt = :createdAt AND m.id < :id)
+        """,
+    )
+    fun countOrderedBeforeAsc(createdAt: Instant, id: String): Long
+
     fun findByRoomTargetAndStatusOrderByCreatedAtAsc(
         roomTarget: String,
         status: OutboundStatus,

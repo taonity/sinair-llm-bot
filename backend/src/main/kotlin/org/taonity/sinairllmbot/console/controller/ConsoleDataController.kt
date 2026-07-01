@@ -34,14 +34,16 @@ class ConsoleDataController(
         @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<ChatMessageDto> = consoleDataService.listChatMessages(principal, room, q, field, page, size)
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageResponse<ChatMessageDto> = consoleDataService.listChatMessages(principal, room, q, field, page, size, direction)
 
     @GetMapping("/chat-messages/{id}/page")
     fun locateChatMessage(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @PathVariable id: String,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageLocation = PageLocation(consoleDataService.locateChatMessagePage(principal, id, size))
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageLocation = PageLocation(consoleDataService.locateChatMessagePage(principal, id, size, direction))
 
     @DeleteMapping("/chat-messages/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -58,14 +60,16 @@ class ConsoleDataController(
         @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<ChatEventDto> = consoleDataService.listChatEvents(principal, room, q, field, page, size)
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageResponse<ChatEventDto> = consoleDataService.listChatEvents(principal, room, q, field, page, size, direction)
 
     @GetMapping("/chat-events/{id}/page")
     fun locateChatEvent(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @PathVariable id: String,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageLocation = PageLocation(consoleDataService.locateChatEventPage(principal, id, size))
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageLocation = PageLocation(consoleDataService.locateChatEventPage(principal, id, size, direction))
 
     @DeleteMapping("/chat-events/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -82,14 +86,16 @@ class ConsoleDataController(
         @RequestParam(required = false) field: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageResponse<OutboundMessageDto> = consoleDataService.listOutboundMessages(principal, room, q, field, page, size)
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageResponse<OutboundMessageDto> = consoleDataService.listOutboundMessages(principal, room, q, field, page, size, direction)
 
     @GetMapping("/outbound-messages/{id}/page")
     fun locateOutboundMessage(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @PathVariable id: String,
         @RequestParam(defaultValue = "25") size: Int,
-    ): PageLocation = PageLocation(consoleDataService.locateOutboundMessagePage(principal, id, size))
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageLocation = PageLocation(consoleDataService.locateOutboundMessagePage(principal, id, size, direction))
 
     @DeleteMapping("/outbound-messages/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

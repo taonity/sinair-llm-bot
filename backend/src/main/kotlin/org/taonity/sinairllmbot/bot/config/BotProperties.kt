@@ -24,6 +24,7 @@ data class BotProperties(
         val creatorUserId: Int,
         val stopCommand: String,
         val startCommand: String,
+        val aliases: List<String> = emptyList(),
     )
 
     data class Decision(

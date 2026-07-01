@@ -37,7 +37,7 @@ class HeuristicGate(
             return GateDecision.START_BOT
         }
 
-        if (isDirectlyAddressed(text, botName)) {
+        if (isDirectlyAddressed(text)) {
             return GateDecision.REPLY_NOW
         }
 
@@ -48,14 +48,27 @@ class HeuristicGate(
         return GateDecision.MAYBE
     }
 
-    private fun isDirectlyAddressed(text: String, botName: String): Boolean {
+    /**
+     * True when the message addresses the bot by its name or one of its [BotProperties.Persona.aliases].
+     *
+     * Matching is whole-word only: a trigger must be delimited by start/end of text, whitespace, an
+     * `@`/`>` opener or trailing punctuation. This prevents a trigger that merely appears inside an
+     * unrelated word (e.g. "сега" inside "сегатроника") from firing.
+     */
+    private fun isDirectlyAddressed(text: String): Boolean {
         val lower = text.lowercase()
-        val name = botName.lowercase()
-        // Mention (@name), or the message opens by naming the bot.
-        return lower.contains("@$name") ||
-            lower.startsWith(name) ||
-            Regex("(^|\\s|>)@?${Regex.escape(name)}([\\s,:!?]|$)").containsMatchIn(lower)
+        return triggerNames().any { trigger ->
+            lower.contains("@$trigger") || wordBoundaryRegex(trigger).containsMatchIn(lower)
+        }
     }
+
+    private fun triggerNames(): List<String> =
+        (listOf(botProperties.persona.name) + botProperties.persona.aliases)
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+
+    private fun wordBoundaryRegex(trigger: String): Regex =
+        Regex("(^|[\\s>@(\"'«])@?${Regex.escape(trigger)}([\\s,.:;!?)\"'»]|$)")
 
     private fun isNoise(text: String): Boolean {
         if (text.length < 2) return true

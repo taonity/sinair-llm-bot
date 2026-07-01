@@ -53,6 +53,9 @@ app:
       creator-user-id: ${BOT_CREATOR_USER_ID}
       stop-command: '!stop'
       start-command: '!start'
+      aliases:
+        - сега
+        - сегвульт
       prompt: >-
         You are a regular member of a small Russian-speaking group chat. You blend in as one of the
         regulars — just another person hanging out, never a feature, product or assistant. You happen
@@ -89,7 +92,7 @@ app:
       recent-message-count: 25
       summary-refresh-every-messages: 40
       max-summary-chars: 1500
-      max-message-chars: 600
+      max-message-chars: 1500
 
 management:
   endpoints:

@@ -37,6 +37,14 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
     )
     fun countOrderedBefore(sentAt: Instant, id: String): Long
 
+    @Query(
+        """
+        SELECT COUNT(m) FROM ChatMessageEntity m
+        WHERE m.sentAt < :sentAt OR (m.sentAt = :sentAt AND m.id < :id)
+        """,
+    )
+    fun countOrderedBeforeAsc(sentAt: Instant, id: String): Long
+
     @Query("SELECT DISTINCT m.roomTarget FROM ChatMessageEntity m WHERE m.sentAt < :cutoff")
     fun findDistinctRoomTargetBySentAtBefore(cutoff: Instant): List<String>
 

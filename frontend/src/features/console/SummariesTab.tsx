@@ -52,7 +52,7 @@ export function SummariesTab({
     return (
       <div className="flex flex-col gap-3">
         <Skeleton className="h-7 w-full max-w-xs" />
-        {Array.from({ length: 2 }).map((_, i) => (
+        {Array.from({ length: 1 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <Skeleton className="h-4 w-28" />

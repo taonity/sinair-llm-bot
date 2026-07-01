@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRightToLine, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowRightToLine, ArrowUpWideNarrow, RotateCw, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,14 +39,16 @@ export type Column<T> = {
 type DataTabProps<T> = {
   columns: Column<T>[]
   rowKey: (row: T) => string
-  load: (page: number, size: number, q?: string, field?: string) => Promise<PageResponse<T>>
+  load: (page: number, size: number, q?: string, field?: string, direction?: string) => Promise<PageResponse<T>>
   /** Resolves the page index where a searched row lives in the unfiltered list, enabling the jump action. */
-  locate?: (row: T, size: number) => Promise<number>
+  locate?: (row: T, size: number, direction?: string) => Promise<number>
   /** Reads the room name off a row so it can be shown once instead of as a per-row column. */
   roomAccessor?: (row: T) => string
   canEdit?: boolean
   onDelete?: (row: T) => Promise<unknown>
   emptyLabel: string
+  /** Label for the column the rows are ordered by (shown on the sort toggle). Defaults to "time". */
+  sortLabel?: string
   onError: (message: string) => void
 }
 
@@ -74,6 +76,7 @@ export function DataTab<T>({
   canEdit = false,
   onDelete,
   emptyLabel,
+  sortLabel = 'time',
   onError,
 }: DataTabProps<T>) {
   const [page, setPage] = useState(0)
@@ -83,16 +86,17 @@ export function DataTab<T>({
   const [query, setQuery] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [field, setField] = useState('all')
+  const [direction, setDirection] = useState<'desc' | 'asc'>('desc')
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [jumpingId, setJumpingId] = useState<string | null>(null)
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const reload = useCallback(
-    async (targetPage: number, targetSize: number, q: string, searchField: string) => {
+    async (targetPage: number, targetSize: number, q: string, searchField: string, dir: string) => {
       setLoading(true)
       try {
-        const result = await load(targetPage, targetSize, q.trim() || undefined, searchField)
+        const result = await load(targetPage, targetSize, q.trim() || undefined, searchField, dir)
         setData(result)
         setPage(result.page)
       } catch {
@@ -105,10 +109,10 @@ export function DataTab<T>({
   )
 
   // Initial load only. Subsequent loads are triggered explicitly by user actions
-  // (search, paging, page-size, jump) so that a programmatic search-clear during a
+  // (search, paging, page-size, sort, jump) so that a programmatic search-clear during a
   // jump can't reset the page back to 0.
   useEffect(() => {
-    void reload(0, DEFAULT_PAGE_SIZE, '', 'all')
+    void reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
   }, [reload])
 
   useEffect(
@@ -125,20 +129,26 @@ export function DataTab<T>({
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       setActiveQuery(value)
-      void reload(0, size, value, field)
+      void reload(0, size, value, field, direction)
     }, 300)
   }
 
   const onFieldChange = (next: string) => {
     setField(next)
     if (activeQuery.trim()) {
-      void reload(0, size, activeQuery, next)
+      void reload(0, size, activeQuery, next, direction)
     }
   }
 
   const onSizeChange = (next: number) => {
     setSize(next)
-    void reload(0, next, activeQuery, field)
+    void reload(0, next, activeQuery, field, direction)
+  }
+
+  const onToggleDirection = () => {
+    const next = direction === 'desc' ? 'asc' : 'desc'
+    setDirection(next)
+    void reload(0, size, activeQuery, field, next)
   }
 
   const searching = activeQuery.trim().length > 0
@@ -153,7 +163,7 @@ export function DataTab<T>({
     if (!confirm('Delete this row? This action cannot be undone.')) return
     try {
       await onDelete(row)
-      await reload(page, size, activeQuery, field)
+      await reload(page, size, activeQuery, field, direction)
     } catch {
       onError('Failed to delete row.')
     }
@@ -164,11 +174,11 @@ export function DataTab<T>({
     const id = rowKey(row)
     setJumpingId(id)
     try {
-      const targetPage = await locate(row, size)
+      const targetPage = await locate(row, size, direction)
       if (searchTimer.current) clearTimeout(searchTimer.current)
       setQuery('')
       setActiveQuery('')
-      await reload(targetPage, size, '', field)
+      await reload(targetPage, size, '', field, direction)
       setHighlightId(id)
       if (highlightTimer.current) clearTimeout(highlightTimer.current)
       highlightTimer.current = setTimeout(() => setHighlightId(null), 3000)
@@ -183,11 +193,16 @@ export function DataTab<T>({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {roomName && (
-            <Badge variant="outline" className="font-normal">
-              Room: {roomName}
-            </Badge>
-          )}
+          {roomAccessor &&
+            (roomName ? (
+              <Badge variant="outline" className="h-6 min-w-32 font-normal">
+                Room: {roomName}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="h-6 min-w-32 font-normal">
+                <Skeleton className="h-3 w-20" />
+              </Badge>
+            ))}
           {searchableColumns.length > 0 && (
             <Select
               items={{
@@ -222,15 +237,27 @@ export function DataTab<T>({
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => reload(page, size, activeQuery, field)}
-        >
-          <RotateCw className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={onToggleDirection}
+            title={`Sort by ${sortLabel}: ${direction === 'desc' ? 'newest first' : 'oldest first'}`}
+          >
+            {direction === 'desc' ? <ArrowDownWideNarrow /> : <ArrowUpWideNarrow />}
+            {direction === 'desc' ? 'Newest' : 'Oldest'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => reload(page, size, activeQuery, field, direction)}
+          >
+            <RotateCw className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border">
@@ -363,7 +390,7 @@ export function DataTab<T>({
             variant="outline"
             size="sm"
             disabled={loading || page <= 0}
-            onClick={() => reload(page - 1, size, activeQuery, field)}
+            onClick={() => reload(page - 1, size, activeQuery, field, direction)}
           >
             Previous
           </Button>
@@ -372,7 +399,7 @@ export function DataTab<T>({
             variant="outline"
             size="sm"
             disabled={loading || !data || page + 1 >= data.totalPages}
-            onClick={() => reload(page + 1, size, activeQuery, field)}
+            onClick={() => reload(page + 1, size, activeQuery, field, direction)}
           >
             Next
           </Button>

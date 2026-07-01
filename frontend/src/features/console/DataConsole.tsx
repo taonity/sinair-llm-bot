@@ -216,12 +216,17 @@ export default function DataConsole() {
             <DataTab<ChatMessage>
               columns={MESSAGE_COLUMNS}
               rowKey={(m) => m.id}
-              load={(page, size, q, field) => consoleApi.listChatMessages(page, size, q, field)}
-              locate={(m, size) => consoleApi.locateChatMessage(m.id, size).then((r) => r.page)}
+              load={(page, size, q, field, direction) =>
+                consoleApi.listChatMessages(page, size, q, field, direction)
+              }
+              locate={(m, size, direction) =>
+                consoleApi.locateChatMessage(m.id, size, direction).then((r) => r.page)
+              }
               roomAccessor={(m) => m.roomTarget}
               canEdit={canEdit}
               onDelete={(m) => consoleApi.deleteChatMessage(m.id)}
               emptyLabel="No chat messages."
+              sortLabel="sent time"
               onError={setError}
             />
           )}
@@ -232,12 +237,17 @@ export default function DataConsole() {
             <DataTab<ChatEvent>
               columns={EVENT_COLUMNS}
               rowKey={(e) => e.id}
-              load={(page, size, q, field) => consoleApi.listChatEvents(page, size, q, field)}
-              locate={(e, size) => consoleApi.locateChatEvent(e.id, size).then((r) => r.page)}
+              load={(page, size, q, field, direction) =>
+                consoleApi.listChatEvents(page, size, q, field, direction)
+              }
+              locate={(e, size, direction) =>
+                consoleApi.locateChatEvent(e.id, size, direction).then((r) => r.page)
+              }
               roomAccessor={(e) => e.roomTarget}
               canEdit={canEdit}
               onDelete={(e) => consoleApi.deleteChatEvent(e.id)}
               emptyLabel="No events."
+              sortLabel="event time"
               onError={setError}
             />
           )}
@@ -248,12 +258,17 @@ export default function DataConsole() {
             <DataTab<OutboundMessage>
               columns={OUTBOUND_COLUMNS}
               rowKey={(m) => m.id}
-              load={(page, size, q, field) => consoleApi.listOutboundMessages(page, size, q, field)}
-              locate={(m, size) => consoleApi.locateOutboundMessage(m.id, size).then((r) => r.page)}
+              load={(page, size, q, field, direction) =>
+                consoleApi.listOutboundMessages(page, size, q, field, direction)
+              }
+              locate={(m, size, direction) =>
+                consoleApi.locateOutboundMessage(m.id, size, direction).then((r) => r.page)
+              }
               roomAccessor={(m) => m.roomTarget}
               canEdit={canEdit}
               onDelete={(m) => consoleApi.deleteOutboundMessage(m.id)}
               emptyLabel="No outbound messages."
+              sortLabel="created time"
               onError={setError}
             />
           )}

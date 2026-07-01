@@ -83,30 +83,36 @@ export const consoleApi = {
   changeUserRole: (googleId: string, role: ConsoleRole) =>
     mutate<UserSummary>(`/users/${encodeURIComponent(googleId)}/role`, 'PUT', { role }),
 
-  listChatMessages: (page: number, size: number, q?: string, field?: string) =>
-    get<PageResponse<ChatMessage>>(buildListQuery('/chat-messages', page, size, q, field)),
+  listChatMessages: (page: number, size: number, q?: string, field?: string, direction?: string) =>
+    get<PageResponse<ChatMessage>>(buildListQuery('/chat-messages', page, size, q, field, direction)),
 
   deleteChatMessage: (id: string) => mutate(`/chat-messages/${encodeURIComponent(id)}`, 'DELETE'),
 
-  locateChatMessage: (id: string, size: number) =>
-    get<PageLocation>(`/chat-messages/${encodeURIComponent(id)}/page?size=${size}`),
+  locateChatMessage: (id: string, size: number, direction?: string) =>
+    get<PageLocation>(
+      `/chat-messages/${encodeURIComponent(id)}/page?size=${size}${direction ? `&direction=${direction}` : ''}`,
+    ),
 
-  listChatEvents: (page: number, size: number, q?: string, field?: string) =>
-    get<PageResponse<ChatEvent>>(buildListQuery('/chat-events', page, size, q, field)),
+  listChatEvents: (page: number, size: number, q?: string, field?: string, direction?: string) =>
+    get<PageResponse<ChatEvent>>(buildListQuery('/chat-events', page, size, q, field, direction)),
 
   deleteChatEvent: (id: string) => mutate(`/chat-events/${encodeURIComponent(id)}`, 'DELETE'),
 
-  locateChatEvent: (id: string, size: number) =>
-    get<PageLocation>(`/chat-events/${encodeURIComponent(id)}/page?size=${size}`),
+  locateChatEvent: (id: string, size: number, direction?: string) =>
+    get<PageLocation>(
+      `/chat-events/${encodeURIComponent(id)}/page?size=${size}${direction ? `&direction=${direction}` : ''}`,
+    ),
 
-  listOutboundMessages: (page: number, size: number, q?: string, field?: string) =>
-    get<PageResponse<OutboundMessage>>(buildListQuery('/outbound-messages', page, size, q, field)),
+  listOutboundMessages: (page: number, size: number, q?: string, field?: string, direction?: string) =>
+    get<PageResponse<OutboundMessage>>(buildListQuery('/outbound-messages', page, size, q, field, direction)),
 
   deleteOutboundMessage: (id: string) =>
     mutate(`/outbound-messages/${encodeURIComponent(id)}`, 'DELETE'),
 
-  locateOutboundMessage: (id: string, size: number) =>
-    get<PageLocation>(`/outbound-messages/${encodeURIComponent(id)}/page?size=${size}`),
+  locateOutboundMessage: (id: string, size: number, direction?: string) =>
+    get<PageLocation>(
+      `/outbound-messages/${encodeURIComponent(id)}/page?size=${size}${direction ? `&direction=${direction}` : ''}`,
+    ),
 
   listSummaries: () => get<RoomSummary[]>('/summaries'),
 
@@ -123,6 +129,7 @@ function buildListQuery(
   size: number,
   q?: string,
   field?: string,
+  direction?: string,
 ): string {
   const params = new URLSearchParams({ page: String(page), size: String(size) })
   if (q && q.trim()) {
@@ -130,6 +137,9 @@ function buildListQuery(
     if (field && field !== 'all') {
       params.set('field', field)
     }
+  }
+  if (direction) {
+    params.set('direction', direction)
   }
   return `${path}?${params.toString()}`
 }

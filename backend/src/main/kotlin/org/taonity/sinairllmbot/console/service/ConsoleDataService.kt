@@ -42,11 +42,14 @@ class ConsoleDataService(
         private const val MAX_PAGE_SIZE = 100
     }
 
-    private fun pageable(page: Int, size: Int, sortProperty: String) = PageRequest.of(
+    private fun pageable(page: Int, size: Int, sortProperty: String, direction: String) = PageRequest.of(
         page.coerceAtLeast(0),
         size.coerceIn(1, MAX_PAGE_SIZE),
-        Sort.by(Sort.Direction.DESC, sortProperty).and(Sort.by(Sort.Direction.DESC, "id")),
+        sortDirection(direction).let { dir -> Sort.by(dir, sortProperty).and(Sort.by(dir, "id")) },
     )
+
+    private fun sortDirection(direction: String?): Sort.Direction =
+        if (direction.equals("asc", ignoreCase = true)) Sort.Direction.ASC else Sort.Direction.DESC
 
     private fun pageIndexOf(rowsBefore: Long, size: Int): Int {
         val safeSize = size.coerceIn(1, MAX_PAGE_SIZE)
@@ -60,9 +63,10 @@ class ConsoleDataService(
         field: String?,
         page: Int,
         size: Int,
+        direction: String,
     ): PageResponse<ChatMessageDto> {
         accessGuard.requireView(principal)
-        val pageable = pageable(page, size, "sentAt")
+        val pageable = pageable(page, size, "sentAt", direction)
         val result: Page<ChatMessageEntity> = when {
             !q.isNullOrBlank() -> chatMessageRepository.search(q.trim(), field.orAllField(), pageable)
             room.isNullOrBlank() -> chatMessageRepository.findAll(pageable)
@@ -71,11 +75,15 @@ class ConsoleDataService(
         return PageResponse.of(result, ChatMessageDto::from)
     }
 
-    fun locateChatMessagePage(principal: GoogleUserPrincipal, id: String, size: Int): Int {
+    fun locateChatMessagePage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
         accessGuard.requireView(principal)
         val entity = chatMessageRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Chat message not found") }
-        val before = chatMessageRepository.countOrderedBefore(entity.sentAt, entity.id!!)
+        val before = if (sortDirection(direction) == Sort.Direction.ASC) {
+            chatMessageRepository.countOrderedBeforeAsc(entity.sentAt, entity.id!!)
+        } else {
+            chatMessageRepository.countOrderedBefore(entity.sentAt, entity.id!!)
+        }
         return pageIndexOf(before, size)
     }
 
@@ -96,9 +104,10 @@ class ConsoleDataService(
         field: String?,
         page: Int,
         size: Int,
+        direction: String,
     ): PageResponse<ChatEventDto> {
         accessGuard.requireView(principal)
-        val pageable = pageable(page, size, "eventTime")
+        val pageable = pageable(page, size, "eventTime", direction)
         val result: Page<ChatEventEntity> = when {
             !q.isNullOrBlank() -> chatEventRepository.search(q.trim(), field.orAllField(), pageable)
             room.isNullOrBlank() -> chatEventRepository.findAll(pageable)
@@ -107,11 +116,15 @@ class ConsoleDataService(
         return PageResponse.of(result, ChatEventDto::from)
     }
 
-    fun locateChatEventPage(principal: GoogleUserPrincipal, id: String, size: Int): Int {
+    fun locateChatEventPage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
         accessGuard.requireView(principal)
         val entity = chatEventRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Chat event not found") }
-        val before = chatEventRepository.countOrderedBefore(entity.eventTime, entity.id!!)
+        val before = if (sortDirection(direction) == Sort.Direction.ASC) {
+            chatEventRepository.countOrderedBeforeAsc(entity.eventTime, entity.id!!)
+        } else {
+            chatEventRepository.countOrderedBefore(entity.eventTime, entity.id!!)
+        }
         return pageIndexOf(before, size)
     }
 
@@ -132,9 +145,10 @@ class ConsoleDataService(
         field: String?,
         page: Int,
         size: Int,
+        direction: String,
     ): PageResponse<OutboundMessageDto> {
         accessGuard.requireView(principal)
-        val pageable = pageable(page, size, "createdAt")
+        val pageable = pageable(page, size, "createdAt", direction)
         val result: Page<OutboundMessageEntity> = when {
             !q.isNullOrBlank() -> outboundMessageRepository.search(q.trim(), field.orAllField(), pageable)
             room.isNullOrBlank() -> outboundMessageRepository.findAll(pageable)
@@ -143,11 +157,15 @@ class ConsoleDataService(
         return PageResponse.of(result, OutboundMessageDto::from)
     }
 
-    fun locateOutboundMessagePage(principal: GoogleUserPrincipal, id: String, size: Int): Int {
+    fun locateOutboundMessagePage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
         accessGuard.requireView(principal)
         val entity = outboundMessageRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Outbound message not found") }
-        val before = outboundMessageRepository.countOrderedBefore(entity.createdAt, entity.id!!)
+        val before = if (sortDirection(direction) == Sort.Direction.ASC) {
+            outboundMessageRepository.countOrderedBeforeAsc(entity.createdAt, entity.id!!)
+        } else {
+            outboundMessageRepository.countOrderedBefore(entity.createdAt, entity.id!!)
+        }
         return pageIndexOf(before, size)
     }
 

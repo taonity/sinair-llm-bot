@@ -36,6 +36,14 @@ interface ChatEventRepository : JpaRepository<ChatEventEntity, String> {
     )
     fun countOrderedBefore(eventTime: Instant, id: String): Long
 
+    @Query(
+        """
+        SELECT COUNT(e) FROM ChatEventEntity e
+        WHERE e.eventTime < :eventTime OR (e.eventTime = :eventTime AND e.id < :id)
+        """,
+    )
+    fun countOrderedBeforeAsc(eventTime: Instant, id: String): Long
+
     @Modifying
     fun deleteByEventTimeBefore(cutoff: Instant): Int
 }

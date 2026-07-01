@@ -1,7 +1,6 @@
 package org.taonity.sinairllmbot.bot.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PostConstruct
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
@@ -39,10 +38,6 @@ class BotMessageOrchestrator(
 
     private val mutedRooms: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    @PostConstruct
-    fun logConfig() {
-        LOGGER.info { "Bot config: enabled=${botProperties.enabled}, rooms=${botProperties.rooms}, name=${botProperties.persona.name}, debounce=${botProperties.decision.debounceSeconds}s, cooldown=${botProperties.decision.cooldownSeconds}s" }
-    }
 
     @Async
     fun onMessagesStored(storedMessages: List<ChatMessageEntity>) {
