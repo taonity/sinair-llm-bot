@@ -28,6 +28,13 @@ function loadEnv() {
 
 loadEnv();
 
+// Default location for the persisted session token when TOKEN_FILE isn't set explicitly.
+// Docker sets TOKEN_FILE to a mounted volume path; for local launches (Windows/macOS/Linux) we
+// resolve a writable, absolute path inside the collector folder, namespaced by the env profile
+// so the stub (dev:local) and prod (dev:prod) sessions don't clobber each other's token.
+const envProfile = envFile.replace(/^\.env\.?/, '') || 'default';
+const defaultTokenFile = resolve(__dirname, '..', `.session-token-${envProfile}`);
+
 export const config = {
     chatWsUrl: requireEnv('CHAT_WS_URL'),
     chatApiKey: requireEnv('CHAT_API_KEY'),
@@ -46,6 +53,14 @@ export const config = {
     // Grace period after restoreConnection() for the server's auto-rejoin (joinRoom) events
     // to arrive before we manually join any rooms that weren't restored.
     restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),
+    // File where the session token is persisted so an ungraceful restart (SIGKILL/crash) can
+    // reclaim the server-side "orphan" session instead of waiting out its timeout. In Docker this
+    // is a mounted volume path; locally it defaults to a profile-namespaced file in the collector
+    // folder. Best-effort (ignored) if the path isn't writable.
+    tokenFile: process.env.TOKEN_FILE || defaultTokenFile,
+    // Max time to wait for the WebSocket close handshake during graceful shutdown, so an
+    // unresponsive socket can't block past the orchestrator's stop grace period.
+    shutdownCloseTimeout: parseInt(process.env.SHUTDOWN_CLOSE_TIMEOUT || '3000', 10),
 };
 
 function requireEnv(name) {

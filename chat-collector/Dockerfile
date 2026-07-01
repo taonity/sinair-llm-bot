@@ -11,6 +11,10 @@ RUN npm ci --omit=dev
 
 COPY src/ ./src/
 
+# Directory for the persisted session token. Owned by `node` so the named volume mounted here
+# inherits writable ownership on first creation.
+RUN mkdir -p /data && chown node:node /data
+
 USER node
 
 CMD ["node", "src/index.js"]

@@ -57,6 +57,7 @@ services:
 volumes:
   volume-db:
   volume-db-backup:
+  volume-chat-collector:
 
 networks:
   backend:

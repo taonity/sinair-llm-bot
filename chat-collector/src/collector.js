@@ -1,4 +1,5 @@
 import { WsChat, WsChatEvents, UserStatus, MessageStyle } from '@iassasin/wschatapi';
+import { readFileSync, writeFileSync, rmSync } from 'fs';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
@@ -12,9 +13,40 @@ let reconnectTimeout = null;
 // disconnect debounce window, instead of opening a competing fresh login that collides
 // with the orphan and gets dropped.
 let sessionToken = null;
+// Set during graceful shutdown so we close cleanly and stop the reconnect loop.
+let shuttingDown = false;
 const roomsByTarget = new Map();
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Reads the persisted session token (best-effort). Returns null if absent or unreadable. */
+function loadToken() {
+    try {
+        return readFileSync(config.tokenFile, 'utf-8').trim() || null;
+    } catch {
+        return null;
+    }
+}
+
+/** Persists the session token so an ungraceful restart can restore the orphan (best-effort). */
+function saveToken(token) {
+    if (!token) return;
+    try {
+        writeFileSync(config.tokenFile, token, 'utf-8');
+    } catch (err) {
+        logger.warn(`[collector] Could not persist session token to ${config.tokenFile}: ${err?.message || err}`);
+    }
+}
+
+/** Drops the persisted token (used on graceful shutdown, when the server removes our session). */
+function clearToken() {
+    sessionToken = null;
+    try {
+        rmSync(config.tokenFile, { force: true });
+    } catch {
+        /* best-effort */
+    }
+}
 
 /** Sends a message to a joined room. Returns false if the room is not currently joined. */
 function sendChatMessage(target, text) {
@@ -63,7 +95,7 @@ export async function startCollector() {
         stopSender();
         stopPresence();
         roomsByTarget.clear();
-        scheduleReconnect();
+        if (!shuttingDown) scheduleReconnect();
     });
 
     chat.on(WsChatEvents.connectionError, (err) => {
@@ -131,16 +163,27 @@ export async function startCollector() {
         await chat.open();
 
         let restored = false;
+        if (!sessionToken) sessionToken = loadToken();
         if (sessionToken) {
             try {
                 logger.info('[collector] Restoring previous session (reclaiming orphan)...');
                 const auth = await chat.restoreConnection(sessionToken);
-                if (auth?.token) sessionToken = auth.token;
-                restored = true;
-                // Rooms from the restored session come back asynchronously via joinRoom
-                // events; give them a moment to populate before filling any gaps below.
-                await delay(config.restoreRejoinGrace);
-                logger.info('[collector] Session restored');
+                if (auth?.user_id) {
+                    // Revive succeeded: the server transferred our old session (user_id > 0)
+                    // and auto-rejoins its rooms via joinRoom events.
+                    restored = true;
+                    sessionToken = auth.token || sessionToken;
+                    saveToken(sessionToken);
+                    // Give the auto-rejoin joinRoom events a moment to populate roomsByTarget
+                    // before we fill any gaps below.
+                    await sleep(config.restoreRejoinGrace);
+                    logger.info(`[collector] Session restored (user_id=${auth.user_id})`);
+                } else {
+                    // Orphan already gone: the server silently handed us a fresh guest session
+                    // (user_id 0, no rooms). Fall through to a normal api-key auth below.
+                    logger.warn('[collector] Orphan expired (guest session returned); re-authenticating');
+                    sessionToken = null;
+                }
             } catch (err) {
                 logger.warn(`[collector] Session restore failed, re-authenticating: ${err?.info || err?.message || err}`);
                 sessionToken = null;
@@ -150,7 +193,8 @@ export async function startCollector() {
         if (!restored) {
             const auth = await chat.authByApiKey(config.chatApiKey);
             sessionToken = auth?.token || null;
-            logger.info('[collector] Authenticated successfully');
+            saveToken(sessionToken);
+            logger.info(`[collector] Authenticated successfully (user_id=${auth?.user_id ?? 'unknown'})`);
         }
 
         // Join any configured room not already joined. On a fresh auth this is all of them;
@@ -171,7 +215,7 @@ export async function startCollector() {
 }
 
 function scheduleReconnect() {
-    if (reconnectTimeout) return;
+    if (shuttingDown || reconnectTimeout) return;
     const delay = 10000;
     logger.info(`[collector] Reconnecting in ${delay / 1000}s...`);
     reconnectTimeout = setTimeout(async () => {
@@ -183,6 +227,34 @@ function scheduleReconnect() {
             scheduleReconnect();
         }
     }, delay);
+}
+
+/**
+ * Gracefully shuts the collector down: stops the reconnect loop and closes the chat socket with
+ * a normal (1000) close frame so the server removes our client immediately instead of leaving a
+ * lingering orphan that blocks the next start from reconnecting.
+ */
+export async function stopCollector() {
+    shuttingDown = true;
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
+    stopFlushTimer();
+    stopSender();
+    stopPresence();
+    if (chat?.connected) {
+        try {
+            // Bound the close so an unresponsive socket can't block past the stop grace period.
+            await Promise.race([chat.close(), sleep(config.shutdownCloseTimeout)]);
+            logger.info('[collector] Chat connection closed cleanly');
+        } catch (err) {
+            logger.warn(`[collector] Error closing chat connection: ${err?.message || err}`);
+        }
+    }
+    // The server removed our session on a clean (1000) close, so the token is now invalid.
+    clearToken();
+    roomsByTarget.clear();
 }
 
 function resolveMessageStyle(style) {
