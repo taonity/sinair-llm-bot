@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
 import { startSender, stopSender } from './sender.js';
+import { startPresence, stopPresence } from './presence.js';
 
 let chat = null;
 let reconnectTimeout = null;
@@ -13,6 +14,17 @@ function sendChatMessage(target, text) {
     const room = roomsByTarget.get(target);
     if (!room) return false;
     room.sendMessage(text);
+    return true;
+}
+
+/**
+ * Reflects the bot's presence in a joined room via the member away/back status toggle. Returns
+ * false if the room is not currently joined.
+ */
+function setRoomPresence(target, presence) {
+    const room = roomsByTarget.get(target);
+    if (!room) return false;
+    room.changeStatus(presence === 'back' ? UserStatus.back : UserStatus.away);
     return true;
 }
 
@@ -28,6 +40,7 @@ export async function startCollector() {
         logger.warn('[collector] Disconnected from chat server');
         stopFlushTimer();
         stopSender();
+        stopPresence();
         roomsByTarget.clear();
         scheduleReconnect();
     });
@@ -107,6 +120,7 @@ export async function startCollector() {
 
         startFlushTimer();
         startSender(sendChatMessage);
+        startPresence(setRoomPresence);
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
         scheduleReconnect();

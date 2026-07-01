@@ -9,7 +9,6 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
@@ -29,14 +28,13 @@ class BotMessageOrchestrator(
     private val replyGenerator: ReplyGenerator,
     private val roomSummaryService: RoomSummaryService,
     private val cooldownTracker: BotCooldownTracker,
+    private val mutedRoomRegistry: MutedRoomRegistry,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
-
-    private val mutedRooms: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
 
     @Async
@@ -64,19 +62,19 @@ class BotMessageOrchestrator(
             val gateDecision = heuristicGate.evaluate(trigger)
 
             if (gateDecision == GateDecision.STOP_BOT) {
-                mutedRooms.add(roomTarget)
+                mutedRoomRegistry.mute(roomTarget)
                 LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
                 return
             }
             if (gateDecision == GateDecision.START_BOT) {
-                val wasRemoved = mutedRooms.remove(roomTarget)
+                val wasRemoved = mutedRoomRegistry.unmute(roomTarget)
                 if (wasRemoved) {
                     LOGGER.info { "Bot un-muted in $roomTarget by @${trigger.senderLogin}" }
                 }
                 return
             }
 
-            if (roomTarget in mutedRooms) return
+            if (mutedRoomRegistry.isMuted(roomTarget)) return
 
             val shouldReply = when (gateDecision) {
                 GateDecision.IGNORE -> false

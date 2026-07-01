@@ -42,6 +42,7 @@ export const config = {
     botColor: '#cc3333',
     outboundUrl: process.env.OUTBOUND_URL || requireEnv('BACKEND_URL').replace(/\/ingest$/, '/outbound'),
     outboundPollInterval: parseInt(process.env.OUTBOUND_POLL_INTERVAL || '3000', 10),
+    presencePollInterval: parseInt(process.env.PRESENCE_POLL_INTERVAL || '5000', 10),
 };
 
 function requireEnv(name) {

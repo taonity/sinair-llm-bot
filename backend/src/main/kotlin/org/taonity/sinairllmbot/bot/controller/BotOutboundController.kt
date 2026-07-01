@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController
 import org.taonity.sinairllmbot.bot.dto.OutboundAckRequest
 import org.taonity.sinairllmbot.bot.dto.OutboundAckResponse
 import org.taonity.sinairllmbot.bot.dto.OutboundMessageDto
+import org.taonity.sinairllmbot.bot.dto.RoomPresenceDto
+import org.taonity.sinairllmbot.bot.service.BotPresenceService
 import org.taonity.sinairllmbot.bot.service.OutboundMessageService
 
 /**
@@ -19,6 +21,7 @@ import org.taonity.sinairllmbot.bot.service.OutboundMessageService
 @RequestMapping("/api/chat/outbound")
 class BotOutboundController(
     private val outboundMessageService: OutboundMessageService,
+    private val botPresenceService: BotPresenceService,
 ) {
     @GetMapping
     fun claim(
@@ -29,4 +32,8 @@ class BotOutboundController(
     @PostMapping("/ack")
     fun ack(@RequestBody request: OutboundAckRequest): OutboundAckResponse =
         OutboundAckResponse(outboundMessageService.acknowledge(request.ids))
+
+    /** Current online/offline presence per configured room, so the collector can reflect it in chat. */
+    @GetMapping("/presence")
+    fun presence(): List<RoomPresenceDto> = botPresenceService.allPresences()
 }
