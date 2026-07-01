@@ -43,6 +43,9 @@ export const config = {
     outboundUrl: process.env.OUTBOUND_URL || requireEnv('BACKEND_URL').replace(/\/ingest$/, '/outbound'),
     outboundPollInterval: parseInt(process.env.OUTBOUND_POLL_INTERVAL || '3000', 10),
     presencePollInterval: parseInt(process.env.PRESENCE_POLL_INTERVAL || '5000', 10),
+    // Grace period after restoreConnection() for the server's auto-rejoin (joinRoom) events
+    // to arrive before we manually join any rooms that weren't restored.
+    restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),
 };
 
 function requireEnv(name) {

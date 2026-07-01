@@ -7,7 +7,14 @@ import { startPresence, stopPresence } from './presence.js';
 
 let chat = null;
 let reconnectTimeout = null;
+// Session token returned by the last successful auth. On reconnect we use it with
+// restoreConnection() to reclaim the orphaned session the server keeps alive during its
+// disconnect debounce window, instead of opening a competing fresh login that collides
+// with the orphan and gets dropped.
+let sessionToken = null;
 const roomsByTarget = new Map();
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Sends a message to a joined room. Returns false if the room is not currently joined. */
 function sendChatMessage(target, text) {
@@ -15,6 +22,20 @@ function sendChatMessage(target, text) {
     if (!room) return false;
     room.sendMessage(text);
     return true;
+}
+
+/** Registers a joined room and (re)asserts the bot's nick/color in it. */
+function onRoomReady(room) {
+    roomsByTarget.set(room.target, room);
+    if (config.botColor) {
+        room.sendMessage(`/color ${config.botColor}`);
+        logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
+    }
+    if (config.botNick) {
+        room.sendMessage(`/nick ${config.botNick}`);
+        logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
+    }
+    logger.info(`[collector] Room ready: ${room.target}`);
 }
 
 /**
@@ -52,6 +73,13 @@ export async function startCollector() {
 
     chat.on(WsChatEvents.error, (err) => {
         logger.error('[collector] Chat error:', err);
+    });
+
+    // Fired when a room is joined without an explicit joinRoom() call, i.e. the rooms the
+    // server auto-rejoins us to after restoreConnection() reclaims the orphaned session.
+    chat.on(WsChatEvents.joinRoom, (room) => {
+        logger.info(`[collector] Auto-rejoined room after session restore: ${room.target}`);
+        onRoomReady(room);
     });
 
     chat.on(WsChatEvents.message, (room, msgobj) => {
@@ -101,21 +129,36 @@ export async function startCollector() {
 
     try {
         await chat.open();
-        await chat.authByApiKey(config.chatApiKey);
-        logger.info('[collector] Authenticated successfully');
 
+        let restored = false;
+        if (sessionToken) {
+            try {
+                logger.info('[collector] Restoring previous session (reclaiming orphan)...');
+                const auth = await chat.restoreConnection(sessionToken);
+                if (auth?.token) sessionToken = auth.token;
+                restored = true;
+                // Rooms from the restored session come back asynchronously via joinRoom
+                // events; give them a moment to populate before filling any gaps below.
+                await delay(config.restoreRejoinGrace);
+                logger.info('[collector] Session restored');
+            } catch (err) {
+                logger.warn(`[collector] Session restore failed, re-authenticating: ${err?.info || err?.message || err}`);
+                sessionToken = null;
+            }
+        }
+
+        if (!restored) {
+            const auth = await chat.authByApiKey(config.chatApiKey);
+            sessionToken = auth?.token || null;
+            logger.info('[collector] Authenticated successfully');
+        }
+
+        // Join any configured room not already joined. On a fresh auth this is all of them;
+        // after a restore it's only the rooms the server did not auto-rejoin us to.
         for (const roomTarget of config.chatRooms) {
+            if (roomsByTarget.has(roomTarget)) continue;
             const room = await chat.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
-            roomsByTarget.set(room.target, room);
-            if (config.botColor) {
-                room.sendMessage(`/color ${config.botColor}`);
-                logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
-            }
-            if (config.botNick) {
-                room.sendMessage(`/nick ${config.botNick}`);
-                logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
-            }
-            logger.info(`[collector] Joined room: ${room.target}`);
+            onRoomReady(room);
         }
 
         startFlushTimer();
