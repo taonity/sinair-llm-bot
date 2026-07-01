@@ -1,5 +1,6 @@
 package org.taonity.sinairllmbot.bot.service
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -35,6 +36,12 @@ class MessageTriageService(
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val JSON_FENCE = Regex("^```(?:json)?|```$", RegexOption.IGNORE_CASE)
+
+        // Salvage regexes: recover the two booleans even from truncated/misspelled JSON, so a
+        // response the model meant as respond=true is never silently downgraded to false. The
+        // `needs?FreshInfo` alternation tolerates the model dropping the 's'.
+        private val RESPOND_REGEX = Regex("\"respond\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
+        private val FRESH_REGEX = Regex("\"needs?FreshInfo\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
     }
 
     fun assess(roomTarget: String): TriageVerdict {
@@ -60,9 +67,9 @@ class MessageTriageService(
             append("that changes over time — latest software versions, current events, recent releases, ")
             append("prices, 'newest'/'current' anything, who holds a role right now, today's facts? ")
             append("TRUE if the answer depends on knowledge that may be outdated, FALSE otherwise.\n\n")
-            append("Respond with ONLY a JSON object: ")
+            append("Respond with ONLY a JSON object, booleans first: ")
             append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"reason\": string}. ")
-            append("Default respond=false.")
+            append("Keep reason to at most 6 words. Default respond=false.")
         }
         val raw = llmClient.complete(
             tierName = llmProperties.gateTier,
@@ -81,15 +88,30 @@ class MessageTriageService(
         return try {
             objectMapper.readValue(cleaned, TriageVerdict::class.java)
         } catch (exception: Exception) {
-            LOGGER.warn { "Failed to parse triage verdict: '$content' (${exception.message})" }
-            TriageVerdict(respond = false, reason = "parse-error")
+            salvage(cleaned) ?: run {
+                LOGGER.warn { "Failed to parse triage verdict: '$content' (${exception.message})" }
+                TriageVerdict(respond = false, reason = "parse-error")
+            }
         }
+    }
+
+    /**
+     * Best-effort recovery when strict JSON parsing fails (usually truncated output that hit the
+     * tier's token cap mid-string). Returns null only when not even `respond` can be recovered.
+     */
+    private fun salvage(text: String): TriageVerdict? {
+        val respond = RESPOND_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true)
+            ?: return null
+        val needsFresh = FRESH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
+        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh" }
+        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, reason = "salvaged")
     }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class TriageVerdict(
     val respond: Boolean = false,
+    @JsonAlias("needFreshInfo", "freshInfo", "needs_fresh_info", "need_fresh_info")
     val needsFreshInfo: Boolean = false,
     val reason: String = "",
 )
