@@ -3,6 +3,7 @@ server:
   forward-headers-strategy: native
   servlet:
     session:
+      timeout: 7d
       cookie:
         domain: ${SERVER_SERVLET_SESSION_COOKIE_DOMAIN}
         name: ${SERVER_SERVLET_SESSION_COOKIE_NAME}
