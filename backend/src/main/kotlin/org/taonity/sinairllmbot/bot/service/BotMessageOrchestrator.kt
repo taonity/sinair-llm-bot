@@ -29,6 +29,7 @@ class BotMessageOrchestrator(
     private val roomSummaryService: RoomSummaryService,
     private val cooldownTracker: BotCooldownTracker,
     private val mutedRoomRegistry: MutedRoomRegistry,
+    private val botSleepService: BotSleepService,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
 ) {
@@ -47,6 +48,7 @@ class BotMessageOrchestrator(
             .filterNot { it.senderLogin.equals(botProperties.persona.name, ignoreCase = true) }
             .map { it.roomTarget }
             .distinct()
+            .filterNot { botSleepService.isAsleep(it) }
             .forEach { roomTarget ->
                 botDebouncer.schedule(roomTarget) { evaluateRoom(roomTarget) }
             }

@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.chat.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.taonity.sinairllmbot.bot.service.BotMessageOrchestrator
+import org.taonity.sinairllmbot.bot.service.BotSleepService
 import org.taonity.sinairllmbot.chat.dto.ChatEventDto
 import org.taonity.sinairllmbot.chat.dto.ChatMessageDto
 import org.taonity.sinairllmbot.chat.dto.IngestRequest
@@ -21,7 +22,8 @@ import java.time.Instant
 class ChatIngestService(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
-    private val botMessageOrchestrator: BotMessageOrchestrator
+    private val botMessageOrchestrator: BotMessageOrchestrator,
+    private val botSleepService: BotSleepService
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -31,11 +33,18 @@ class ChatIngestService(
     fun ingest(request: IngestRequest): IngestResponse {
         var messagesStored = 0
         var messagesDuplicate = 0
+        var messagesIgnored = 0
         var eventsStored = 0
         var eventsDuplicate = 0
         val storedMessages = mutableListOf<ChatMessageEntity>()
 
         for (msg in request.messages) {
+            // Detect commands before the skip check so `!wake` can reach us while the room is asleep.
+            botSleepService.applyCommand(msg.roomTarget, msg.messageText, msg.senderLogin)
+            if (botSleepService.isAsleep(msg.roomTarget)) {
+                messagesIgnored++
+                continue
+            }
             val dedupKey = computeMessageDedupKey(msg)
             if (chatMessageRepository.existsByDedupKey(dedupKey)) {
                 messagesDuplicate++
@@ -86,7 +95,7 @@ class ChatIngestService(
             eventsStored++
         }
 
-        LOGGER.info { "Ingest complete: $messagesStored messages stored, $messagesDuplicate duplicates skipped, $eventsStored events stored, $eventsDuplicate duplicates skipped" }
+        LOGGER.info { "Ingest complete: $messagesStored messages stored, $messagesDuplicate duplicates skipped, $messagesIgnored ignored (asleep), $eventsStored events stored, $eventsDuplicate duplicates skipped" }
 
         // Run the bot pipeline only after the transaction commits, so the async worker sees the rows.
         if (storedMessages.isNotEmpty()) {

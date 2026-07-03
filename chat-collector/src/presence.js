@@ -2,18 +2,16 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 
 let pollTimer = null;
-// Last presence value applied per room, so we only push a status change when it actually changes.
-const applied = new Map();
+// Last presence/nick value applied per room, so we only push a change when it actually changes.
+const appliedStatus = new Map();
+const appliedNick = new Map();
 
 /**
- * Polls the backend for the bot's per-room presence (away/back) and reflects any change in chat
- * via the provided callback. Presence is driven by the bot's cooldown/mute state on the backend;
- * the reply debouncer does not affect it.
- *
- * @param {(roomTarget: string, presence: 'back' | 'away') => boolean} setRoomPresence
- *        Applies the presence to a joined room; returns false if the room is not joined yet.
+ * Polls the backend for the bot's per-room presence (away/back) and nick, applying any change via
+ * the callbacks. While a room is asleep (`!sleep`) the backend reports a `nickSuffix` so the bot is
+ * renamed (e.g. `segfault-zzz`).
  */
-export function startPresence(setRoomPresence) {
+export function startPresence(setRoomPresence, setRoomNick) {
     if (!config.botSendEnabled) {
         logger.info('[presence] Bot presence disabled (BOT_SEND_ENABLED=false)');
         return;
@@ -33,11 +31,19 @@ export function startPresence(setRoomPresence) {
 
             for (const item of presences) {
                 const desired = String(item.presence).toLowerCase();
-                if (applied.get(item.roomTarget) === desired) continue;
-                const delivered = setRoomPresence(item.roomTarget, desired);
-                if (delivered) {
-                    applied.set(item.roomTarget, desired);
-                    logger.info(`[presence] ${item.roomTarget} -> ${desired}`);
+                if (appliedStatus.get(item.roomTarget) !== desired) {
+                    if (setRoomPresence(item.roomTarget, desired)) {
+                        appliedStatus.set(item.roomTarget, desired);
+                        logger.info(`[presence] ${item.roomTarget} -> ${desired}`);
+                    }
+                }
+
+                const desiredNick = `${config.botNick}${item.nickSuffix || ''}`;
+                if (appliedNick.get(item.roomTarget) !== desiredNick) {
+                    if (setRoomNick(item.roomTarget, desiredNick)) {
+                        appliedNick.set(item.roomTarget, desiredNick);
+                        logger.info(`[presence] ${item.roomTarget} nick -> ${desiredNick}`);
+                    }
                 }
             }
         } catch (err) {
@@ -51,6 +57,7 @@ export function stopPresence() {
         clearInterval(pollTimer);
         pollTimer = null;
     }
-    // Force a fresh re-apply after a reconnect (the room status resets on rejoin).
-    applied.clear();
+    // Force a fresh re-apply after a reconnect (the room status/nick resets on rejoin).
+    appliedStatus.clear();
+    appliedNick.clear();
 }

@@ -63,6 +63,9 @@ app:
       creator-user-id: 0
       stop-command: '!stop'
       start-command: '!start'
+      sleep-command: '!sleep'
+      wake-command: '!wake'
+      sleep-nick-suffix: '-zzz'
       prompt: test persona
     decision:
       debounce-seconds: 6

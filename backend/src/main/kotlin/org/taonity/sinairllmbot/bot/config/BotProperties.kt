@@ -24,6 +24,9 @@ data class BotProperties(
         val creatorUserId: Int,
         val stopCommand: String,
         val startCommand: String,
+        val sleepCommand: String,
+        val wakeCommand: String,
+        val sleepNickSuffix: String,
         val aliases: List<String> = emptyList(),
     )
 
