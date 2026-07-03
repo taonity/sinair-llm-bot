@@ -28,14 +28,40 @@ data class Tool(
     }
 }
 
+/**
+ * A chat message whose [content] is either a plain [String] (the common case) or a [List] of
+ * [ContentPart]s for multimodal input (text + images). Both serialize correctly for the
+ * OpenAI/OpenRouter chat-completions API; responses always come back as a string.
+ */
 data class ChatMessage(
     val role: String,
-    val content: String,
+    val content: Any,
 ) {
     companion object {
         fun system(content: String) = ChatMessage("system", content)
         fun user(content: String) = ChatMessage("user", content)
         fun assistant(content: String) = ChatMessage("assistant", content)
+
+        /** Multimodal user message (e.g. grounding text plus one or more images). */
+        fun userParts(parts: List<ContentPart>) = ChatMessage("user", parts)
+    }
+}
+
+/**
+ * One part of a multimodal message: either `{"type":"text","text":...}` or
+ * `{"type":"image_url","image_url":{"url":...}}`. Images are passed as base64 `data:` URLs.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ContentPart(
+    val type: String,
+    val text: String? = null,
+    @JsonProperty("image_url") val imageUrl: ImageUrl? = null,
+) {
+    data class ImageUrl(val url: String)
+
+    companion object {
+        fun text(text: String) = ContentPart(type = "text", text = text)
+        fun imageUrl(url: String) = ContentPart(type = "image_url", imageUrl = ImageUrl(url))
     }
 }
 

@@ -44,6 +44,33 @@ app:
         model: anthropic/claude-sonnet-4
         temperature: 0.85
         max-tokens: 500
+      # Multimodal tier used when a reply must analyse an explicitly linked image (see app.ingestion).
+      vision:
+        model: google/gemini-2.5-flash
+        temperature: 0.7
+        max-tokens: 500
+  # URL-aware context ingestion: when a message contains a link, the bot deterministically fetches
+  # and cleans that source (GitHub README / web page / direct image) before answering, and grounds
+  # its reply in the extracted content. No caching in this MVP. SSRF-guarded and size-capped.
+  ingestion:
+    enabled: ${INGESTION_ENABLED:true}
+    max-urls-per-message: 3
+    fetch-timeout-seconds: 8
+    max-redirects: 4
+    max-page-bytes: 2000000
+    max-context-chars: 6000
+    max-chars-per-source: 4000
+    vision-tier: vision
+    image:
+      # Hard byte cap so a huge image can't be pulled in; https-only, private/internal hosts blocked.
+      max-bytes: 6000000
+      extensions:
+        - png
+        - jpg
+        - jpeg
+        - gif
+        - webp
+        - bmp
   bot:
     enabled: ${BOT_ENABLED}
     rooms: '${BOT_ROOMS}'

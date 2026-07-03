@@ -3,9 +3,13 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
+import org.taonity.sinairllmbot.bot.client.ContentPart
 import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.bot.ingestion.ContextBuilder
+import org.taonity.sinairllmbot.bot.ingestion.SourceIngestionService
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -14,6 +18,10 @@ import java.util.Locale
 /**
  * Final stage: produces the actual chat reply with the configured reply tier
  * (cheap by default, smart for testing — see app.llm.active-reply-tier).
+ *
+ * When the triggering message contains URLs, they are ingested up-front (fetched + cleaned) and
+ * their content is injected as grounded, source-cited context. A direct image link additionally
+ * routes the reply to the vision tier with the image attached.
  */
 @Service
 class ReplyGenerator(
@@ -22,6 +30,9 @@ class ReplyGenerator(
     private val roomSummaryService: RoomSummaryService,
     private val botProperties: BotProperties,
     private val llmProperties: LlmProperties,
+    private val sourceIngestionService: SourceIngestionService,
+    private val ingestionContextBuilder: ContextBuilder,
+    private val ingestionProperties: IngestionProperties,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -54,6 +65,13 @@ class ReplyGenerator(
         val summary = roomSummaryService.currentSummary(roomTarget)
         val transcript = contextBuilder.recentTranscript(roomTarget)
 
+        val sources = sourceIngestionService.ingestFrom(trigger.messageText)
+        val grounded = if (sources.isNotEmpty()) {
+            ingestionContextBuilder.build(sources, trigger.messageText)
+        } else {
+            null
+        }
+
         val system = buildString {
             append(persona.prompt.trim()).append("\n\n")
             append("Your chat nick is '").append(persona.name).append("'. ")
@@ -76,6 +94,17 @@ class ReplyGenerator(
                 append("(a fix, a new feature, help with a weird edge case) — ask them directly, ")
                 append("casually, like asking your dad to pass you a wrench.")
             }
+            if (grounded != null) {
+                append("\n\nSOURCE GROUNDING:\n")
+                append("Someone shared one or more links. Their fetched contents are provided below as ")
+                append("SOURCES (and any image is attached for you to look at). When answering about ")
+                append("those links, rely only on the provided source content and attached image — ")
+                append("mention which source (repo name, page title or url) a fact comes from when it ")
+                append("matters. If the sources don't contain the answer, say so plainly instead of ")
+                append("guessing; don't invent APIs, features, setup steps, pricing or details that ")
+                append("aren't there. Your read is README/page-level (and the image), not a full ")
+                append("source-code analysis — say so if it matters. Keep your normal casual voice.")
+            }
             if (summary.isNotBlank()) {
                 append("\n\nWHAT THIS CHAT IS ABOUT:\n").append(summary)
             }
@@ -86,20 +115,39 @@ class ReplyGenerator(
 
         val user = buildString {
             append("RECENT CONVERSATION:\n").append(transcript).append("\n\n")
+            if (grounded != null) {
+                append("SOURCES FROM THE SHARED LINK(S):\n").append(grounded.contextText).append("\n\n")
+            }
             append("Respond to this latest message from @").append(trigger.senderLogin).append(":\n")
             append(trigger.messageText)
         }
 
-        val webSearch = llmProperties.replyWebSearch &&
+        val hasImages = grounded?.hasImages == true
+        val webSearch = llmProperties.replyWebSearch && !hasImages &&
             (needsFreshInfo || looksTimeSensitive(trigger.messageText))
         if (webSearch) {
             val source = if (needsFreshInfo) "triage" else "heuristic"
             LOGGER.info { "Web search enabled for reply in $roomTarget (fresh-info via $source)" }
         }
 
+        val userMessage = if (hasImages) {
+            val parts = buildList {
+                add(ContentPart.text(user))
+                grounded!!.imageDataUrls.forEach { add(ContentPart.imageUrl(it)) }
+            }
+            ChatMessage.userParts(parts)
+        } else {
+            ChatMessage.user(user)
+        }
+
+        val tierName = if (hasImages) ingestionProperties.visionTier else llmProperties.activeReplyTier
+        if (hasImages) {
+            LOGGER.info { "Reply in $roomTarget uses vision tier '$tierName' for ${grounded!!.imageDataUrls.size} image(s)" }
+        }
+
         val result = llmClient.complete(
-            tierName = llmProperties.activeReplyTier,
-            messages = listOf(ChatMessage.system(system), ChatMessage.user(user)),
+            tierName = tierName,
+            messages = listOf(ChatMessage.system(system), userMessage),
             webSearch = webSearch,
         ) ?: return null
 

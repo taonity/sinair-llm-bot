@@ -62,7 +62,7 @@ class LlmClient(
                 .retrieve()
                 .body(ChatCompletionResponse::class.java)
 
-            val content = response?.choices?.firstOrNull()?.message?.content?.trim()
+            val content = (response?.choices?.firstOrNull()?.message?.content as? String)?.trim()
             if (content.isNullOrBlank()) {
                 LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
                 return null
