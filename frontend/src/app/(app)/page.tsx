@@ -53,9 +53,11 @@ export default function Home() {
   }
 
   return (
-    <div className="flex justify-center px-6 py-4">
+    <div className="flex justify-center px-3 py-4 sm:px-6">
       <div className="w-full max-w-[1200px]">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        {/* Reserve room for the fixed theme toggle until the viewport is wide enough that it
+            clears the centered content (~1300px), so Log out never sits under it. */}
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 pr-10 min-[1300px]:pr-0">
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="text-lg font-semibold">Data console</span>
             {loading ? (

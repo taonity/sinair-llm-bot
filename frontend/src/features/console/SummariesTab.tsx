@@ -78,7 +78,7 @@ export function SummariesTab({
         const dirty = (drafts[s.id] ?? '') !== s.summary
         return (
           <Card key={s.id}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
               <span className="font-medium">{s.roomTarget}</span>
               <span className="text-xs text-muted-foreground">
                 {s.messageCount} messages · updated {formatTime(s.updatedAt)}

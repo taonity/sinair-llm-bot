@@ -126,7 +126,7 @@ export function AdminPanel({
           )}
           {requests && requests.length > 0 && (
             <div className="overflow-hidden rounded-lg border">
-              <Table>
+              <Table className="min-w-[640px]">
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead>User</TableHead>
@@ -290,7 +290,7 @@ function UsersCard({
         )}
         {users && users.length > 0 && (
           <div className="overflow-hidden rounded-lg border">
-            <Table>
+            <Table className="min-w-[560px]">
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead>User</TableHead>

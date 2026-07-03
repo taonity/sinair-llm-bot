@@ -192,13 +192,39 @@ export default function DataConsole() {
 
   const canEdit = access.canEdit
 
+  const tabItems: Record<string, string> = {
+    messages: 'Messages',
+    events: 'Events',
+    outbound: 'Outbound',
+    summaries: 'Summaries',
+    ...(access.isAdmin ? { admin: 'Admin' } : {}),
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
 
       <Tabs value={tab} onValueChange={(v) => setTab((v ?? 'messages') as TabKey)}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList variant="line" className="h-9">
+        <div className="flex items-center justify-between gap-2">
+          {/* Mobile: compact dropdown keeps every tab one tap away without hidden horizontal scroll. */}
+          <Select
+            items={tabItems}
+            value={tab}
+            onValueChange={(v) => setTab((v ?? 'messages') as TabKey)}
+          >
+            <SelectTrigger size="sm" className="h-8 w-36 sm:hidden">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(tabItems).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Tablet and up: full tab bar. */}
+          <TabsList variant="line" className="hidden h-9 sm:flex">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="outbound">Outbound</TabsTrigger>

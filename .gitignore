@@ -52,3 +52,13 @@ h2_db.trace.db
 logs.log
 data
 be-logs.log
+
+### Runtime logs ###
+logs/
+
+### Playwright / Puppeteer ###
+.playwright-mcp/
+playwright-report/
+playwright/.cache/
+test-results/
+/screenshots/

@@ -191,7 +191,7 @@ export function DataTab<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {roomAccessor &&
             (roomName ? (
@@ -226,7 +226,7 @@ export function DataTab<T>({
             </Select>
           )}
           <Input
-            className="h-7 w-56"
+            className="h-7 w-full sm:w-56"
             placeholder="Search all rows…"
             value={query}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -261,7 +261,7 @@ export function DataTab<T>({
       </div>
 
       <div className="overflow-hidden rounded-lg border">
-        <Table className="table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50">
+        <Table className="min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50">
           <TableHeader>
             <TableRow className="bg-muted/40">
               {columns.map((c) => (
