@@ -8,7 +8,7 @@ describe('config', () => {
     it('should load all required env vars', async () => {
         vi.stubEnv('CHAT_WS_URL', 'ws://localhost:3001/ws/chat');
         vi.stubEnv('CHAT_API_KEY', 'test-key');
-        vi.stubEnv('CHAT_ROOMS', '#test,#dev');
+        vi.stubEnv('CHAT_ROOMS', '#test1,#dev');
         vi.stubEnv('BACKEND_URL', 'http://localhost:8080/api/chat/ingest');
         vi.stubEnv('BATCH_SIZE', '5');
         vi.stubEnv('BATCH_FLUSH_INTERVAL', '3000');
@@ -17,7 +17,7 @@ describe('config', () => {
 
         expect(config.chatWsUrl).toBe('ws://localhost:3001/ws/chat');
         expect(config.chatApiKey).toBe('test-key');
-        expect(config.chatRooms).toEqual(['#test', '#dev']);
+        expect(config.chatRooms).toEqual(['#test1', '#dev']);
         expect(config.backendUrl).toBe('http://localhost:8080/api/chat/ingest');
         expect(config.batchSize).toBe(5);
         expect(config.batchFlushInterval).toBe(3000);
@@ -42,7 +42,7 @@ describe('config', () => {
         vi.stubEnv('ENV_FILE', '.env.nonexistent');
         vi.stubEnv('CHAT_WS_URL', 'ws://localhost:3001/ws/chat');
         delete process.env.CHAT_API_KEY;
-        vi.stubEnv('CHAT_ROOMS', '#test');
+        vi.stubEnv('CHAT_ROOMS', '#test1');
         vi.stubEnv('BACKEND_URL', 'http://localhost:8080/api/chat/ingest');
         vi.stubEnv('BATCH_SIZE', '10');
         vi.stubEnv('BATCH_FLUSH_INTERVAL', '5000');
