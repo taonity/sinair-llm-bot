@@ -37,6 +37,10 @@ class OutboundMessageService(
             it.claimedAt = now
         }
         outboundMessageRepository.saveAll(pending)
+        if (pending.isNotEmpty()) {
+            val scope = if (roomTarget.isNullOrBlank()) "all rooms" else roomTarget
+            LOGGER.info { "Claimed ${pending.size} outbound messages ($scope) as CLAIMED" }
+        }
         return pending.map { it.toDto() }
     }
 
@@ -50,7 +54,9 @@ class OutboundMessageService(
             it.sentAt = now
         }
         outboundMessageRepository.saveAll(claimed)
-        LOGGER.info { "Acknowledged ${claimed.size} outbound messages as SENT" }
+        if (claimed.isNotEmpty()) {
+            LOGGER.info { "Acknowledged ${claimed.size} outbound messages as SENT" }
+        }
         return claimed.size
     }
 
