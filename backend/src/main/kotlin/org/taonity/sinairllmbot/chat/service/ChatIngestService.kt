@@ -9,8 +9,10 @@ import org.taonity.sinairllmbot.chat.dto.IngestRequest
 import org.taonity.sinairllmbot.chat.dto.IngestResponse
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.chat.entity.IgnoredMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -22,6 +24,7 @@ import java.time.Instant
 class ChatIngestService(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
+    private val ignoredMessageRepository: IgnoredMessageRepository,
     private val botMessageOrchestrator: BotMessageOrchestrator,
     private val botSleepService: BotSleepService
 ) {
@@ -39,14 +42,25 @@ class ChatIngestService(
         val storedMessages = mutableListOf<ChatMessageEntity>()
 
         for (msg in request.messages) {
-            // Detect commands before the skip check so `!wake` can reach us while the room is asleep.
-            botSleepService.applyCommand(msg.roomTarget, msg.messageText, msg.senderLogin)
-            if (botSleepService.isAsleep(msg.roomTarget)) {
-                messagesIgnored++
-                continue
-            }
             val dedupKey = computeMessageDedupKey(msg)
-            if (chatMessageRepository.existsByDedupKey(dedupKey)) {
+            // History-burst replays are recorded but never drive commands or bot replies.
+            if (!msg.historical) {
+                // Detect commands before the skip check so `!wake` can reach us while asleep.
+                botSleepService.applyCommand(msg.roomTarget, msg.messageText, msg.senderLogin)
+                if (botSleepService.isAsleep(msg.roomTarget)) {
+                    // Tombstone the id so the same message replayed after a restart/rejoin stays dropped.
+                    if (!ignoredMessageRepository.existsByDedupKey(dedupKey)) {
+                        ignoredMessageRepository.save(
+                            IgnoredMessageEntity(dedupKey = dedupKey, roomTarget = msg.roomTarget),
+                        )
+                    }
+                    messagesIgnored++
+                    continue
+                }
+            }
+            if (chatMessageRepository.existsByDedupKey(dedupKey) ||
+                ignoredMessageRepository.existsByDedupKey(dedupKey)
+            ) {
                 messagesDuplicate++
                 continue
             }
@@ -65,7 +79,10 @@ class ChatIngestService(
                     receivedAt = Instant.now()
                 )
             )
-            storedMessages.add(saved)
+            // Only live messages feed the bot; historical replays must not trigger a reaction.
+            if (!msg.historical) {
+                storedMessages.add(saved)
+            }
             messagesStored++
         }
 

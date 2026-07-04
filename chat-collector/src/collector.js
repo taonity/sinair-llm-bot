@@ -16,6 +16,10 @@ let sessionToken = null;
 // Set during graceful shutdown so we close cleanly and stop the reconnect loop.
 let shuttingDown = false;
 const roomsByTarget = new Map();
+// Per-room history warm-up state. While a room is warming up (right after a join, when the server
+// replays its history burst) incoming messages are tagged `historical` so the backend stores them
+// without re-running commands or reacting. Value: { idle: Timeout, hard: Timeout }.
+const historyWarmup = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,7 +71,45 @@ function onRoomReady(room) {
         room.sendMessage(`/nick ${config.botNick}`);
         logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
     }
+    startHistoryWarmup(room.target);
     logger.info(`[collector] Room ready: ${room.target}`);
+}
+
+/** True while the room is replaying its post-join history burst. */
+function isHistoryWarmup(target) {
+    return historyWarmup.has(target);
+}
+
+/** Begins the history warm-up window for a room, ended by idle quiet or a hard cap. */
+function startHistoryWarmup(target) {
+    finishHistoryWarmup(target);
+    const state = {
+        hard: setTimeout(() => finishHistoryWarmup(target), config.historyWarmupMaxMs),
+        idle: null,
+    };
+    historyWarmup.set(target, state);
+    bumpHistoryWarmup(target);
+}
+
+/** Extends the idle deadline; each history message defers the end of the warm-up window. */
+function bumpHistoryWarmup(target) {
+    const state = historyWarmup.get(target);
+    if (!state) return;
+    if (state.idle) clearTimeout(state.idle);
+    state.idle = setTimeout(() => finishHistoryWarmup(target), config.historyWarmupIdleMs);
+}
+
+function finishHistoryWarmup(target) {
+    const state = historyWarmup.get(target);
+    if (!state) return;
+    if (state.idle) clearTimeout(state.idle);
+    if (state.hard) clearTimeout(state.hard);
+    historyWarmup.delete(target);
+    logger.debug(`[collector] History warm-up ended for ${target}`);
+}
+
+function clearAllHistoryWarmup() {
+    for (const target of [...historyWarmup.keys()]) finishHistoryWarmup(target);
 }
 
 /**
@@ -101,6 +143,7 @@ export async function startCollector() {
         stopFlushTimer();
         stopSender();
         stopPresence();
+        clearAllHistoryWarmup();
         roomsByTarget.clear();
         if (!shuttingDown) scheduleReconnect();
     });
@@ -124,6 +167,8 @@ export async function startCollector() {
     chat.on(WsChatEvents.message, (room, msgobj) => {
         logger.debug(`[collector] message event — room=${room?.target}, from=${msgobj?.from_login}`);
         const member = room?.getMemberById?.(msgobj.from);
+        const historical = isHistoryWarmup(room?.target);
+        if (historical) bumpHistoryWarmup(room.target);
         const dto = {
             externalId: msgobj.id || null,
             roomTarget: msgobj.target,
@@ -135,6 +180,7 @@ export async function startCollector() {
             messageStyle: resolveMessageStyle(msgobj.style),
             recipientMemberId: msgobj.to || 0,
             sentAt: msgobj.time,
+            historical,
         };
         bufferMessage(dto);
     });
@@ -261,6 +307,7 @@ export async function stopCollector() {
     }
     // The server removed our session on a clean (1000) close, so the token is now invalid.
     clearToken();
+    clearAllHistoryWarmup();
     roomsByTarget.clear();
 }
 

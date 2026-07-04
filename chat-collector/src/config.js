@@ -50,6 +50,11 @@ export const config = {
     outboundUrl: process.env.OUTBOUND_URL || requireEnv('BACKEND_URL').replace(/\/ingest$/, '/outbound'),
     outboundPollInterval: parseInt(process.env.OUTBOUND_POLL_INTERVAL || '3000', 10),
     presencePollInterval: parseInt(process.env.PRESENCE_POLL_INTERVAL || '5000', 10),
+    // After (re)joining a room the server replays a burst of history messages as ordinary
+    // messages. They are tagged `historical` for the warm-up window below so the backend stores
+    // them but does not re-run commands or react to them. The window ends after idle quiet, capped.
+    historyWarmupIdleMs: parseInt(process.env.HISTORY_WARMUP_IDLE_MS || '1500', 10),
+    historyWarmupMaxMs: parseInt(process.env.HISTORY_WARMUP_MAX_MS || '10000', 10),
     // Grace period after restoreConnection() for the server's auto-rejoin (joinRoom) events
     // to arrive before we manually join any rooms that weren't restored.
     restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),

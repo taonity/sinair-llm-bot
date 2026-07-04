@@ -8,6 +8,7 @@ import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.service.RoomSummaryService
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -15,6 +16,7 @@ import java.time.temporal.ChronoUnit
 class RetentionCleanupService(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
+    private val ignoredMessageRepository: IgnoredMessageRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val roomSummaryService: RoomSummaryService,
 ) {
@@ -36,8 +38,9 @@ class RetentionCleanupService(
 
         val messages = chatMessageRepository.deleteBySentAtBefore(cutoff)
         val events = chatEventRepository.deleteByEventTimeBefore(cutoff)
+        val ignored = ignoredMessageRepository.deleteByCreatedAtBefore(cutoff)
         val outbound = outboundMessageRepository.deleteByCreatedAtBefore(cutoff)
 
-        LOGGER.info { "Retention cleanup complete: messages=$messages, events=$events, outbound=$outbound" }
+        LOGGER.info { "Retention cleanup complete: messages=$messages, events=$events, ignored=$ignored, outbound=$outbound" }
     }
 }
