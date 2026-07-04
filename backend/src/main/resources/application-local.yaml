@@ -44,7 +44,7 @@ app:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY:local-dummy-key}
   bot:
-    rooms: '#test'
+    rooms: '#test1'
     persona:
       name: segfault-local
       creator-user-id: ${BOT_CREATOR_USER_ID:0}
@@ -86,5 +86,3 @@ decorator:
 #
 #app:
 #  additional-profiles: flyway-clean-migrate
-#  bot:
-#    rooms: '#test'

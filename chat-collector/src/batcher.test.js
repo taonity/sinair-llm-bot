@@ -25,12 +25,12 @@ describe('batcher', () => {
             };
             global.fetch = vi.fn().mockResolvedValue(mockResponse);
 
-            bufferMessage({ externalId: '1', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
-            bufferMessage({ externalId: '2', roomTarget: '#test', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
+            bufferMessage({ externalId: '1', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
+            bufferMessage({ externalId: '2', roomTarget: '#test1', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
 
             expect(global.fetch).not.toHaveBeenCalled();
 
-            bufferMessage({ externalId: '3', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
+            bufferMessage({ externalId: '3', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
 
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
@@ -46,13 +46,13 @@ describe('batcher', () => {
         it('should re-buffer messages on fetch failure', async () => {
             global.fetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
 
-            bufferMessage({ externalId: '1', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
-            bufferMessage({ externalId: '2', roomTarget: '#test', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
-            bufferMessage({ externalId: '3', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
+            bufferMessage({ externalId: '1', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
+            bufferMessage({ externalId: '2', roomTarget: '#test1', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
+            bufferMessage({ externalId: '3', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
 
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
-            bufferMessage({ externalId: '4', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi again', messageStyle: 'message', sentAt: 1003 });
+            bufferMessage({ externalId: '4', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi again', messageStyle: 'message', sentAt: 1003 });
         });
     });
 
@@ -64,9 +64,9 @@ describe('batcher', () => {
             };
             global.fetch = vi.fn().mockResolvedValue(mockResponse);
 
-            bufferEvent({ roomTarget: '#test', memberId: 1, status: 'online', memberName: 'Alice', eventTime: 1000 });
-            bufferEvent({ roomTarget: '#test', memberId: 2, status: 'away', memberName: 'Bob', eventTime: 1001 });
-            bufferEvent({ roomTarget: '#test', memberId: 1, status: 'offline', memberName: 'Alice', eventTime: 1002 });
+            bufferEvent({ roomTarget: '#test1', memberId: 1, status: 'online', memberName: 'Alice', eventTime: 1000 });
+            bufferEvent({ roomTarget: '#test1', memberId: 2, status: 'away', memberName: 'Bob', eventTime: 1001 });
+            bufferEvent({ roomTarget: '#test1', memberId: 1, status: 'offline', memberName: 'Alice', eventTime: 1002 });
 
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
 
@@ -86,9 +86,9 @@ describe('batcher', () => {
             };
             global.fetch = vi.fn().mockResolvedValue(mockResponse);
 
-            bufferMessage({ externalId: '1', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
-            bufferMessage({ externalId: '2', roomTarget: '#test', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
-            bufferMessage({ externalId: '3', roomTarget: '#test', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
+            bufferMessage({ externalId: '1', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'hi', messageStyle: 'message', sentAt: 1000 });
+            bufferMessage({ externalId: '2', roomTarget: '#test1', senderMemberId: 2, senderLogin: 'Bob', messageText: 'hey', messageStyle: 'message', sentAt: 1001 });
+            bufferMessage({ externalId: '3', roomTarget: '#test1', senderMemberId: 1, senderLogin: 'Alice', messageText: 'sup', messageStyle: 'message', sentAt: 1002 });
 
             await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
         });

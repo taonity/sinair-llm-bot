@@ -80,6 +80,11 @@ app:
       creator-user-id: ${BOT_CREATOR_USER_ID}
       stop-command: '!stop'
       start-command: '!start'
+      # Per-room commands: the bot ignores the room (drops its messages, shows away,
+      # renames itself with sleep-nick-suffix) between sleep-command and wake-command.
+      sleep-command: '!sleep'
+      wake-command: '!wake'
+      sleep-nick-suffix: '-zzz'
       aliases:
         - сега
         - сегвульт
@@ -114,7 +119,7 @@ app:
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      spontaneous-probability: 0.2
+      spontaneous-probability: 0.1
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40

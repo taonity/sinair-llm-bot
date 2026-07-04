@@ -81,6 +81,13 @@ function setRoomPresence(target, presence) {
     return true;
 }
 
+function setRoomNick(target, nick) {
+    const room = roomsByTarget.get(target);
+    if (!room) return false;
+    room.sendMessage(`/nick ${nick}`);
+    return true;
+}
+
 export async function startCollector() {
     logger.info(`[collector] Connecting to ${config.chatWsUrl}...`);
     chat = new WsChat(config.chatWsUrl);
@@ -207,7 +214,7 @@ export async function startCollector() {
 
         startFlushTimer();
         startSender(sendChatMessage);
-        startPresence(setRoomPresence);
+        startPresence(setRoomPresence, setRoomNick);
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
         scheduleReconnect();
