@@ -1,0 +1,20 @@
+info:
+  name: /api/logout
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{frontendUrl}}/api/logout"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,23 @@
+info:
+  name: /console/chat-messages/:id/page
+  type: http
+  seq: 21
+
+http:
+  method: GET
+  url: "{{backendBaseUrl}}/console/chat-messages/1/page?size=25&direction=desc"
+  params:
+    - name: size
+      value: "25"
+    - name: direction
+      value: "desc"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

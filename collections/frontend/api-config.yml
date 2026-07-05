@@ -1,0 +1,15 @@
+info:
+  name: /api/config
+  type: http
+  seq: 12
+
+http:
+  method: GET
+  url: "{{frontendUrl}}/api/config"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

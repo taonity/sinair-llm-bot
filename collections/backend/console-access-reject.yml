@@ -1,0 +1,20 @@
+info:
+  name: /console/access/requests/:googleId/reject
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{backendBaseUrl}}/console/access/requests/some-google-id/reject"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

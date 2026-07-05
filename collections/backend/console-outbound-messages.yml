@@ -1,0 +1,34 @@
+info:
+  name: /console/outbound-messages
+  type: http
+  seq: 26
+
+http:
+  method: GET
+  url: "{{backendBaseUrl}}/console/outbound-messages?page=0&size=25&direction=desc"
+  params:
+    - name: room
+      value: ""
+      disabled: true
+    - name: q
+      value: ""
+      disabled: true
+    - name: field
+      value: ""
+      disabled: true
+    - name: page
+      value: "0"
+    - name: size
+      value: "25"
+    - name: direction
+      value: "desc"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

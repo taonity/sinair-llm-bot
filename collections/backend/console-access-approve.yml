@@ -1,0 +1,28 @@
+info:
+  name: /console/access/requests/:googleId/approve
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{backendBaseUrl}}/console/access/requests/some-google-id/approve"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "role": "VIEWER"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

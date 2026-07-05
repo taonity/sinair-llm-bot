@@ -1,0 +1,18 @@
+info:
+  name: /console/summaries
+  type: http
+  seq: 29
+
+http:
+  method: GET
+  url: "{{backendBaseUrl}}/console/summaries"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

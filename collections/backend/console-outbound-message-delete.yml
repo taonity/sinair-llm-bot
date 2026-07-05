@@ -1,0 +1,20 @@
+info:
+  name: /console/outbound-messages/:id
+  type: http
+  seq: 28
+
+http:
+  method: DELETE
+  url: "{{backendBaseUrl}}/console/outbound-messages/1"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

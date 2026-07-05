@@ -1,4 +1,8 @@
 name: stage
 variables:
   - name: frontendUrl
-    value: https://fullstack-starter-stage.taonity.org
+    value: https://sinair-llm-bot-stage.taonity.org
+  - secret: true
+    name: cookies
+  - secret: true
+    name: xsrfToken

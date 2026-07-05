@@ -1,0 +1,28 @@
+info:
+  name: /console/users/:googleId/role
+  type: http
+  seq: 19
+
+http:
+  method: PUT
+  url: "{{backendBaseUrl}}/console/users/some-google-id/role"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "role": "EDITOR"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

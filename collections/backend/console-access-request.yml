@@ -1,0 +1,28 @@
+info:
+  name: /console/access/request
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{backendBaseUrl}}/console/access/request"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  body:
+    type: json
+    data: |-
+      {
+        "requestedRole": "VIEWER"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

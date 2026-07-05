@@ -1,0 +1,53 @@
+info:
+  name: /api/chat/ingest
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{backendBaseUrl}}/api/chat/ingest"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "messages": [
+          {
+            "externalId": "msg-1",
+            "roomTarget": "room-1",
+            "senderMemberId": 1001,
+            "senderUserId": 0,
+            "senderLogin": "alice",
+            "senderColor": "#ff0000",
+            "messageText": "hello bot",
+            "messageStyle": "normal",
+            "recipientMemberId": 0,
+            "sentAt": 1751630400000,
+            "historical": false
+          }
+        ],
+        "events": [
+          {
+            "roomTarget": "room-1",
+            "memberId": 1001,
+            "userId": 0,
+            "memberName": "alice",
+            "memberColor": "#ff0000",
+            "status": "online",
+            "eventData": null,
+            "isGirl": false,
+            "isModer": false,
+            "isOwner": false,
+            "eventTime": 1751630400000
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

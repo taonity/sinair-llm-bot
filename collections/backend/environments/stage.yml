@@ -1,8 +1,8 @@
 name: stage
 variables:
   - name: backendBaseUrl
-    value: https://fullstack-starter-api-stage.taonity.org
-  - secret: true
-    name: XSRF-TOKEN-FULLSTACK-STARTER-STAGE
+    value: https://sinair-llm-bot-api-stage.taonity.org
   - secret: true
     name: cookies
+  - secret: true
+    name: xsrfToken

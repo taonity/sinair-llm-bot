@@ -3,6 +3,6 @@ variables:
   - name: backendBaseUrl
     value: http://localhost:8080
   - secret: true
-    name: accessToken
+    name: cookies
   - secret: true
-    name: XSRF-TOKEN-LOCAL
+    name: xsrfToken

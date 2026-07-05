@@ -1,6 +1,8 @@
 name: prod
 variables:
   - name: backendBaseUrl
-    value: https://fullstack-starter-api.taonity.org
+    value: https://sinair-llm-bot-api.taonity.org
   - secret: true
-    name: XSRF-TOKEN-FULLSTACK-STARTER-PROD
+    name: cookies
+  - secret: true
+    name: xsrfToken

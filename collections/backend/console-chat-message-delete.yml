@@ -1,0 +1,20 @@
+info:
+  name: /console/chat-messages/:id
+  type: http
+  seq: 22
+
+http:
+  method: DELETE
+  url: "{{backendBaseUrl}}/console/chat-messages/1"
+  headers:
+    - name: Cookie
+      value: "{{cookies}}"
+    - name: X-XSRF-TOKEN
+      value: "{{xsrfToken}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
