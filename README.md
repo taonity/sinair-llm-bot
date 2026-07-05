@@ -177,10 +177,23 @@ Configured per the profile set you run.
 ```mermaid
 erDiagram
     app_user {
+        character_varying access_status "{NOT_NULL}"
         character_varying display_name "{NOT_NULL}"
         character_varying email "{NOT_NULL}"
         character_varying google_id PK "{NOT_NULL}"
         character_varying picture_url 
+        character_varying requested_role 
+        character_varying role "{NOT_NULL}"
+    }
+
+    audit_log {
+        character_varying action "{NOT_NULL}"
+        character_varying actor_email "{NOT_NULL}"
+        character_varying actor_google_id "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        timestamp_without_time_zone occurred_at "{NOT_NULL}"
+        character_varying target_id 
+        character_varying target_type "{NOT_NULL}"
     }
 
     chat_event {
@@ -215,6 +228,13 @@ erDiagram
         timestamp_without_time_zone sent_at "{NOT_NULL}"
     }
 
+    ignored_message {
+        timestamp_without_time_zone created_at "{NOT_NULL}"
+        character_varying dedup_key UK "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        character_varying room_target "{NOT_NULL}"
+    }
+
     outbound_message {
         timestamp_without_time_zone claimed_at 
         timestamp_without_time_zone created_at "{NOT_NULL}"
@@ -224,6 +244,13 @@ erDiagram
         character_varying room_target "{NOT_NULL}"
         timestamp_without_time_zone sent_at 
         character_varying status "{NOT_NULL}"
+    }
+
+    room_bot_state {
+        boolean asleep "{NOT_NULL}"
+        boolean muted "{NOT_NULL}"
+        character_varying room_target PK "{NOT_NULL}"
+        timestamp_without_time_zone updated_at "{NOT_NULL}"
     }
 
     room_summary {
