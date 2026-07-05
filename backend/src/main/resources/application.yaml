@@ -126,6 +126,14 @@ app:
       max-summary-chars: 1500
       max-message-chars: 1500
 
+# Exposed via /actuator/info (management.info.env.enabled). Deployment environment is a runtime
+# concern (same image runs in stage and prod), so it is resolved from APP_ENVIRONMENT at startup
+# rather than baked in at build time like git/build info. Defaults to 'local' for local dev.
+info:
+  app:
+    name: ${spring.application.name}
+    environment: ${APP_ENVIRONMENT:local}
+
 management:
   endpoints:
     web:
@@ -144,6 +152,8 @@ management:
     prometheus:
       enabled: true
   info:
+    env:
+      enabled: true
     git:
       enabled: true
       mode: full
