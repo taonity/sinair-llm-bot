@@ -42,6 +42,7 @@ data class BotProperties(
         val recentMessageCount: Int,
         val summaryRefreshEveryMessages: Int,
         val maxSummaryChars: Int,
+        val summaryMaxTokens: Int,
         val maxMessageChars: Int,
     )
 }

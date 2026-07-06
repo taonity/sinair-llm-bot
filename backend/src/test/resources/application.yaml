@@ -76,7 +76,8 @@ app:
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40
-      max-summary-chars: 1500
+      max-summary-chars: 4000
+      summary-max-tokens: 1200
       max-message-chars: 600
 #logging:
 #  level:

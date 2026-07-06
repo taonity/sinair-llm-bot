@@ -97,6 +97,7 @@ class RoomSummaryService(
         val result = llmClient.complete(
             tierName = llmProperties.gateTier,
             messages = listOf(ChatMessage.system(instruction), ChatMessage.user(userContent)),
+            maxTokensOverride = botProperties.context.summaryMaxTokens,
         ) ?: return null
         return result.content.take(maxChars)
     }

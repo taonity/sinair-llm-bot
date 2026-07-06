@@ -32,6 +32,8 @@ class LlmClient(
      * @param webSearch when true, offers OpenRouter's `openrouter:web_search` server tool so the
      *                  model can ground its answer in live results when it judges it useful (adds
      *                  latency and per-search cost only when the model actually searches).
+     * @param maxTokensOverride when set, overrides the tier's default `maxTokens` for this call
+     *                  (e.g. a longer output budget for summaries than for the cheap classifier).
      * @return the assistant text content, or null on any failure (caller decides how to degrade).
      */
     fun complete(
@@ -39,13 +41,14 @@ class LlmClient(
         messages: List<ChatMessage>,
         forceJson: Boolean = false,
         webSearch: Boolean = false,
+        maxTokensOverride: Int? = null,
     ): LlmResult? {
         val tier = llmProperties.tier(tierName)
         val request = ChatCompletionRequest(
             model = tier.model,
             messages = messages,
             temperature = tier.temperature,
-            maxTokens = tier.maxTokens,
+            maxTokens = maxTokensOverride ?: tier.maxTokens,
             responseFormat = if (forceJson) ResponseFormat.JSON_OBJECT else null,
             tools = if (webSearch) listOf(Tool.webSearch()) else null,
         )

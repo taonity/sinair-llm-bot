@@ -123,7 +123,11 @@ app:
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40
-      max-summary-chars: 1500
+      # Character cap applied to the stored summary (also stated in the summariser prompt).
+      max-summary-chars: 4000
+      # Output token budget for the summariser call. Overrides the gate tier's small default
+      # (used for the classifier) so summaries can run long enough to cover all main topics.
+      summary-max-tokens: 1200
       max-message-chars: 1500
 
 # Exposed via /actuator/info (management.info.env.enabled). Deployment environment is a runtime
