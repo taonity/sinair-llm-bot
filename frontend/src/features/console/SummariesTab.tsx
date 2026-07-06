@@ -51,19 +51,20 @@ export function SummariesTab({
   if (!summaries) {
     return (
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-7 w-full max-w-xs" />
-        {Array.from({ length: 1 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-44" />
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Skeleton className="h-[300px] w-full" />
-              <Skeleton className="h-8 w-16" />
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-3 w-44" />
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <Textarea
+              readOnly
+              value=""
+              className="min-h-[300px] resize-y font-mono text-xs"
+            />
+            {canEdit && <Skeleton className="h-8 w-16" />}
+          </CardContent>
+        </Card>
       </div>
     )
   }

@@ -19,6 +19,7 @@ import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
 import { SummariesTab } from './SummariesTab'
+import { AppInfoPanel } from '@/features/info/AppInfoPanel'
 import type {
   AccessInfo,
   ChatEvent,
@@ -144,7 +145,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
   },
 ]
 
-type TabKey = 'messages' | 'events' | 'outbound' | 'summaries' | 'admin'
+type TabKey = 'messages' | 'events' | 'outbound' | 'summaries' | 'admin' | 'about'
 
 export default function DataConsole() {
   const [access, setAccess] = useState<AccessInfo | null>(null)
@@ -198,6 +199,7 @@ export default function DataConsole() {
     outbound: 'Outbound',
     summaries: 'Summaries',
     ...(access.isAdmin ? { admin: 'Admin' } : {}),
+    about: 'About',
   }
 
   return (
@@ -230,6 +232,7 @@ export default function DataConsole() {
             <TabsTrigger value="outbound">Outbound</TabsTrigger>
             <TabsTrigger value="summaries">Summaries</TabsTrigger>
             {access.isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
+            <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             <UpgradeAccessControl access={access} onUpdated={setAccess} onError={setError} />
@@ -309,6 +312,10 @@ export default function DataConsole() {
             {tab === 'admin' && <AdminPanel access={access} onError={setError} />}
           </TabsContent>
         )}
+
+        <TabsContent value="about" className="pt-2">
+          {tab === 'about' && <AppInfoPanel />}
+        </TabsContent>
       </Tabs>
     </div>
   )
