@@ -16,10 +16,12 @@ The bot joins as a normal member (persona nick **`segfault`**). Here is what a c
   "gate" call judges ambiguous cases, and only then does it generate a reply.
 - **Address it directly** by nick or an alias — `segfault`, `сега`, `сегвульт` (whole-word; `@nick`
   works too) — and it will almost always answer.
-- It also reacts to **indirect** prompts: follow-ups, replies to, or challenges of its own last
-  message, and open questions it can meaningfully answer.
-- Occasionally (~10% chance) it chimes into an interesting thread **spontaneously** without being
-  addressed.
+- It also reacts to **indirect** prompts: direct follow-ups or replies to its own last message, and
+  questions it is clearly and specifically expected to answer.
+- It will speak up to **correct genuine misinformation** — a clear, checkable factual falsehood that
+  could mislead people (facts only, not opinions, jokes or debatable takes).
+- It does **not** chime into threads spontaneously — it stays quiet unless it is actually addressed.
+  (A `spontaneous-probability` knob exists but is set to `0`.)
 - It writes in **Russian**, matching the chat's casual, lowercase, slang-heavy style — usually one
   or two short sentences, longer only when genuinely explaining something.
 

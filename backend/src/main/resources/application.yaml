@@ -119,7 +119,8 @@ app:
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      spontaneous-probability: 0.1
+      # 0 = the bot never chimes in spontaneously; it speaks only when genuinely addressed.
+      spontaneous-probability: 0
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40

@@ -14,10 +14,13 @@ import tools.jackson.databind.ObjectMapper
  * Cheap second stage: a single "gate"-tier call that triages the current conversation and answers
  * two questions at once, keeping tokens minimal with a tiny prompt and strict JSON output:
  *
- *  - [TriageVerdict.respond]       — should the bot jump in now? This deliberately includes
- *    *indirect* addressing (a follow-up to, reply to, or challenge of the bot's own last message,
- *    or a question the bot is clearly expected to field) — cases the [HeuristicGate] cannot catch
- *    because no name/alias is present.
+ *  - [TriageVerdict.respond]       — should the bot jump in now? This covers *indirect* addressing
+ *    the [HeuristicGate] cannot catch because no name/alias is present: a direct follow-up or reply
+ *    to the bot's own last message, or a question the bot is clearly and specifically expected to
+ *    field. It also fires when the latest message states a clear, objective factual falsehood the
+ *    bot can correct (real checkable facts only, not opinions/jokes). It deliberately does NOT fire
+ *    just because the bot could add an opinion or a joke — the bot stays quiet unless it is actually
+ *    being addressed or genuine misinformation needs correcting.
  *  - [TriageVerdict.needsFreshInfo] — would answering well require up-to-date information (latest
  *    versions, current events, prices, "newest" anything)? Drives whether the reply enables live
  *    web search, since the bot's built-in knowledge goes stale on these topics.
@@ -55,14 +58,16 @@ class MessageTriageService(
             append(" group chat. The bot's nick is '").append(persona.name)
             append("' (also called: ").append(aliases).append("). In the transcript the bot's own ")
             append("messages appear under that nick. Judge the LATEST message and decide two things.\n\n")
-            append("1) respond (boolean): should the bot send a message now? Say TRUE when the ")
-            append("latest message is aimed at the bot even without naming it — a follow-up or reply ")
-            append("to something the bot just said, a question the bot is clearly expected to answer, ")
-            append("or someone reacting to / challenging / continuing the bot's previous message. ")
-            append("Also TRUE when the bot could add genuine value, a real answer, a joke or a strong ")
-            append("opinion to an open question. Say FALSE for small talk between other people, bare ")
-            append("acknowledgements, or when a reply would add nothing. When in doubt but the message ")
-            append("plausibly expects the bot, lean TRUE.\n")
+            append("1) respond (boolean): should the bot send a message now? Only say TRUE when the ")
+            append("latest message is genuinely directed at the bot even without naming it — a direct ")
+            append("follow-up or reply to something the bot just said, or a question the bot is clearly ")
+            append("and specifically expected to answer. ALSO say TRUE when the latest message states a ")
+            append("clear, objective factual falsehood that could genuinely mislead people and the bot ")
+            append("can correct it — only for real, checkable facts, NOT opinions, jokes, exaggeration, ")
+            append("sarcasm or debatable claims. Say FALSE for everything else: small talk between ")
+            append("other people, general remarks or questions not aimed at the bot, bare ")
+            append("acknowledgements, or any message where the bot was not actually addressed. Do NOT ")
+            append("respond just to add an opinion, a joke, or to seem present. When in doubt, say FALSE.\n")
             append("2) needsFreshInfo (boolean): would answering well require up-to-date information ")
             append("that changes over time — latest software versions, current events, recent releases, ")
             append("prices, 'newest'/'current' anything, who holds a role right now, today's facts? ")
