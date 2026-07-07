@@ -50,6 +50,13 @@ export const config = {
     outboundUrl: process.env.OUTBOUND_URL || requireEnv('BACKEND_URL').replace(/\/ingest$/, '/outbound'),
     outboundPollInterval: parseInt(process.env.OUTBOUND_POLL_INTERVAL || '3000', 10),
     presencePollInterval: parseInt(process.env.PRESENCE_POLL_INTERVAL || '5000', 10),
+    // Typing indicator poll: faster than presence so the "bot is typing" state (shown while it
+    // composes a reply) appears promptly and clears quickly once the reply is sent.
+    typingPollInterval: parseInt(process.env.TYPING_POLL_INTERVAL || '500', 10),
+    // How often the typing status is re-asserted to the chat server while a room stays active
+    // (the server auto-expires typing). Decoupled from the poll so fast polling doesn't spam
+    // status packets upstream.
+    typingRefreshInterval: parseInt(process.env.TYPING_REFRESH_INTERVAL || '3000', 10),
     // After (re)joining a room the server replays a burst of history messages as ordinary
     // messages. They are tagged `historical` for the warm-up window below so the backend stores
     // them but does not re-run commands or react to them. The window ends after idle quiet, capped.

@@ -53,6 +53,9 @@ interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, Strin
 
     fun findByIdInAndStatus(ids: Collection<String>, status: OutboundStatus): List<OutboundMessageEntity>
 
+    @Query("SELECT DISTINCT m.roomTarget FROM OutboundMessageEntity m WHERE m.status = :status")
+    fun findDistinctRoomTargetsByStatus(status: OutboundStatus): List<String>
+
     @Modifying
     fun deleteByCreatedAtBefore(cutoff: Instant): Int
 }

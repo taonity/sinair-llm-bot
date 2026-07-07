@@ -5,6 +5,7 @@ import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
 import { startSender, stopSender } from './sender.js';
 import { startPresence, stopPresence } from './presence.js';
+import { startTyping, stopTyping } from './typing.js';
 
 let chat = null;
 let reconnectTimeout = null;
@@ -130,6 +131,17 @@ function setRoomNick(target, nick) {
     return true;
 }
 
+/**
+ * Toggles the bot's typing indicator in a joined room while it composes a reply. Returns false if
+ * the room is not currently joined.
+ */
+function setRoomTyping(target, isTyping) {
+    const room = roomsByTarget.get(target);
+    if (!room) return false;
+    room.changeStatus(isTyping ? UserStatus.typing : UserStatus.stop_typing);
+    return true;
+}
+
 export async function startCollector() {
     logger.info(`[collector] Connecting to ${config.chatWsUrl}...`);
     chat = new WsChat(config.chatWsUrl);
@@ -143,6 +155,7 @@ export async function startCollector() {
         stopFlushTimer();
         stopSender();
         stopPresence();
+        stopTyping();
         clearAllHistoryWarmup();
         roomsByTarget.clear();
         if (!shuttingDown) scheduleReconnect();
@@ -261,6 +274,7 @@ export async function startCollector() {
         startFlushTimer();
         startSender(sendChatMessage);
         startPresence(setRoomPresence, setRoomNick);
+        startTyping(setRoomTyping);
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
         scheduleReconnect();
@@ -296,6 +310,7 @@ export async function stopCollector() {
     stopFlushTimer();
     stopSender();
     stopPresence();
+    stopTyping();
     if (chat?.connected) {
         try {
             // Bound the close so an unresponsive socket can't block past the stop grace period.

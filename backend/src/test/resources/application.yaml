@@ -79,6 +79,8 @@ app:
       max-summary-chars: 4000
       summary-max-tokens: 1200
       max-message-chars: 600
+    typing:
+      ttl-seconds: 15
 #logging:
 #  level:
 #    root: DEBUG

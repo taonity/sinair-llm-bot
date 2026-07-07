@@ -11,6 +11,7 @@ import org.taonity.sinairllmbot.bot.dto.OutboundAckResponse
 import org.taonity.sinairllmbot.bot.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.bot.dto.RoomPresenceDto
 import org.taonity.sinairllmbot.bot.service.BotPresenceService
+import org.taonity.sinairllmbot.bot.service.BotTypingService
 import org.taonity.sinairllmbot.bot.service.OutboundMessageService
 import org.taonity.sinairllmbot.observability.logging.EndpointLogLevel
 import org.taonity.sinairllmbot.observability.logging.LogLevel
@@ -27,6 +28,7 @@ import org.taonity.sinairllmbot.observability.logging.LogLevel
 class BotOutboundController(
     private val outboundMessageService: OutboundMessageService,
     private val botPresenceService: BotPresenceService,
+    private val botTypingService: BotTypingService,
 ) {
     @EndpointLogLevel(LogLevel.DEBUG)
     @GetMapping
@@ -44,4 +46,9 @@ class BotOutboundController(
     @EndpointLogLevel(LogLevel.DEBUG)
     @GetMapping("/presence")
     fun presence(): List<RoomPresenceDto> = botPresenceService.allPresences()
+
+    /** Rooms the bot is currently composing a reply in, so the collector can show a typing indicator. */
+    @EndpointLogLevel(LogLevel.DEBUG)
+    @GetMapping("/typing")
+    fun typing(): List<String> = botTypingService.typingRooms()
 }

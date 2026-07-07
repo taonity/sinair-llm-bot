@@ -30,6 +30,7 @@ class BotMessageOrchestrator(
     private val cooldownTracker: BotCooldownTracker,
     private val mutedRoomRegistry: MutedRoomRegistry,
     private val botSleepService: BotSleepService,
+    private val botTypingService: BotTypingService,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
 ) {
@@ -92,7 +93,15 @@ class BotMessageOrchestrator(
             }
             if (!shouldReply) return
 
-            val reply = replyGenerator.generate(roomTarget, trigger, triage.needsFreshInfo) ?: return
+            // Decided to reply: show a typing indicator while the LLM composes the answer. The
+            // marker is cleared once generation returns; the queued PENDING reply then keeps the
+            // indicator up (via BotTypingService) until the collector delivers it.
+            botTypingService.markTyping(roomTarget)
+            val reply = try {
+                replyGenerator.generate(roomTarget, trigger, triage.needsFreshInfo)
+            } finally {
+                botTypingService.clearTyping(roomTarget)
+            } ?: return
 
             outboundMessageRepository.save(
                 OutboundMessageEntity(

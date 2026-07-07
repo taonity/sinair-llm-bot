@@ -13,11 +13,11 @@ const appliedNick = new Map();
  */
 export function startPresence(setRoomPresence, setRoomNick) {
     if (!config.botSendEnabled) {
-        logger.info('[presence] Bot presence disabled (BOT_SEND_ENABLED=false)');
+        logger.debug('[presence] Bot presence disabled (BOT_SEND_ENABLED=false)');
         return;
     }
     const presenceUrl = `${config.outboundUrl}/presence`;
-    logger.info(`[presence] Polling ${presenceUrl} every ${config.presencePollInterval}ms`);
+    logger.debug(`[presence] Polling ${presenceUrl} every ${config.presencePollInterval}ms`);
 
     pollTimer = setInterval(async () => {
         try {

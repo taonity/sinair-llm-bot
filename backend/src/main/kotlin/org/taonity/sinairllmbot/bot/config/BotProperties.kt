@@ -16,6 +16,7 @@ data class BotProperties(
     val persona: Persona,
     val decision: Decision,
     val context: Context,
+    val typing: Typing,
 ) {
     data class Persona(
         val name: String,
@@ -44,5 +45,9 @@ data class BotProperties(
         val maxSummaryChars: Int,
         val summaryMaxTokens: Int,
         val maxMessageChars: Int,
+    )
+
+    data class Typing(
+        val ttlSeconds: Long,
     )
 }

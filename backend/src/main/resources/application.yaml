@@ -130,6 +130,11 @@ app:
       # (used for the classifier) so summaries can run long enough to cover all main topics.
       summary-max-tokens: 1200
       max-message-chars: 1500
+    typing:
+      # How long a room keeps showing the bot's typing indicator while it composes a reply before
+      # it auto-clears. A safety cap so a stalled/failed reply generation can't leave the indicator
+      # stuck on; under normal flow it clears as soon as the reply is generated and sent.
+      ttl-seconds: 15
 
 # Exposed via /actuator/info (management.info.env.enabled). Deployment environment is a runtime
 # concern (same image runs in stage and prod), so it is resolved from APP_ENVIRONMENT at startup

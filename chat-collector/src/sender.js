@@ -5,11 +5,11 @@ let pollTimer = null;
 
 export function startSender(sendChatMessage) {
     if (!config.botSendEnabled) {
-        logger.info('[sender] Bot sending disabled (BOT_SEND_ENABLED=false)');
+        logger.debug('[sender] Bot sending disabled (BOT_SEND_ENABLED=false)');
         return;
     }
     const ackUrl = `${config.outboundUrl}/ack`;
-    logger.info(`[sender] Polling ${config.outboundUrl} every ${config.outboundPollInterval}ms`);
+    logger.debug(`[sender] Polling ${config.outboundUrl} every ${config.outboundPollInterval}ms`);
 
     pollTimer = setInterval(async () => {
         try {
