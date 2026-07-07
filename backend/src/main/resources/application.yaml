@@ -38,11 +38,11 @@ app:
         max-tokens: 220
       cheap:
         model: deepseek/deepseek-chat
-        temperature: 0.85
+        temperature: 0.2
         max-tokens: 400
       smart:
         model: anthropic/claude-sonnet-4
-        temperature: 0.85
+        temperature: 0.2
         max-tokens: 500
       # Multimodal tier used when a reply must analyse an explicitly linked image (see app.ingestion).
       vision:
