@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      skip_approval:
+        description: 'Deploy to production without the manual approval gate'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -29,6 +34,7 @@ jobs:
 
     outputs:
       skip_tests: ${{ steps.determine_test_mode.outputs.skip_tests }}
+      skip_approval: ${{ steps.determine_approval_mode.outputs.skip_approval }}
 
     steps:
     - name: Determine whether to skip tests
@@ -45,6 +51,21 @@ jobs:
 
         echo "skip_tests=$skip_tests" >> "$GITHUB_OUTPUT"
         echo "Release skip_tests=$skip_tests"
+
+    - name: Determine whether to skip production approval
+      id: determine_approval_mode
+      env:
+        COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
+        MANUAL_SKIP_APPROVAL: ${{ inputs.skip_approval || false }}
+      run: |
+        skip_approval=false
+
+        if [[ "$MANUAL_SKIP_APPROVAL" == "true" || "$COMMIT_MESSAGE" == *"[skip approval]"* ]]; then
+          skip_approval=true
+        fi
+
+        echo "skip_approval=$skip_approval" >> "$GITHUB_OUTPUT"
+        echo "Release skip_approval=$skip_approval"
 
   backend-validation:
     needs: prepare
@@ -208,7 +229,10 @@ jobs:
       WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
 
   approve-prod:
-    needs: deploy-stage
+    needs:
+      - prepare
+      - deploy-stage
+    if: needs.prepare.outputs.skip_approval != 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -216,7 +240,11 @@ jobs:
         run: echo "Production deployment approved"
 
   deploy-prod:
-    needs: approve-prod
+    needs:
+      - prepare
+      - deploy-stage
+      - approve-prod
+    if: ${{ always() && needs.deploy-stage.result == 'success' && (needs.prepare.outputs.skip_approval == 'true' || needs.approve-prod.result == 'success') }}
     uses: taonity/docker-webhook/.github/workflows/deploy.yml@main
     with:
       project_name: sinair-llm-bot
