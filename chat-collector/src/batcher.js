@@ -63,7 +63,7 @@ async function flush() {
         }
 
         const result = await response.json();
-        logger.info(`[ingest] Stored: ${result.messagesStored} msgs, ${result.eventsStored} events | Dupes: ${result.messagesDuplicate} msgs, ${result.eventsDuplicate} events`);
+        logger.debug(`[ingest] Stored: ${result.messagesStored} msgs, ${result.eventsStored} events | Dupes: ${result.messagesDuplicate} msgs, ${result.eventsDuplicate} events`);
     } catch (err) {
         logger.error(`[ingest] Failed to send to backend:`, err.message);
         messageBuffer.unshift(...messages);

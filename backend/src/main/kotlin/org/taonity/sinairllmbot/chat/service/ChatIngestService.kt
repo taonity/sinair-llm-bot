@@ -112,7 +112,7 @@ class ChatIngestService(
             eventsStored++
         }
 
-        LOGGER.info { "Ingest complete: $messagesStored messages stored, $messagesDuplicate duplicates skipped, $messagesIgnored ignored (asleep), $eventsStored events stored, $eventsDuplicate duplicates skipped" }
+        LOGGER.debug { "Ingest complete: $messagesStored messages stored, $messagesDuplicate duplicates skipped, $messagesIgnored ignored (asleep), $eventsStored events stored, $eventsDuplicate duplicates skipped" }
 
         // Run the bot pipeline only after the transaction commits, so the async worker sees the rows.
         if (storedMessages.isNotEmpty()) {

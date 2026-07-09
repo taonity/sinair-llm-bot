@@ -43,6 +43,12 @@
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
         </dependency>
 
+        <!-- Persist HTTP sessions in the DB so logins survive backend restarts -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
+
         <!-- Data -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

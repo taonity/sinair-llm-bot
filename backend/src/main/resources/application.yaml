@@ -179,6 +179,11 @@ spring:
       local: plain-log
   application:
     name: sinair-llm-bot
+  session:
+    # HTTP sessions are stored via Spring Session JDBC so console logins survive backend restarts.
+    # The SPRING_SESSION schema is provisioned by Flyway, so Spring Session must not create it itself.
+    jdbc:
+      initialize-schema: never
 
 logging:
   structured:
