@@ -14,13 +14,14 @@ import tools.jackson.databind.ObjectMapper
  * Cheap second stage: a single "gate"-tier call that triages the current conversation and answers
  * two questions at once, keeping tokens minimal with a tiny prompt and strict JSON output:
  *
- *  - [TriageVerdict.respond]       — should the bot jump in now? This covers *indirect* addressing
- *    the [HeuristicGate] cannot catch because no name/alias is present: a direct follow-up or reply
- *    to the bot's own last message, or a question the bot is clearly and specifically expected to
- *    field. It also fires when the latest message states a clear, objective factual falsehood the
- *    bot can correct (real checkable facts only, not opinions/jokes). It deliberately does NOT fire
- *    just because the bot could add an opinion or a joke — the bot stays quiet unless it is actually
- *    being addressed or genuine misinformation needs correcting.
+ *  - [TriageVerdict.respond]       — should the bot jump in now? This is the sole intent judge (the
+ *    [CommandGate] only catches mute/un-mute commands). It fires when the bot is addressed directly
+ *    (by nick/@mention/alias) or indirectly (a follow-up or reply to the bot's own last message, or
+ *    a question the bot is clearly and specifically expected to field). It also fires when the latest
+ *    message states a clear, objective factual falsehood the bot can correct (real checkable facts
+ *    only, not opinions/jokes). It deliberately does NOT fire just because the bot could add an
+ *    opinion or a joke — the bot stays quiet unless it is actually being addressed or genuine
+ *    misinformation needs correcting.
  *  - [TriageVerdict.needsFreshInfo] — would answering well require up-to-date information (latest
  *    versions, current events, prices, "newest" anything)? Drives whether the reply enables live
  *    web search, since the bot's built-in knowledge goes stale on these topics.
@@ -58,16 +59,17 @@ class MessageTriageService(
             append(" group chat. The bot's nick is '").append(persona.name)
             append("' (also called: ").append(aliases).append("). In the transcript the bot's own ")
             append("messages appear under that nick. Judge the LATEST message and decide two things.\n\n")
-            append("1) respond (boolean): should the bot send a message now? Only say TRUE when the ")
-            append("latest message is genuinely directed at the bot even without naming it — a direct ")
-            append("follow-up or reply to something the bot just said, or a question the bot is clearly ")
-            append("and specifically expected to answer. ALSO say TRUE when the latest message states a ")
-            append("clear, objective factual falsehood that could genuinely mislead people and the bot ")
-            append("can correct it — only for real, checkable facts, NOT opinions, jokes, exaggeration, ")
-            append("sarcasm or debatable claims. Say FALSE for everything else: small talk between ")
-            append("other people, general remarks or questions not aimed at the bot, bare ")
-            append("acknowledgements, or any message where the bot was not actually addressed. Do NOT ")
-            append("respond just to add an opinion, a joke, or to seem present. When in doubt, say FALSE.\n")
+            append("1) respond (boolean): should the bot send a message now? Say TRUE when the latest ")
+            append("message is aimed at the bot — either it addresses the bot directly (by its nick, an ")
+            append("@mention or one of its aliases) or it is clearly meant for the bot without naming ")
+            append("it: a direct follow-up or reply to something the bot just said, or a question the ")
+            append("bot is clearly and specifically expected to answer. ALSO say TRUE when the latest ")
+            append("message states a clear, objective factual falsehood that could genuinely mislead ")
+            append("people and the bot can correct it — only for real, checkable facts, NOT opinions, ")
+            append("jokes, exaggeration, sarcasm or debatable claims. Say FALSE for everything else: ")
+            append("small talk between other people, general remarks or questions not aimed at the bot, ")
+            append("bare acknowledgements, noise. Do NOT respond just to add an opinion, a joke, or to ")
+            append("seem present. When in doubt, say FALSE.\n")
             append("2) needsFreshInfo (boolean): would answering well require up-to-date information ")
             append("that changes over time — latest software versions, current events, recent releases, ")
             append("prices, 'newest'/'current' anything, who holds a role right now, today's facts? ")

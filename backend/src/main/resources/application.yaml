@@ -26,11 +26,25 @@ app:
     title: sinair-llm-bot
     active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:smart}
     gate-tier: gate
+    # Tier used by the critic layer to rate/repair candidate replies (cheap, JSON-only judge).
+    critic-tier: critic
     # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
     # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
     # current facts); within those, the model decides whether to actually search. Each performed
     # search adds cost and latency.
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
+    # Critic layer: generate several reply candidates, have a cheap model rate them against the same
+    # persona/context the generator saw, pick the best and repair it once if it scores too low.
+    critic:
+      # When false the bot generates a single reply directly (legacy path), no rating/repair.
+      enabled: ${LLM_CRITIC_ENABLED:true}
+      # How many independent reply candidates to draw per message (drawn in parallel).
+      candidate-count: 3
+      # Sampling temperature used for candidate generation; higher than the reply tier default to
+      # get diverse drafts for the critic to choose between.
+      candidate-temperature: 0.9
+      # Best-candidate overall score (0-10) below which a one-shot repair pass is triggered.
+      repair-threshold: 7
     tiers:
       gate:
         model: google/gemini-2.5-flash-lite
@@ -43,6 +57,11 @@ app:
       smart:
         model: anthropic/claude-sonnet-4
         temperature: 0.2
+        max-tokens: 500
+      # Cheap JSON judge for the critic layer; rates candidate replies and gives repair feedback.
+      critic:
+        model: google/gemini-2.5-flash-lite
+        temperature: 0
         max-tokens: 500
       # Multimodal tier used when a reply must analyse an explicitly linked image (see app.ingestion).
       vision:

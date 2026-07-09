@@ -34,6 +34,8 @@ class LlmClient(
      *                  latency and per-search cost only when the model actually searches).
      * @param maxTokensOverride when set, overrides the tier's default `maxTokens` for this call
      *                  (e.g. a longer output budget for summaries than for the cheap classifier).
+     * @param temperatureOverride when set, overrides the tier's default `temperature` for this call
+     *                  (e.g. raising it to draw diverse reply candidates for the critic layer).
      * @return the assistant text content, or null on any failure (caller decides how to degrade).
      */
     fun complete(
@@ -42,12 +44,13 @@ class LlmClient(
         forceJson: Boolean = false,
         webSearch: Boolean = false,
         maxTokensOverride: Int? = null,
+        temperatureOverride: Double? = null,
     ): LlmResult? {
         val tier = llmProperties.tier(tierName)
         val request = ChatCompletionRequest(
             model = tier.model,
             messages = messages,
-            temperature = tier.temperature,
+            temperature = temperatureOverride ?: tier.temperature,
             maxTokens = maxTokensOverride ?: tier.maxTokens,
             responseFormat = if (forceJson) ResponseFormat.JSON_OBJECT else null,
             tools = if (webSearch) listOf(Tool.webSearch()) else null,

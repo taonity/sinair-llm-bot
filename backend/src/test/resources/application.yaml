@@ -41,6 +41,12 @@ app:
     timeout-seconds: 60
     active-reply-tier: cheap
     gate-tier: gate
+    critic-tier: critic
+    critic:
+      enabled: false
+      candidate-count: 3
+      candidate-temperature: 0.9
+      repair-threshold: 7
     tiers:
       gate:
         model: test/gate-model
@@ -53,6 +59,10 @@ app:
       smart:
         model: test/smart-model
         temperature: 0.85
+        max-tokens: 500
+      critic:
+        model: test/critic-model
+        temperature: 0
         max-tokens: 500
   bot:
     enabled: false

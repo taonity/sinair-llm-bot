@@ -20,14 +20,23 @@ data class LlmProperties(
     val title: String?,
     val activeReplyTier: String,
     val gateTier: String,
+    val criticTier: String,
     val tiers: Map<String, Tier>,
     /** When true, reply generation offers OpenRouter's `openrouter:web_search` server tool so the model can ground answers in live results. */
     val replyWebSearch: Boolean = false,
+    val critic: Critic,
 ) {
     data class Tier(
         val model: String,
         val temperature: Double,
         val maxTokens: Int,
+    )
+
+    data class Critic(
+        val enabled: Boolean,
+        val candidateCount: Int,
+        val candidateTemperature: Double,
+        val repairThreshold: Int,
     )
 
     fun tier(name: String): Tier =

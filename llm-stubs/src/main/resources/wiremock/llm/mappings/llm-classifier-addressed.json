@@ -1,27 +1,28 @@
 {
-  "priority": 3,
+  "priority": 2,
   "request": {
     "method": "POST",
     "urlPath": "/v1/chat/completions",
     "bodyPatterns": [
-      { "matchesJsonPath": "$.response_format" }
+      { "matchesJsonPath": "$.response_format" },
+      { "contains": "@segfault" }
     ]
   },
   "response": {
     "status": 200,
     "headers": { "Content-Type": "application/json" },
     "jsonBody": {
-      "id": "stub-classifier",
+      "id": "stub-classifier-addressed",
       "object": "chat.completion",
       "model": "stub/gate",
       "choices": [
         {
           "index": 0,
-          "message": { "role": "assistant", "content": "{\"respond\": false, \"reason\": \"stub-ignore\"}" },
+          "message": { "role": "assistant", "content": "{\"respond\": true, \"reason\": \"stub-addressed\"}" },
           "finish_reason": "stop"
         }
       ],
-      "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+      "usage": { "prompt_tokens": 12, "completion_tokens": 6, "total_tokens": 18 }
     }
   }
 }

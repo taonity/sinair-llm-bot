@@ -20,7 +20,7 @@ import java.time.Instant
 
 /**
  * End-to-end "few messages" scenario for the bot, exercising the full backend pipeline:
- * ingest -> debounce -> heuristic gate -> (summary/classifier) -> reply -> outbound queue.
+ * ingest -> debounce -> command gate -> LLM triage -> (summary) -> reply -> outbound queue.
  *
  * The LLM is faked by the `stub-llm` WireMock stub (module `llm-stubs`, mappings under
  * `wiremock/llm/mappings`), exactly like `stub-google` fakes Google OAuth. The message source is

@@ -1,0 +1,31 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/chat/completions",
+    "bodyPatterns": [
+      { "matchesJsonPath": "$.response_format" },
+      { "contains": "REPLY CRITIC" }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "id": "stub-critic",
+      "object": "chat.completion",
+      "model": "stub/critic",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"scores\":[{\"fit\":9,\"persona\":9,\"risk\":0,\"overall\":9}],\"best\":0,\"needsRepair\":false,\"feedback\":\"\"}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": { "prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30 }
+    }
+  }
+}

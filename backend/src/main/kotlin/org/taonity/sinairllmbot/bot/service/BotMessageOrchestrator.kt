@@ -16,14 +16,14 @@ import kotlin.random.Random
  *
  * Bursts are debounced per room, so a fast human back-and-forth is judged once after it settles.
  * After the quiet period the latest room state is re-read from the DB and run through:
- *   heuristic gate -> (interest classifier) -> reply generator -> persist outbound (PENDING).
+ *   command gate -> LLM triage (should respond? fresh info?) -> reply generator -> persist outbound.
  * The collector later picks up PENDING outbound messages and sends them to the chat.
  */
 @Service
 class BotMessageOrchestrator(
     private val botProperties: BotProperties,
     private val botDebouncer: BotDebouncer,
-    private val heuristicGate: HeuristicGate,
+    private val commandGate: CommandGate,
     private val messageTriageService: MessageTriageService,
     private val replyGenerator: ReplyGenerator,
     private val roomSummaryService: RoomSummaryService,
@@ -62,14 +62,14 @@ class BotMessageOrchestrator(
             runCatching { roomSummaryService.refreshIfStale(roomTarget) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
-            val gateDecision = heuristicGate.evaluate(trigger)
+            val commandDecision = commandGate.evaluate(trigger)
 
-            if (gateDecision == GateDecision.STOP_BOT) {
+            if (commandDecision == CommandDecision.STOP_BOT) {
                 mutedRoomRegistry.mute(roomTarget)
                 LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
                 return
             }
-            if (gateDecision == GateDecision.START_BOT) {
+            if (commandDecision == CommandDecision.START_BOT) {
                 val wasRemoved = mutedRoomRegistry.unmute(roomTarget)
                 if (wasRemoved) {
                     LOGGER.info { "Bot un-muted in $roomTarget by @${trigger.senderLogin}" }
@@ -78,18 +78,27 @@ class BotMessageOrchestrator(
             }
 
             if (mutedRoomRegistry.isMuted(roomTarget)) return
+            if (!cooldownTracker.canReply(roomTarget)) {
+                LOGGER.debug { "Skip $roomTarget: on cooldown (@${trigger.senderLogin})" }
+                return
+            }
 
-            if (gateDecision == GateDecision.IGNORE) return
-            if (!cooldownTracker.canReply(roomTarget)) return
-
-            // One cheap triage call decides indirect-addressing (respond) and freshness need at once.
+            // The cheap gate-tier LLM is the sole judge of intent: whether the bot is addressed
+            // (directly or indirectly) or should correct misinformation, and whether the answer
+            // needs fresh info. No keyword/noise heuristics.
             val triage = messageTriageService.assess(roomTarget)
-
-            val shouldReply = when (gateDecision) {
-                GateDecision.REPLY_NOW -> true
-                GateDecision.MAYBE ->
-                    triage.respond || Random.nextDouble() < botProperties.decision.spontaneousProbability
-                GateDecision.IGNORE, GateDecision.STOP_BOT, GateDecision.START_BOT -> false
+            val spontaneous = !triage.respond &&
+                Random.nextDouble() < botProperties.decision.spontaneousProbability
+            val shouldReply = triage.respond || spontaneous
+            val driver = when {
+                triage.respond -> "triage"
+                spontaneous -> "spontaneous"
+                else -> "none"
+            }
+            LOGGER.info {
+                "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
+                    "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
+                    "reason='${triage.reason}')"
             }
             if (!shouldReply) return
 
