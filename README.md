@@ -263,6 +263,23 @@ erDiagram
         timestamp_without_time_zone updated_at "{NOT_NULL}"
     }
 
+    spring_session {
+        bigint creation_time "{NOT_NULL}"
+        bigint expiry_time "{NOT_NULL}"
+        bigint last_access_time "{NOT_NULL}"
+        integer max_inactive_interval "{NOT_NULL}"
+        character primary_id PK "{NOT_NULL}"
+        character_varying principal_name 
+        character session_id "{NOT_NULL}"
+    }
+
+    spring_session_attributes {
+        bytea attribute_bytes "{NOT_NULL}"
+        character_varying attribute_name PK "{NOT_NULL}"
+        character session_primary_id PK,FK "{NOT_NULL}"
+    }
+
+    spring_session_attributes }o--|| spring_session : "session_primary_id"
 ```
 <!-- mermerd-end -->
 
