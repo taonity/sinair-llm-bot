@@ -82,13 +82,10 @@ class LlmClient(
                     "(in=${usage?.promptTokens ?: "?"}, out=${usage?.completionTokens ?: "?"})"
             }
             if (webSearch) {
-                if (citationUrls.isEmpty()) {
-                    LOGGER.info { "LLM tier=$tierName: web_search offered but model returned no citations" }
-                } else {
-                    LOGGER.info {
-                        "LLM tier=$tierName: web_search used, ${citationUrls.size} citation(s): " +
-                            citationUrls.joinToString(", ")
-                    }
+                LOGGER.info {
+                    val outcome = if (citationUrls.isEmpty()) "offered, no citations"
+                    else "used, ${citationUrls.size} citation(s)"
+                    "LLM tier=$tierName: web_search $outcome"
                 }
             }
             LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0, citationUrls = citationUrls)

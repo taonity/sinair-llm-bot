@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Component
+import org.taonity.sinairllmbot.bot.LogRedact
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -52,7 +53,7 @@ class SafeHttpFetcher(
                     throw IngestionException("Redirect ($status) without Location from $currentUrl")
                 }
                 currentUrl = uri.resolve(location).toString()
-                LOGGER.debug { "Following redirect to $currentUrl" }
+                LOGGER.debug { "Following redirect [${LogRedact.urlToken(currentUrl)}]" }
                 return@repeat
             }
             if (status !in 200..299) {

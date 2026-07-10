@@ -56,7 +56,7 @@ class MessageTriageService(
 
     fun assess(roomTarget: String): TriageVerdict {
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 12)
-        if (transcript.isBlank()) return TriageVerdict(respond = false, reason = "empty")
+        if (transcript.isBlank()) return TriageVerdict(respond = false)
 
         val persona = botProperties.persona
         val aliases = (listOf(persona.name) + persona.aliases).joinToString(", ")
@@ -88,16 +88,23 @@ class MessageTriageService(
             append("or continue such a look-up that was asked of it a moment earlier. Say FALSE for ")
             append("general chit-chat, opinions, or questions the bot can answer well from its own ")
             append("knowledge.\n")
+            append("Also classify the decision with category (string) = exactly one of: ")
+            append("direct_address (the message names, @mentions or uses an alias of the bot), ")
+            append("indirect_address (a follow-up or reply clearly meant for the bot without naming it), ")
+            append("misinformation (you would answer only to correct a checkable factual falsehood), ")
+            append("not_addressed (the message is not aimed at the bot), ")
+            append("noise (a bare acknowledgement, filler or noise). Choose the single closest kind; it ")
+            append("must be one of those exact tokens and must NOT contain any words from the ")
+            append("conversation or restate its topic.\n")
             append("Respond with ONLY a JSON object, booleans first: ")
             append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"needsSearch\": boolean, ")
-            append("\"reason\": string}. ")
-            append("Keep reason to at most 6 words. Default respond=false.")
+            append("\"category\": string}. Default respond=false.")
         }
         val raw = llmClient.complete(
             tierName = llmProperties.gateTier,
             messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript")),
             forceJson = true,
-        ) ?: return TriageVerdict(respond = false, reason = "llm-unavailable")
+        ) ?: return TriageVerdict(respond = false)
 
         return parse(raw.content)
     }
@@ -111,8 +118,8 @@ class MessageTriageService(
             objectMapper.readValue(cleaned, TriageVerdict::class.java)
         } catch (exception: Exception) {
             salvage(cleaned) ?: run {
-                LOGGER.warn { "Failed to parse triage verdict: '$content' (${exception.message})" }
-                TriageVerdict(respond = false, reason = "parse-error")
+                LOGGER.warn { "Failed to parse triage verdict (len=${content.length}): ${exception.javaClass.simpleName}" }
+                TriageVerdict(respond = false)
             }
         }
     }
@@ -127,7 +134,7 @@ class MessageTriageService(
         val needsFresh = FRESH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
         val needsSearch = SEARCH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
         LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh needsSearch=$needsSearch" }
-        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch, reason = "salvaged")
+        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch)
     }
 }
 
@@ -138,5 +145,18 @@ data class TriageVerdict(
     val needsFreshInfo: Boolean = false,
     @JsonAlias("needSearch", "search", "needs_search", "need_search")
     val needsSearch: Boolean = false,
-    val reason: String = "",
-)
+    val category: String = "",
+) {
+    /**
+     * Topic-free kind of decision safe to log. Whitelisted so no free-form model text (which could
+     * echo the conversation) ever reaches the logs — anything unrecognized becomes "unclassified".
+     */
+    val loggableCategory: String
+        get() = category.trim().lowercase().takeIf { it in ALLOWED_CATEGORIES } ?: "unclassified"
+
+    private companion object {
+        val ALLOWED_CATEGORIES = setOf(
+            "direct_address", "indirect_address", "misinformation", "not_addressed", "noise",
+        )
+    }
+}

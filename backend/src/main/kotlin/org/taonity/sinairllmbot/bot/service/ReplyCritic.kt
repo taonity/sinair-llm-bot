@@ -91,7 +91,7 @@ class ReplyCritic(
             val verdict = objectMapper.readValue(cleaned, CriticVerdict::class.java)
             verdict.copy(best = verdict.best.coerceIn(0, candidateCount - 1))
         } catch (exception: Exception) {
-            LOGGER.warn { "Failed to parse critic verdict: '$content' (${exception.message})" }
+            LOGGER.warn { "Failed to parse critic verdict (len=${content.length}): ${exception.javaClass.simpleName}" }
             null
         }
     }

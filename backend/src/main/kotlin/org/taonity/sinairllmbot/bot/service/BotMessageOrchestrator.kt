@@ -98,7 +98,7 @@ class BotMessageOrchestrator(
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
                     "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
-                    "needsSearch=${triage.needsSearch}, reason='${triage.reason}')"
+                    "needsSearch=${triage.needsSearch}, category=${triage.loggableCategory})"
             }
             if (!shouldReply) return
 

@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import org.taonity.sinairllmbot.bot.LogRedact
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 
@@ -28,8 +29,8 @@ class SourceIngestionService(
 
         return urls.mapNotNull { url ->
             runCatching { sourceFetcher.fetch(url) }
-                .onSuccess { LOGGER.info { "Ingested ${it.sourceType.wireName} source from $url" } }
-                .onFailure { LOGGER.info { "Ingestion skipped for $url: ${it.message}" } }
+                .onSuccess { LOGGER.info { "Ingested ${it.sourceType.wireName} source [${LogRedact.urlToken(url)}]" } }
+                .onFailure { LOGGER.info { "Ingestion skipped [${LogRedact.urlToken(url)}]: ${it.javaClass.simpleName}" } }
                 .getOrNull()
         }
     }

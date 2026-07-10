@@ -7,6 +7,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.taonity.sinairllmbot.bot.LogRedact
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
@@ -61,7 +62,7 @@ class GitHubReadmeFetcher(
                 .accept(README_HTML)
                 .retrieve()
                 .body(String::class.java)
-        }.onFailure { LOGGER.debug(it) { "No README for $owner/$repo" } }.getOrNull()
+        }.onFailure { LOGGER.debug { "No README [${LogRedact.urlToken(originalUrl)}]: ${it.javaClass.simpleName}" } }.getOrNull()
 
         val extracted = readmeHtml?.let { contentExtractor.extract(it, meta.htmlUrl ?: originalUrl) }
 
