@@ -21,6 +21,12 @@ const roomsByTarget = new Map();
 // replays its history burst) incoming messages are tagged `historical` so the backend stores them
 // without re-running commands or reacting. Value: { idle: Timeout, hard: Timeout }.
 const historyWarmup = new Map();
+// Per-room join timestamp (unixtime, seconds). Any message whose server-side `time` is at or before
+// the moment we (re)joined the room is a history replay, never something posted to us live. This is
+// a deterministic backstop to the idle-based warm-up window: the last replayed message can arrive
+// after the idle timer (or hard cap) has already closed the window, and this cutoff still catches
+// it so the bot never reacts to anything from before it joined. Value: unixtime seconds.
+const roomJoinedAt = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -64,6 +70,7 @@ function sendChatMessage(target, text) {
 /** Registers a joined room and (re)asserts the bot's nick/color in it. */
 function onRoomReady(room) {
     roomsByTarget.set(room.target, room);
+    roomJoinedAt.set(room.target, Math.floor(Date.now() / 1000));
     if (config.botColor) {
         room.sendMessage(`/color ${config.botColor}`);
         logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
@@ -79,6 +86,15 @@ function onRoomReady(room) {
 /** True while the room is replaying its post-join history burst. */
 function isHistoryWarmup(target) {
     return historyWarmup.has(target);
+}
+
+/**
+ * True if a message was sent at or before we (re)joined the room, i.e. it's a history replay rather
+ * than a live message directed at the bot. Deterministic backstop to the idle-based warm-up window.
+ */
+function isBeforeJoin(target, sentAt) {
+    const joinedAt = roomJoinedAt.get(target);
+    return joinedAt != null && typeof sentAt === 'number' && sentAt <= joinedAt;
 }
 
 /** Begins the history warm-up window for a room, ended by idle quiet or a hard cap. */
@@ -111,6 +127,7 @@ function finishHistoryWarmup(target) {
 
 function clearAllHistoryWarmup() {
     for (const target of [...historyWarmup.keys()]) finishHistoryWarmup(target);
+    roomJoinedAt.clear();
 }
 
 /**
@@ -180,8 +197,8 @@ export async function startCollector() {
     chat.on(WsChatEvents.message, (room, msgobj) => {
         logger.debug(`[collector] message event — room=${room?.target}, from=${msgobj?.from_login}`);
         const member = room?.getMemberById?.(msgobj.from);
-        const historical = isHistoryWarmup(room?.target);
-        if (historical) bumpHistoryWarmup(room.target);
+        const historical = isHistoryWarmup(room?.target) || isBeforeJoin(room?.target, msgobj.time);
+        if (isHistoryWarmup(room?.target)) bumpHistoryWarmup(room.target);
         const dto = {
             externalId: msgobj.id || null,
             roomTarget: msgobj.target,
