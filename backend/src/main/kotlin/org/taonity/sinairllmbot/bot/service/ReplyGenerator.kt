@@ -111,7 +111,7 @@ class ReplyGenerator(
             ChatMessage.assistant(draft),
             ChatMessage.user(instruction),
         )
-        return llmClient.complete(tierName = prompt.tierName, messages = messages)
+        return llmClient.complete(tierName = prompt.tierName, messages = messages, webSearch = prompt.webSearch)
             ?.content?.trim()?.takeIf { it.isNotBlank() }
     }
 

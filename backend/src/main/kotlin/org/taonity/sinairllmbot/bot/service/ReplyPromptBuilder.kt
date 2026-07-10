@@ -51,6 +51,12 @@ class ReplyPromptBuilder(
             null
         }
 
+        val hasImages = grounded?.hasImages == true
+        val webSearch = llmProperties.replyWebSearch && !hasImages && needsWebSearch
+        if (webSearch) {
+            LOGGER.info { "Web search offered for reply in $roomTarget" }
+        }
+
         val system = buildString {
             append(persona.prompt.trim()).append("\n\n")
             append("Your chat nick is '").append(persona.name).append("'. ")
@@ -84,6 +90,13 @@ class ReplyPromptBuilder(
                 append("aren't there. Your read is README/page-level (and the image), not a full ")
                 append("source-code analysis — say so if it matters. Keep your normal casual voice.")
             }
+            if (webSearch) {
+                append("\n\nLIVE SEARCH REQUIRED:\n")
+                append("The gate classified this reply as needing a web lookup. Use live search ")
+                append("before answering and ground the concrete facts in what you find, not in ")
+                append("your memory. If live search finds no solid result, say that plainly ")
+                append("instead of guessing.")
+            }
             if (summary.isNotBlank()) {
                 append("\n\nBACKGROUND (longer-term memory of this chat — recurring themes and who's ")
                 append("who). It may be out of date and some threads are long finished. Use it only ")
@@ -102,12 +115,6 @@ class ReplyPromptBuilder(
             }
             append("Respond to this latest message from @").append(trigger.senderLogin).append(":\n")
             append(trigger.messageText)
-        }
-
-        val hasImages = grounded?.hasImages == true
-        val webSearch = llmProperties.replyWebSearch && !hasImages && needsWebSearch
-        if (webSearch) {
-            LOGGER.info { "Web search offered for reply in $roomTarget" }
         }
 
         val userMessage = if (hasImages) {
