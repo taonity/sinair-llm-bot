@@ -33,6 +33,10 @@ class ReplyPromptBuilder(
         private val LOGGER = KotlinLogging.logger {}
         private val DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
 
+        // Trigger + this many recent messages are scanned for URLs to ground on (covers a link
+        // shared a message or two before the one that triggered the reply).
+        private const val LINK_CONTEXT_MESSAGES = 5
+
         private val FRESHNESS_HINTS = listOf(
             "последн", "новейш", "новая верс", "свеж", "вышел", "вышла", "выйдет",
             "выходит", "релиз", "анонс", "обнови", "новост", "произошл", "случил",
@@ -50,7 +54,7 @@ class ReplyPromptBuilder(
         val summary = roomSummaryService.currentSummary(roomTarget)
         val transcript = contextBuilder.recentTranscript(roomTarget)
 
-        val sources = sourceIngestionService.ingestFrom(trigger.messageText)
+        val sources = sourceIngestionService.ingestFrom(linkScanText(roomTarget, trigger))
         val grounded = if (sources.isNotEmpty()) {
             ingestionContextBuilder.build(sources, trigger.messageText)
         } else {
@@ -148,6 +152,17 @@ class ReplyPromptBuilder(
     private fun looksTimeSensitive(text: String): Boolean {
         val lower = text.lowercase()
         return FRESHNESS_HINTS.any { lower.contains(it) } || RECENT_YEAR.containsMatchIn(lower)
+    }
+
+    /**
+     * URLs to ground on come from the trigger PLUS the last few messages of the live segment, so a
+     * link shared just before the trigger ("here's the link" → "try again") is still fetched. The
+     * trigger is listed first so its own links win the per-message cap.
+     */
+    private fun linkScanText(roomTarget: String, trigger: ChatMessageEntity): String {
+        val recent = contextBuilder.recentMessageTexts(roomTarget, LINK_CONTEXT_MESSAGES)
+            .filter { it != trigger.messageText }
+        return (listOf(trigger.messageText) + recent).joinToString("\n")
     }
 }
 

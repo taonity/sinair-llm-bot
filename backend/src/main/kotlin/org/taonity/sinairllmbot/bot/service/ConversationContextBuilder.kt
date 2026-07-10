@@ -68,6 +68,17 @@ class ConversationContextBuilder(
         }
     }
 
+    /**
+     * Raw text of the last [limit] messages (chronological). Used to scan the live segment for URLs
+     * to ground on, so a link posted a message or two before the trigger (e.g. "here's the link" →
+     * "try again") is still fetched rather than ignored.
+     */
+    fun recentMessageTexts(roomTarget: String, limit: Int): List<String> =
+        chatMessageRepository
+            .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
+            .asReversed()
+            .map { it.messageText }
+
     /** e.g. "Online now: DJ1, aps, Dr.Admin(moder). " — empty string when unknown. */
     fun presenceLine(roomTarget: String): String {
         val events = chatEventRepository

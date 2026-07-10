@@ -73,12 +73,25 @@ class LlmClient(
                 LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
                 return null
             }
+            val citationUrls = response?.choices?.firstOrNull()?.message?.annotations
+                ?.mapNotNull { it.urlCitation?.url }
+                .orEmpty()
             val usage = response.usage
             LOGGER.info {
                 "LLM tier=$tierName model=${tier.model} tokens=${usage?.totalTokens ?: "?"} " +
                     "(in=${usage?.promptTokens ?: "?"}, out=${usage?.completionTokens ?: "?"})"
             }
-            LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0)
+            if (webSearch) {
+                if (citationUrls.isEmpty()) {
+                    LOGGER.info { "LLM tier=$tierName: web_search offered but model returned no citations" }
+                } else {
+                    LOGGER.info {
+                        "LLM tier=$tierName: web_search used, ${citationUrls.size} citation(s): " +
+                            citationUrls.joinToString(", ")
+                    }
+                }
+            }
+            LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0, citationUrls = citationUrls)
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
             null
@@ -101,4 +114,5 @@ class LlmClient(
 data class LlmResult(
     val content: String,
     val totalTokens: Int,
+    val citationUrls: List<String> = emptyList(),
 )

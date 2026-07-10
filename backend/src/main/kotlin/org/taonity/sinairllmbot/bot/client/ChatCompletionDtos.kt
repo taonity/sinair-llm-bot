@@ -32,10 +32,16 @@ data class Tool(
  * A chat message whose [content] is either a plain [String] (the common case) or a [List] of
  * [ContentPart]s for multimodal input (text + images). Both serialize correctly for the
  * OpenAI/OpenRouter chat-completions API; responses always come back as a string.
+ *
+ * On responses, [annotations] carries the web-search `url_citation`s the model grounded on (null on
+ * requests — omitted via NON_NULL so it never pollutes an outgoing message).
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class ChatMessage(
     val role: String,
     val content: Any,
+    val annotations: List<Annotation>? = null,
 ) {
     companion object {
         fun system(content: String) = ChatMessage("system", content)
@@ -45,6 +51,22 @@ data class ChatMessage(
         /** Multimodal user message (e.g. grounding text plus one or more images). */
         fun userParts(parts: List<ContentPart>) = ChatMessage("user", parts)
     }
+}
+
+/**
+ * A response-side annotation. Web search returns `type="url_citation"` entries pointing at the live
+ * pages the model actually consulted, letting us log whether/what it searched.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class Annotation(
+    val type: String? = null,
+    @JsonProperty("url_citation") val urlCitation: UrlCitation? = null,
+) {
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    data class UrlCitation(
+        val url: String? = null,
+        val title: String? = null,
+    )
 }
 
 /**
