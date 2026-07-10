@@ -42,7 +42,7 @@ app:
       candidate-count: 2
       # Sampling temperature used for candidate generation; higher than the reply tier default to
       # get diverse drafts for the critic to choose between.
-      candidate-temperature: 0.4
+      candidate-temperature: 0.35
       # Best-candidate overall score (0-10) below which a one-shot repair pass is triggered.
       repair-threshold: 7
     tiers:
