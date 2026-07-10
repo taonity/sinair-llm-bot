@@ -1,0 +1,6 @@
+name: prod
+variables:
+  - name: baseUrl
+    value: https://openrouter.ai
+  - secret: true
+    name: token

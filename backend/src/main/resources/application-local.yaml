@@ -13,7 +13,7 @@ logging:
 
 #    org.apache.hc.client5.http.headers: DEBUG
 #    org.apache.hc.client5.http.wire: DEBUG
-    # org.taonity.sinairllmbot.bot.client.LlmClient: DEBUG
+#    org.taonity.sinairllmbot.bot.client.LlmClient: DEBUG
 
 #debug: true
 

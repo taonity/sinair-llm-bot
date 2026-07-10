@@ -1,0 +1,37 @@
+info:
+  name: /api/v1/chat/completions with web search
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/chat/completions"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "model": "anthropic/claude-sonnet-4",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Опиши все что знаешь о minecraft galaxy"
+          }
+        ],
+         "tools": [
+          {
+            "type": "openrouter:web_search"
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

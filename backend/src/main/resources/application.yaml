@@ -39,10 +39,10 @@ app:
       # When false the bot generates a single reply directly (legacy path), no rating/repair.
       enabled: ${LLM_CRITIC_ENABLED:true}
       # How many independent reply candidates to draw per message (drawn in parallel).
-      candidate-count: 3
+      candidate-count: 2
       # Sampling temperature used for candidate generation; higher than the reply tier default to
       # get diverse drafts for the critic to choose between.
-      candidate-temperature: 0.9
+      candidate-temperature: 0.4
       # Best-candidate overall score (0-10) below which a one-shot repair pass is triggered.
       repair-threshold: 7
     tiers:
