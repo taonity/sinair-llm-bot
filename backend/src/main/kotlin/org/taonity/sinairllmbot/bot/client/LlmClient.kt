@@ -7,6 +7,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.taonity.sinairllmbot.bot.config.LlmProperties
+import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 
 /**
@@ -18,12 +19,14 @@ import java.time.Duration
 @Component
 class LlmClient(
     private val llmProperties: LlmProperties,
+    private val objectMapper: ObjectMapper,
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
 
     private val restClient: RestClient = buildRestClient()
+    private val prettyWriter = objectMapper.writerWithDefaultPrettyPrinter()
 
     /**
      * Runs a completion against the given tier.
@@ -56,8 +59,10 @@ class LlmClient(
             tools = if (webSearch) listOf(Tool.webSearch()) else null,
         )
 
+        LOGGER.debug { "OpenRouter request (tier=$tierName):\n${prettyJson(request)}" }
+
         return try {
-            val response = restClient.post()
+            val rawResponse = restClient.post()
                 .uri("/chat/completions")
                 .headers { headers ->
                     headers.setBearerAuth(llmProperties.apiKey)
@@ -66,8 +71,11 @@ class LlmClient(
                 }
                 .body(request)
                 .retrieve()
-                .body(ChatCompletionResponse::class.java)
+                .body(String::class.java)
 
+            LOGGER.debug { "OpenRouter response (tier=$tierName):\n${prettyJson(rawResponse)}" }
+
+            val response = rawResponse?.let { objectMapper.readValue(it, ChatCompletionResponse::class.java) }
             val content = (response?.choices?.firstOrNull()?.message?.content as? String)?.trim()
             if (content.isNullOrBlank()) {
                 LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
@@ -76,7 +84,7 @@ class LlmClient(
             val citationUrls = response?.choices?.firstOrNull()?.message?.annotations
                 ?.mapNotNull { it.urlCitation?.url }
                 .orEmpty()
-            val usage = response.usage
+            val usage = response?.usage
             LOGGER.info {
                 "LLM tier=$tierName model=${tier.model} tokens=${usage?.totalTokens ?: "?"} " +
                     "(in=${usage?.promptTokens ?: "?"}, out=${usage?.completionTokens ?: "?"})"
@@ -93,6 +101,20 @@ class LlmClient(
             LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
             null
         }
+    }
+
+    /** Serializes a DTO to pretty JSON for debug logging, degrading gracefully on any failure. */
+    private fun prettyJson(value: Any?): String = try {
+        prettyWriter.writeValueAsString(value)
+    } catch (exception: Exception) {
+        "<unserializable: ${exception.message}>"
+    }
+
+    /** Re-indents an already-serialized JSON string for readable debug logging. */
+    private fun prettyJson(json: String?): String = try {
+        if (json.isNullOrBlank()) "<empty>" else prettyWriter.writeValueAsString(objectMapper.readTree(json))
+    } catch (exception: Exception) {
+        json ?: "<null>"
     }
 
     private fun buildRestClient(): RestClient {
