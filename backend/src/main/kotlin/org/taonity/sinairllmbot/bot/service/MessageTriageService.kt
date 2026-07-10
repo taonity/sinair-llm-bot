@@ -25,6 +25,11 @@ import tools.jackson.databind.ObjectMapper
  *  - [TriageVerdict.needsFreshInfo] — would answering well require up-to-date information (latest
  *    versions, current events, prices, "newest" anything)? Drives whether the reply enables live
  *    web search, since the bot's built-in knowledge goes stale on these topics.
+ *  - [TriageVerdict.needsSearch] — is the latest message asking the bot to look up, find or describe
+ *    a specific named thing it likely cannot answer accurately from memory (a site, product, tool,
+ *    game, term, place, person or org), or telling it to go ahead with / retry such a look-up asked
+ *    of it just before? Also enables live web search, independent of time-sensitivity, so an
+ *    explicit research request grounds in real results instead of the model's priors.
  *
  * The bot's own messages appear in the transcript under its nick, which is what lets the model
  * recognise follow-ups aimed at the bot without an explicit mention.
@@ -46,6 +51,7 @@ class MessageTriageService(
         // `needs?FreshInfo` alternation tolerates the model dropping the 's'.
         private val RESPOND_REGEX = Regex("\"respond\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
         private val FRESH_REGEX = Regex("\"needs?FreshInfo\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
+        private val SEARCH_REGEX = Regex("\"needs?Search\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
     }
 
     fun assess(roomTarget: String): TriageVerdict {
@@ -73,9 +79,18 @@ class MessageTriageService(
             append("2) needsFreshInfo (boolean): would answering well require up-to-date information ")
             append("that changes over time — latest software versions, current events, recent releases, ")
             append("prices, 'newest'/'current' anything, who holds a role right now, today's facts? ")
-            append("TRUE if the answer depends on knowledge that may be outdated, FALSE otherwise.\n\n")
+            append("TRUE if the answer depends on knowledge that may be outdated, FALSE otherwise.\n")
+            append("3) needsSearch (boolean): would answering well require looking something up on the ")
+            append("web right now? Say TRUE when the latest message asks the bot to look up, find, ")
+            append("google, check or describe a specific named thing it likely cannot answer ")
+            append("accurately from memory — a website, product, service, tool, game, library, term, ")
+            append("place, person or organization — or when it tells the bot to go ahead with, retry ")
+            append("or continue such a look-up that was asked of it a moment earlier. Say FALSE for ")
+            append("general chit-chat, opinions, or questions the bot can answer well from its own ")
+            append("knowledge.\n")
             append("Respond with ONLY a JSON object, booleans first: ")
-            append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"reason\": string}. ")
+            append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"needsSearch\": boolean, ")
+            append("\"reason\": string}. ")
             append("Keep reason to at most 6 words. Default respond=false.")
         }
         val raw = llmClient.complete(
@@ -110,8 +125,9 @@ class MessageTriageService(
         val respond = RESPOND_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true)
             ?: return null
         val needsFresh = FRESH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
-        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh" }
-        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, reason = "salvaged")
+        val needsSearch = SEARCH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
+        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh needsSearch=$needsSearch" }
+        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch, reason = "salvaged")
     }
 }
 
@@ -120,5 +136,7 @@ data class TriageVerdict(
     val respond: Boolean = false,
     @JsonAlias("needFreshInfo", "freshInfo", "needs_fresh_info", "need_fresh_info")
     val needsFreshInfo: Boolean = false,
+    @JsonAlias("needSearch", "search", "needs_search", "need_search")
+    val needsSearch: Boolean = false,
     val reason: String = "",
 )

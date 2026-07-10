@@ -48,7 +48,7 @@ class ReplyPromptBuilder(
         private val RECENT_YEAR = Regex("\\b20(2[5-9]|[3-9]\\d)\\b")
     }
 
-    fun build(roomTarget: String, trigger: ChatMessageEntity, needsFreshInfo: Boolean): ReplyPrompt {
+    fun build(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean): ReplyPrompt {
         val persona = botProperties.persona
         val presence = contextBuilder.presenceLine(roomTarget)
         val summary = roomSummaryService.currentSummary(roomTarget)
@@ -116,10 +116,10 @@ class ReplyPromptBuilder(
 
         val hasImages = grounded?.hasImages == true
         val webSearch = llmProperties.replyWebSearch && !hasImages &&
-            (needsFreshInfo || looksTimeSensitive(trigger.messageText))
+            (needsWebSearch || looksTimeSensitive(trigger.messageText))
         if (webSearch) {
-            val source = if (needsFreshInfo) "triage" else "heuristic"
-            LOGGER.info { "Web search enabled for reply in $roomTarget (fresh-info via $source)" }
+            val source = if (needsWebSearch) "triage" else "heuristic"
+            LOGGER.info { "Web search offered for reply in $roomTarget (lookup via $source)" }
         }
 
         val userMessage = if (hasImages) {

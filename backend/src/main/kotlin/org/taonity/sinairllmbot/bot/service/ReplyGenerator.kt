@@ -31,11 +31,12 @@ class ReplyGenerator(
     }
 
     /**
-     * @param needsFreshInfo the cheap triage stage's judgment that answering requires up-to-date
-     *   information; enables live web search (see [ReplyPromptBuilder]).
+     * @param needsWebSearch the cheap triage stage's judgment that answering warrants a live web
+     *   lookup — either the answer is time-sensitive or the user explicitly asked the bot to look
+     *   something specific up; enables live web search (see [ReplyPromptBuilder]).
      */
-    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsFreshInfo: Boolean = false): String? {
-        val prompt = promptBuilder.build(roomTarget, trigger, needsFreshInfo)
+    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): String? {
+        val prompt = promptBuilder.build(roomTarget, trigger, needsWebSearch)
 
         val chosen = if (llmProperties.critic.enabled) {
             generateWithCritic(roomTarget, prompt)

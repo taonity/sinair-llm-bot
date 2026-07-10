@@ -98,7 +98,7 @@ class BotMessageOrchestrator(
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
                     "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
-                    "reason='${triage.reason}')"
+                    "needsSearch=${triage.needsSearch}, reason='${triage.reason}')"
             }
             if (!shouldReply) return
 
@@ -107,7 +107,7 @@ class BotMessageOrchestrator(
             // indicator up (via BotTypingService) until the collector delivers it.
             botTypingService.markTyping(roomTarget)
             val reply = try {
-                replyGenerator.generate(roomTarget, trigger, triage.needsFreshInfo)
+                replyGenerator.generate(roomTarget, trigger, triage.needsFreshInfo || triage.needsSearch)
             } finally {
                 botTypingService.clearTyping(roomTarget)
             } ?: return
