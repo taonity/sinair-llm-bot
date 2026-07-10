@@ -36,16 +36,6 @@ class ReplyPromptBuilder(
         // Trigger + this many recent messages are scanned for URLs to ground on (covers a link
         // shared a message or two before the one that triggered the reply).
         private const val LINK_CONTEXT_MESSAGES = 5
-
-        private val FRESHNESS_HINTS = listOf(
-            "последн", "новейш", "новая верс", "свеж", "вышел", "вышла", "выйдет",
-            "выходит", "релиз", "анонс", "обнови", "новост", "произошл", "случил",
-            "сейчас", "сегодня", "вчера", "этой недел", "этом году", "текущ", "актуальн",
-            "сколько стоит", "курс ",
-            "latest", "newest", "just released", "recently", "currently", "today",
-            "this week", "this year", "right now", "breaking", "news",
-        )
-        private val RECENT_YEAR = Regex("\\b20(2[5-9]|[3-9]\\d)\\b")
     }
 
     fun build(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean): ReplyPrompt {
@@ -115,11 +105,9 @@ class ReplyPromptBuilder(
         }
 
         val hasImages = grounded?.hasImages == true
-        val webSearch = llmProperties.replyWebSearch && !hasImages &&
-            (needsWebSearch || looksTimeSensitive(trigger.messageText))
+        val webSearch = llmProperties.replyWebSearch && !hasImages && needsWebSearch
         if (webSearch) {
-            val source = if (needsWebSearch) "triage" else "heuristic"
-            LOGGER.info { "Web search offered for reply in $roomTarget (lookup via $source)" }
+            LOGGER.info { "Web search offered for reply in $roomTarget" }
         }
 
         val userMessage = if (hasImages) {
@@ -146,12 +134,6 @@ class ReplyPromptBuilder(
             triggerText = trigger.messageText,
             senderLogin = trigger.senderLogin,
         )
-    }
-
-    /** Cheap pre-check so web search only fires on messages that actually ask about current facts. */
-    private fun looksTimeSensitive(text: String): Boolean {
-        val lower = text.lowercase()
-        return FRESHNESS_HINTS.any { lower.contains(it) } || RECENT_YEAR.containsMatchIn(lower)
     }
 
     /**
