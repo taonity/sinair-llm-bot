@@ -89,6 +89,7 @@ app:
       max-summary-chars: 4000
       summary-max-tokens: 1200
       max-message-chars: 600
+      session-gap-minutes: 45
     typing:
       ttl-seconds: 15
 #logging:

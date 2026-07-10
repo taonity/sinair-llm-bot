@@ -45,6 +45,7 @@ data class BotProperties(
         val maxSummaryChars: Int,
         val summaryMaxTokens: Int,
         val maxMessageChars: Int,
+        val sessionGapMinutes: Long,
     )
 
     data class Typing(

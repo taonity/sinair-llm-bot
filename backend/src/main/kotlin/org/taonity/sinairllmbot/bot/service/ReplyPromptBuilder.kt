@@ -91,7 +91,10 @@ class ReplyPromptBuilder(
                 append("source-code analysis — say so if it matters. Keep your normal casual voice.")
             }
             if (summary.isNotBlank()) {
-                append("\n\nWHAT THIS CHAT IS ABOUT:\n").append(summary)
+                append("\n\nBACKGROUND (longer-term memory of this chat — recurring themes and who's ")
+                append("who). It may be out of date and some threads are long finished. Use it only ")
+                append("to understand references; do NOT bring these topics up on your own or assume ")
+                append("they're still being discussed.\n").append(summary)
             }
             if (presence.isNotBlank()) {
                 append("\n\n").append(presence)

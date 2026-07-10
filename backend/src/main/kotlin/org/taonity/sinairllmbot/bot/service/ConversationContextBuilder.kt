@@ -6,6 +6,8 @@ import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import java.time.Duration
+import java.time.Instant
 
 /**
  * Builds the compact, token-efficient context fed to the LLM:
@@ -13,6 +15,11 @@ import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
  *  - the last N chat messages rendered as a plain transcript.
  *
  * Full history is never sent; the rolling room summary (see RoomSummaryService) carries older context.
+ *
+ * The transcript is time-aware: when a long quiet gap separates two consecutive messages, a
+ * `--- ~Xh later ---` marker is inserted. This stops the model from reading days-old backlog as if
+ * it were the live exchange (which made the bot resurrect long-finished topics), and lets triage
+ * and reply generation treat the segment after the last gap as "what's happening now".
  */
 @Component
 class ConversationContextBuilder(
@@ -27,13 +34,37 @@ class ConversationContextBuilder(
 
     fun recentTranscript(roomTarget: String, limit: Int = botProperties.context.recentMessageCount): String {
         val maxChars = botProperties.context.maxMessageChars
+        val gapThreshold = Duration.ofMinutes(botProperties.context.sessionGapMinutes)
         val messages = chatMessageRepository
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
             .asReversed()
-        return messages.joinToString("\n") { msg ->
+
+        val builder = StringBuilder()
+        var previousSentAt: Instant? = null
+        for (msg in messages) {
+            previousSentAt?.let { prev ->
+                val gap = Duration.between(prev, msg.sentAt)
+                if (gap >= gapThreshold) {
+                    if (builder.isNotEmpty()) builder.append('\n')
+                    builder.append("--- ").append(describeGap(gap)).append(" later ---")
+                }
+            }
+            if (builder.isNotEmpty()) builder.append('\n')
             val text = msg.messageText.let { if (it.length > maxChars) it.take(maxChars) + "…" else it }
             val userIdTag = if (msg.senderUserId > 0) "[uid:${msg.senderUserId}]" else ""
-            "${msg.senderLogin}$userIdTag: ${text.replace("\n", " ")}"
+            builder.append("${msg.senderLogin}$userIdTag: ${text.replace("\n", " ")}")
+            previousSentAt = msg.sentAt
+        }
+        return builder.toString()
+    }
+
+    /** Coarse, human-readable gap size for a session-break marker, e.g. "~40m", "~3h", "~2d". */
+    private fun describeGap(gap: Duration): String {
+        val minutes = gap.toMinutes()
+        return when {
+            minutes < 60 -> "~${minutes}m"
+            minutes < 60 * 24 -> "~${gap.toHours()}h"
+            else -> "~${gap.toDays()}d"
         }
     }
 
