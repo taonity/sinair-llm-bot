@@ -28,6 +28,7 @@ class ReplyPromptBuilder(
     private val sourceIngestionService: SourceIngestionService,
     private val ingestionContextBuilder: ContextBuilder,
     private val ingestionProperties: IngestionProperties,
+    private val emojiCatalog: EmojiCatalog,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -70,6 +71,13 @@ class ReplyPromptBuilder(
             append("and don't offer to elaborate further as a question back to them — only ask a ")
             append("clarifying question when you genuinely can't proceed without a missing detail. ")
             append("To address someone, mention them with @nick.")
+            if (emojiCatalog.promptList.isNotBlank()) {
+                append("\n\nEMOJI: You mostly write plain text. If a smiley genuinely adds something, ")
+                append("you may use ONLY these codes, exactly as written: ").append(emojiCatalog.promptList)
+                append(". Never use any other emoji, unicode emoji, kaomoji or symbol. Use them ")
+                append("sparingly — most messages should have none, at most one, and never string ")
+                append("several together. Skip the smiley entirely if it doesn't clearly fit.")
+            }
             append("\n\nToday is ").append(LocalDate.now().format(DATE_FORMAT)).append(". ")
             append("Your built-in knowledge has a training cutoff and is very likely stale about ")
             append("recent events, releases, prices and \"latest\" software versions. Never state from ")
