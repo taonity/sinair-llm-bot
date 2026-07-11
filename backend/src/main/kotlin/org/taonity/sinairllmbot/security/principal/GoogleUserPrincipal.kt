@@ -5,6 +5,7 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo
 import org.springframework.security.oauth2.core.oidc.user.OidcUser
 import org.springframework.security.oauth2.core.user.OAuth2User
+import java.io.Serializable
 
 class GoogleUserPrincipal(
     private val authorities: Collection<GrantedAuthority>,
@@ -13,7 +14,7 @@ class GoogleUserPrincipal(
     private val nameAttributeKey: String,
     private val idToken: OidcIdToken? = null,
     private val userInfo: OidcUserInfo? = null
-) : OidcUser {
+) : OidcUser, Serializable {
 
     override fun getName(): String = nameAttributeKey
 
@@ -36,6 +37,8 @@ class GoogleUserPrincipal(
     fun getPictureUrl(): String? = safeGoogleUserInfo.pictureUrl
 
     companion object {
+        private const val serialVersionUID: Long = 1L
+
         fun of(safeGoogleUserInfo: SafeGoogleUserInfo, oAuth2User: OAuth2User): GoogleUserPrincipal {
             val idToken = if (oAuth2User is OidcUser) oAuth2User.idToken else null
             val userInfo = if (oAuth2User is OidcUser) oAuth2User.userInfo else null
