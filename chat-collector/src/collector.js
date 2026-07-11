@@ -195,10 +195,19 @@ export async function startCollector() {
     });
 
     chat.on(WsChatEvents.message, (room, msgobj) => {
-        logger.debug(`[collector] message event — room=${room?.target}, from=${msgobj?.from_login}`);
         const member = room?.getMemberById?.(msgobj.from);
-        const historical = isHistoryWarmup(room?.target) || isBeforeJoin(room?.target, msgobj.time);
-        if (isHistoryWarmup(room?.target)) bumpHistoryWarmup(room.target);
+        const warmup = isHistoryWarmup(room?.target);
+        const beforeJoin = isBeforeJoin(room?.target, msgobj.time);
+        const historical = warmup || beforeJoin;
+        // Diagnostic: log the exact inputs to the historical decision (no message text) so a
+        // post-rejoin re-answer can be traced to warm-up/clock-skew leakage. from_login is a nick
+        // (identifier), id/time/joinedAt are not content.
+        logger.debug(
+            `[collector] message event — room=${room?.target}, from=${msgobj?.from_login}, ` +
+            `id=${msgobj?.id ?? 'none'}, time=${msgobj?.time}, joinedAt=${roomJoinedAt.get(room?.target) ?? 'none'}, ` +
+            `warmup=${warmup}, beforeJoin=${beforeJoin}, historical=${historical}`,
+        );
+        if (warmup) bumpHistoryWarmup(room.target);
         const dto = {
             externalId: msgobj.id || null,
             roomTarget: msgobj.target,
