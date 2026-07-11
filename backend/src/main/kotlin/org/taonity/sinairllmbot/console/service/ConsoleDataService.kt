@@ -11,8 +11,10 @@ import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.chat.entity.IgnoredMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
 import org.taonity.sinairllmbot.console.dto.AuditLogDto
 import org.taonity.sinairllmbot.console.dto.ChatEventDto
 import org.taonity.sinairllmbot.console.dto.ChatMessageDto
@@ -32,6 +34,7 @@ import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 class ConsoleDataService(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
+    private val ignoredMessageRepository: IgnoredMessageRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val roomSummaryRepository: RoomSummaryRepository,
     private val auditLogRepository: AuditLogRepository,
@@ -90,10 +93,16 @@ class ConsoleDataService(
     @Transactional
     fun deleteChatMessage(principal: GoogleUserPrincipal, id: String) {
         val actor = accessGuard.requireEdit(principal)
-        if (!chatMessageRepository.existsById(id)) {
-            throw ConsoleNotFoundException("Chat message not found")
-        }
+        val entity = chatMessageRepository.findById(id)
+            .orElseThrow { ConsoleNotFoundException("Chat message not found") }
         chatMessageRepository.deleteById(id)
+        // Tombstone the dedup key so the same message replayed in the history burst after a
+        // reconnect/relogin is recognised and dropped instead of being re-ingested.
+        if (!ignoredMessageRepository.existsByDedupKey(entity.dedupKey)) {
+            ignoredMessageRepository.save(
+                IgnoredMessageEntity(dedupKey = entity.dedupKey, roomTarget = entity.roomTarget),
+            )
+        }
         auditService.record(AuditAction.DELETE_CHAT_MESSAGE, "chat_message", id, actor)
     }
 
