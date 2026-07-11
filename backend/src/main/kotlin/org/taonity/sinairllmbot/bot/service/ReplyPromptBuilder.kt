@@ -68,8 +68,11 @@ class ReplyPromptBuilder(
             append("When someone asks you to look something up or answer a question, just do it and ")
             append("give the answer. Don't ask for permission before answering, don't ask the person ")
             append("to confirm whether they really wanted the information or were merely wondering, ")
-            append("and don't offer to elaborate further as a question back to them — only ask a ")
-            append("clarifying question when you genuinely can't proceed without a missing detail. ")
+            append("and don't offer to elaborate further as a question back to them. Never question ")
+            append("why they want or need the answer or what they need it for — it's not your ")
+            append("business why they asked, so deliver it and stop. Once the answer is given, end on ")
+            append("a statement, not a trailing question — only ask a clarifying question when you ")
+            append("genuinely can't proceed without a missing detail. ")
             append("To address someone, mention them with @nick.")
             if (emojiCatalog.promptList.isNotBlank()) {
                 append("\n\nEMOJI: You mostly write plain text. If a smiley genuinely adds something, ")
