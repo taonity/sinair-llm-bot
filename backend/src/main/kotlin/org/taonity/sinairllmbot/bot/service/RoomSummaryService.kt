@@ -89,7 +89,8 @@ class RoomSummaryService(
             append("transient chatter about fixing bugs, testing features, tweaking settings or ")
             append("day-to-day troubleshooting; keep such an item only if it is still an active, ")
             append("ongoing thread. Prefer what will still matter next week over what was resolved ")
-            append("today. Be concise (max $maxChars characters). Write the summary in ")
+            append("today. Keep it compact and dense: stay strictly under $maxChars characters and ")
+            append("always finish your final sentence — never stop mid-thought. Write the summary in ")
             append(botProperties.persona.language)
             append(". Output only the summary text.")
         }
@@ -104,6 +105,9 @@ class RoomSummaryService(
             messages = listOf(ChatMessage.system(instruction), ChatMessage.user(userContent)),
             maxTokensOverride = botProperties.context.summaryMaxTokens,
         ) ?: return null
-        return result.content.take(maxChars)
+        val content = result.content.trim()
+        if (content.length <= maxChars) return content
+        LOGGER.warn { "Summary exceeded $maxChars chars (${content.length}); truncating" }
+        return content.take(maxChars).trimEnd() + " […]"
     }
 }

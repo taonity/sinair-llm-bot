@@ -183,10 +183,13 @@ app:
       recent-message-count: 25
       summary-refresh-every-messages: 40
       # Character cap applied to the stored summary (also stated in the summariser prompt).
-      max-summary-chars: 4000
+      # Kept compact on purpose so the summary stays dense and always fits within the token budget.
+      max-summary-chars: 2500
       # Output token budget for the summariser call. Overrides the gate tier's small default
-      # (used for the classifier) so summaries can run long enough to cover all main topics.
-      summary-max-tokens: 1200
+      # (used for the classifier). Must comfortably exceed max-summary-chars worth of tokens:
+      # the summary is written in Russian (Cyrillic is ~1 char/token), so this is sized well above
+      # max-summary-chars to guarantee the model finishes its last sentence instead of being cut off.
+      summary-max-tokens: 3200
       max-message-chars: 1500
       # A quiet gap of at least this many minutes between two consecutive messages is rendered as a
       # "--- ~Xh later ---" marker in the transcript, so the model treats older backlog as past
