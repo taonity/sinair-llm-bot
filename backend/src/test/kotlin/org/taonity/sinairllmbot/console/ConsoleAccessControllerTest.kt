@@ -20,7 +20,7 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
     fun `bootstrapped owner sees owner access`() {
         val session = authorizeOAuth2()
 
-        mockMvc.perform(get("/console/access/me").session(session))
+        mockMvc.perform(get("/console/access/me").cookie(session))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.role").value("OWNER"))
             .andExpect(jsonPath("$.canView").value(true))
@@ -33,11 +33,11 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
     fun `admin can list chat messages and audit logs`() {
         val session = authorizeOAuth2()
 
-        mockMvc.perform(get("/console/chat-messages").session(session))
+        mockMvc.perform(get("/console/chat-messages").cookie(session))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.content").isArray)
 
-        mockMvc.perform(get("/console/audit-logs").session(session))
+        mockMvc.perform(get("/console/audit-logs").cookie(session))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.content").isArray)
     }
@@ -52,7 +52,7 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
     fun `owner can list users including self`() {
         val session = authorizeOAuth2()
 
-        mockMvc.perform(get("/console/users").session(session))
+        mockMvc.perform(get("/console/users").cookie(session))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$[?(@.email == 'test@example.com')].role").value("OWNER"))

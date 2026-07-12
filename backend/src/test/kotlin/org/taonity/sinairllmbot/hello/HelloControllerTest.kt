@@ -25,10 +25,10 @@ class HelloControllerTest : ControllerTestsBaseClass() {
 
     @Test
     fun `hello endpoint returns greeting for authenticated user`() {
-        val mockHttpSession = authorizeOAuth2()
+        val sessionCookie = authorizeOAuth2()
 
         mockMvc.perform(
-            get("/hello").session(mockHttpSession)
+            get("/hello").cookie(sessionCookie)
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.message").value("Hello, Test User!"))

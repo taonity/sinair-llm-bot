@@ -43,10 +43,14 @@
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
         </dependency>
 
-        <!-- Persist HTTP sessions in the DB so logins survive backend restarts -->
+        <!-- Persist HTTP sessions in the DB so logins survive backend restarts.
+             In Spring Boot 4 the Spring Session auto-configuration lives in this dedicated
+             module (spring-boot-session-jdbc); it transitively brings spring-session-jdbc.
+             Depending only on spring-session-jdbc leaves the auto-config off, so sessions
+             stay in Tomcat's in-memory manager and never reach the DB. -->
         <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-jdbc</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-session-jdbc</artifactId>
         </dependency>
 
         <!-- Data -->
