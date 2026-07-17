@@ -16,6 +16,7 @@ import org.taonity.sinairllmbot.console.dto.ChatEventDto
 import org.taonity.sinairllmbot.console.dto.ChatMessageDto
 import org.taonity.sinairllmbot.console.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.console.dto.PageResponse
+import org.taonity.sinairllmbot.console.dto.PipelineRunDto
 import org.taonity.sinairllmbot.console.dto.RoomSummaryDto
 import org.taonity.sinairllmbot.console.dto.UpdateSummaryBody
 import org.taonity.sinairllmbot.console.service.ConsoleDataService
@@ -103,6 +104,32 @@ class ConsoleDataController(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @PathVariable id: String,
     ) = consoleDataService.deleteOutboundMessage(principal, id)
+
+    @GetMapping("/pipeline-runs")
+    fun pipelineRuns(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @RequestParam(required = false) room: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) field: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "25") size: Int,
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageResponse<PipelineRunDto> = consoleDataService.listPipelineRuns(principal, room, q, field, page, size, direction)
+
+    @GetMapping("/pipeline-runs/{id}/page")
+    fun locatePipelineRun(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+        @RequestParam(defaultValue = "25") size: Int,
+        @RequestParam(defaultValue = "desc") direction: String,
+    ): PageLocation = PageLocation(consoleDataService.locatePipelineRunPage(principal, id, size, direction))
+
+    @DeleteMapping("/pipeline-runs/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deletePipelineRun(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+    ) = consoleDataService.deletePipelineRun(principal, id)
 
     @GetMapping("/summaries")
     fun summaries(

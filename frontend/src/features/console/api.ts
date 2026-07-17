@@ -11,6 +11,7 @@ import type {
   PageResponse,
   PageLocation,
   PendingRequest,
+  PipelineRun,
   RoomSummary,
   StubLogin,
   UserSummary,
@@ -112,6 +113,16 @@ export const consoleApi = {
   locateOutboundMessage: (id: string, size: number, direction?: string) =>
     get<PageLocation>(
       `/outbound-messages/${encodeURIComponent(id)}/page?size=${size}${direction ? `&direction=${direction}` : ''}`,
+    ),
+
+  listPipelineRuns: (page: number, size: number, q?: string, field?: string, direction?: string) =>
+    get<PageResponse<PipelineRun>>(buildListQuery('/pipeline-runs', page, size, q, field, direction)),
+
+  deletePipelineRun: (id: string) => mutate(`/pipeline-runs/${encodeURIComponent(id)}`, 'DELETE'),
+
+  locatePipelineRun: (id: string, size: number, direction?: string) =>
+    get<PageLocation>(
+      `/pipeline-runs/${encodeURIComponent(id)}/page?size=${size}${direction ? `&direction=${direction}` : ''}`,
     ),
 
   listSummaries: () => get<RoomSummary[]>('/summaries'),

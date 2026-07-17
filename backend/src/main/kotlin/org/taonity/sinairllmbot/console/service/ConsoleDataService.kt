@@ -6,8 +6,10 @@ import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
+import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
@@ -20,11 +22,14 @@ import org.taonity.sinairllmbot.console.dto.ChatEventDto
 import org.taonity.sinairllmbot.console.dto.ChatMessageDto
 import org.taonity.sinairllmbot.console.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.console.dto.PageResponse
+import org.taonity.sinairllmbot.console.dto.PipelineRunDto
+import org.taonity.sinairllmbot.console.dto.PipelineStageDto
 import org.taonity.sinairllmbot.console.dto.RoomSummaryDto
 import org.taonity.sinairllmbot.console.entity.AuditAction
 import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
 import org.taonity.sinairllmbot.console.repository.AuditLogRepository
 import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Read and mutate console data. Reads require VIEWER access, mutations require EDITOR access.
@@ -37,9 +42,11 @@ class ConsoleDataService(
     private val ignoredMessageRepository: IgnoredMessageRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val roomSummaryRepository: RoomSummaryRepository,
+    private val pipelineRunRepository: PipelineRunRepository,
     private val auditLogRepository: AuditLogRepository,
     private val accessGuard: AccessGuard,
     private val auditService: AuditService,
+    private val objectMapper: ObjectMapper,
 ) {
     companion object {
         private const val MAX_PAGE_SIZE = 100
@@ -187,6 +194,53 @@ class ConsoleDataService(
         outboundMessageRepository.deleteById(id)
         auditService.record(AuditAction.DELETE_OUTBOUND_MESSAGE, "outbound_message", id, actor)
     }
+
+    fun listPipelineRuns(
+        principal: GoogleUserPrincipal,
+        room: String?,
+        q: String?,
+        field: String?,
+        page: Int,
+        size: Int,
+        direction: String,
+    ): PageResponse<PipelineRunDto> {
+        accessGuard.requireView(principal)
+        val pageable = pageable(page, size, "createdAt", direction)
+        val result: Page<PipelineRunEntity> = when {
+            !q.isNullOrBlank() -> pipelineRunRepository.search(q.trim(), field.orAllField(), pageable)
+            room.isNullOrBlank() -> pipelineRunRepository.findAll(pageable)
+            else -> pipelineRunRepository.findByRoomTarget(room, pageable)
+        }
+        return PageResponse.of(result) { PipelineRunDto.from(it, parseStages(it.stagesJson)) }
+    }
+
+    fun locatePipelineRunPage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
+        accessGuard.requireView(principal)
+        val entity = pipelineRunRepository.findById(id)
+            .orElseThrow { ConsoleNotFoundException("Pipeline run not found") }
+        val before = if (sortDirection(direction) == Sort.Direction.ASC) {
+            pipelineRunRepository.countOrderedBeforeAsc(entity.createdAt, entity.id!!)
+        } else {
+            pipelineRunRepository.countOrderedBefore(entity.createdAt, entity.id!!)
+        }
+        return pageIndexOf(before, size)
+    }
+
+    @Transactional
+    fun deletePipelineRun(principal: GoogleUserPrincipal, id: String) {
+        val actor = accessGuard.requireEdit(principal)
+        if (!pipelineRunRepository.existsById(id)) {
+            throw ConsoleNotFoundException("Pipeline run not found")
+        }
+        pipelineRunRepository.deleteById(id)
+        auditService.record(AuditAction.DELETE_PIPELINE_RUN, "pipeline_run", id, actor)
+    }
+
+    private fun parseStages(json: String): List<PipelineStageDto> = runCatching {
+        val type = objectMapper.typeFactory.constructCollectionType(List::class.java, PipelineStageDto::class.java)
+        val stages: List<PipelineStageDto> = objectMapper.readValue(json, type)
+        stages
+    }.getOrElse { emptyList() }
 
     fun listSummaries(principal: GoogleUserPrincipal): List<RoomSummaryDto> {
         accessGuard.requireView(principal)

@@ -5,6 +5,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
+import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.bot.service.RoomSummaryService
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
@@ -18,6 +19,7 @@ class RetentionCleanupService(
     private val chatEventRepository: ChatEventRepository,
     private val ignoredMessageRepository: IgnoredMessageRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
+    private val pipelineRunRepository: PipelineRunRepository,
     private val roomSummaryService: RoomSummaryService,
 ) {
     companion object {
@@ -40,7 +42,11 @@ class RetentionCleanupService(
         val events = chatEventRepository.deleteByEventTimeBefore(cutoff)
         val ignored = ignoredMessageRepository.deleteByCreatedAtBefore(cutoff)
         val outbound = outboundMessageRepository.deleteByCreatedAtBefore(cutoff)
+        val pipelineRuns = pipelineRunRepository.deleteByCreatedAtBefore(cutoff)
 
-        LOGGER.info { "Retention cleanup complete: messages=$messages, events=$events, ignored=$ignored, outbound=$outbound" }
+        LOGGER.info {
+            "Retention cleanup complete: messages=$messages, events=$events, ignored=$ignored, " +
+                "outbound=$outbound, pipelineRuns=$pipelineRuns"
+        }
     }
 }

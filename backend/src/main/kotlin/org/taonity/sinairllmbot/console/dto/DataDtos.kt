@@ -1,6 +1,7 @@
 package org.taonity.sinairllmbot.console.dto
 
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
@@ -96,6 +97,61 @@ data class RoomSummaryDto(
         )
     }
 }
+
+/**
+ * A persisted pipeline run for the console. [stages] is the deserialized [stagesJson] of the entity
+ * (parsed by the service, which has the ObjectMapper); the stage shape mirrors
+ * [org.taonity.sinairllmbot.bot.pipeline.PipelineStage].
+ */
+data class PipelineRunDto(
+    val id: String?,
+    val pipelineKey: String,
+    val roomTarget: String,
+    val triggerMessageId: String?,
+    val triggerSenderLogin: String,
+    val triggerText: String,
+    val outcome: String,
+    val outcomeDetail: String?,
+    val outboundMessageId: String?,
+    val stages: List<PipelineStageDto>,
+    val createdAt: Instant,
+) {
+    companion object {
+        fun from(e: PipelineRunEntity, stages: List<PipelineStageDto>) = PipelineRunDto(
+            id = e.id,
+            pipelineKey = e.pipelineKey,
+            roomTarget = e.roomTarget,
+            triggerMessageId = e.triggerMessageId,
+            triggerSenderLogin = e.triggerSenderLogin,
+            triggerText = e.triggerText,
+            outcome = e.outcome,
+            outcomeDetail = e.outcomeDetail,
+            outboundMessageId = e.outboundMessageId,
+            stages = stages,
+            createdAt = e.createdAt,
+        )
+    }
+}
+
+data class PipelineStageDto(
+    val key: String = "",
+    val label: String = "",
+    val status: String = "",
+    val summary: String = "",
+    val fields: List<PipelineFieldDto> = emptyList(),
+    val alternatives: List<PipelineAlternativeDto> = emptyList(),
+)
+
+data class PipelineFieldDto(
+    val label: String = "",
+    val value: String = "",
+)
+
+data class PipelineAlternativeDto(
+    val text: String = "",
+    val chosen: Boolean = false,
+    val fields: List<PipelineFieldDto> = emptyList(),
+)
 
 data class UpdateSummaryBody(
     val summary: String,

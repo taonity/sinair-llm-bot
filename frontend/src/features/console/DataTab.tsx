@@ -1,7 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowDownWideNarrow, ArrowRightToLine, ArrowUpWideNarrow, RotateCw, Trash2 } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ArrowDownWideNarrow,
+  ArrowRightToLine,
+  ArrowUpWideNarrow,
+  ChevronDown,
+  ChevronRight,
+  RotateCw,
+  Trash2,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +50,8 @@ type DataTabProps<T> = {
   load: (page: number, size: number, q?: string, field?: string, direction?: string) => Promise<PageResponse<T>>
   /** Resolves the page index where a searched row lives in the unfiltered list, enabling the jump action. */
   locate?: (row: T, size: number, direction?: string) => Promise<number>
+  /** When set, rows get a chevron toggle that reveals this content in a full-width row below. */
+  expand?: (row: T) => React.ReactNode
   /** Reads the room name off a row so it can be shown once instead of as a per-row column. */
   roomAccessor?: (row: T) => string
   canEdit?: boolean
@@ -72,6 +82,7 @@ export function DataTab<T>({
   rowKey,
   load,
   locate,
+  expand,
   roomAccessor,
   canEdit = false,
   onDelete,
@@ -89,6 +100,7 @@ export function DataTab<T>({
   const [direction, setDirection] = useState<'desc' | 'asc'>('desc')
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [jumpingId, setJumpingId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -153,10 +165,19 @@ export function DataTab<T>({
 
   const searching = activeQuery.trim().length > 0
   const rows = data?.content ?? []
-  const columnCount = columns.length + (locate ? 1 : 0) + (canEdit ? 1 : 0)
+  const columnCount = columns.length + (expand ? 1 : 0) + (locate ? 1 : 0) + (canEdit ? 1 : 0)
   const firstRow = rows[0]
   const roomName = roomAccessor && firstRow ? roomAccessor(firstRow) : null
   const searchableColumns = columns.filter((c) => c.searchKey)
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const remove = async (row: T) => {
     if (!onDelete) return
@@ -264,6 +285,7 @@ export function DataTab<T>({
         <Table className="min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50">
           <TableHeader>
             <TableRow className="bg-muted/40">
+              {expand && <TableHead className="w-[40px]" />}
               {columns.map((c) => (
                 <TableHead key={c.key} className={c.headClassName}>
                   {c.label}
@@ -277,6 +299,7 @@ export function DataTab<T>({
             {loading &&
               Array.from({ length: SKELETON_ROWS }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
+                  {expand && <TableCell className="w-[40px]" />}
                   {columns.map((c, idx) => (
                     <TableCell key={c.key} className={c.cellClassName}>
                       <Skeleton
@@ -308,44 +331,68 @@ export function DataTab<T>({
             {!loading &&
               rows.map((row) => {
                 const id = rowKey(row)
+                const isExpanded = expandedIds.has(id)
                 return (
-                  <TableRow key={id} className={cn(highlightId === id && 'bg-primary/10')}>
-                    {columns.map((c) => (
-                      <TableCell key={c.key} className={c.cellClassName}>
-                        {c.render ? c.render(row) : c.value(row)}
-                      </TableCell>
-                    ))}
-                    {locate && (
-                      <TableCell className="text-right">
-                        {searching && (
+                  <Fragment key={id}>
+                    <TableRow className={cn(highlightId === id && 'bg-primary/10')}>
+                      {expand && (
+                        <TableCell className="w-[40px]">
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className="text-muted-foreground hover:text-foreground"
-                            aria-label="Jump to this row"
-                            title="Jump to this row in the full list"
-                            disabled={jumpingId === id}
-                            onClick={() => jumpTo(row)}
+                            aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
+                            aria-expanded={isExpanded}
+                            onClick={() => toggleExpanded(id)}
                           >
-                            <ArrowRightToLine />
+                            {isExpanded ? <ChevronDown /> : <ChevronRight />}
                           </Button>
-                        )}
-                      </TableCell>
+                        </TableCell>
+                      )}
+                      {columns.map((c) => (
+                        <TableCell key={c.key} className={c.cellClassName}>
+                          {c.render ? c.render(row) : c.value(row)}
+                        </TableCell>
+                      ))}
+                      {locate && (
+                        <TableCell className="text-right">
+                          {searching && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-foreground"
+                              aria-label="Jump to this row"
+                              title="Jump to this row in the full list"
+                              disabled={jumpingId === id}
+                              onClick={() => jumpTo(row)}
+                            >
+                              <ArrowRightToLine />
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                      {canEdit && (
+                        <TableCell className="pr-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Delete row"
+                            onClick={() => remove(row)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                    {expand && isExpanded && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={columnCount} className="bg-muted/20 p-0">
+                          <div className="px-4 py-3">{expand(row)}</div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                    {canEdit && (
-                      <TableCell className="pr-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label="Delete row"
-                          onClick={() => remove(row)}
-                        >
-                          <Trash2 />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  </Fragment>
                 )
               })}
 

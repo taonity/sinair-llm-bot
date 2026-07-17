@@ -35,64 +35,104 @@ class ReplyGenerator(
      *   lookup — either the answer is time-sensitive or the user explicitly asked the bot to look
      *   something specific up; enables live web search (see [ReplyPromptBuilder]).
      */
-    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): String? {
+    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): String? =
+        generateTraced(roomTarget, trigger, needsWebSearch).reply
+
+    /**
+     * Like [generate] but also returns the intermediate candidates, critic scores and repair state
+     * so the pipeline trace can show what alternatives were considered. The `reply` field carries
+     * the final sanitized reply (null when none could be produced).
+     */
+    fun generateTraced(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): ReplyGeneration {
         val prompt = promptBuilder.build(roomTarget, trigger, needsWebSearch)
 
-        val chosen = if (llmProperties.critic.enabled) {
+        val raw = if (llmProperties.critic.enabled) {
             generateWithCritic(roomTarget, prompt)
         } else {
             generateSingle(prompt)
-        } ?: return null
+        }
 
+        val chosen = raw.reply ?: return raw.copy(reply = null)
         val reply = sanitize(chosen)
         if (reply.isBlank()) {
             LOGGER.warn { "Reply generator produced blank output for $roomTarget" }
-            return null
+            return raw.copy(reply = null)
         }
-        return reply
+        return raw.copy(reply = reply)
     }
 
-    private fun generateSingle(prompt: ReplyPrompt): String? =
-        llmClient.complete(
+    private fun generateSingle(prompt: ReplyPrompt): ReplyGeneration {
+        val content = llmClient.complete(
             tierName = prompt.tierName,
             messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
             webSearch = prompt.webSearch,
         )?.content
+        val candidates = content?.trim()?.takeIf { it.isNotBlank() }
+            ?.let { listOf(CandidateTrace(text = it, chosen = true)) }
+            ?: emptyList()
+        return ReplyGeneration(reply = content, chosenIndex = content?.let { 0 }, candidates = candidates)
+    }
 
-    private fun generateWithCritic(roomTarget: String, prompt: ReplyPrompt): String? {
+    private fun generateWithCritic(roomTarget: String, prompt: ReplyPrompt): ReplyGeneration {
         val candidates = candidateGenerator.generate(prompt)
         if (candidates.isEmpty()) {
             LOGGER.warn { "No reply candidates for $roomTarget" }
-            return null
+            return ReplyGeneration(reply = null)
         }
-        if (candidates.size == 1) return candidates.first()
+        if (candidates.size == 1) {
+            return ReplyGeneration(
+                reply = candidates.first(),
+                chosenIndex = 0,
+                candidates = listOf(CandidateTrace(text = candidates.first(), chosen = true)),
+            )
+        }
 
         // Fail open: if the critic is unavailable or returns junk, keep the first candidate rather
         // than dropping the reply entirely.
         val verdict = replyCritic.evaluate(prompt, candidates) ?: run {
             LOGGER.info { "Critic unavailable for $roomTarget, using first candidate" }
-            return candidates.first()
+            return ReplyGeneration(
+                reply = candidates.first(),
+                chosenIndex = 0,
+                candidates = candidates.mapIndexed { i, c -> CandidateTrace(text = c, chosen = i == 0) },
+            )
         }
 
-        val best = candidates[verdict.best]
+        val bestIndex = verdict.best
+        val best = candidates[bestIndex]
+        val traces = candidates.mapIndexed { i, c ->
+            val score = verdict.scores.getOrNull(i)
+            CandidateTrace(
+                text = c,
+                chosen = i == bestIndex,
+                fit = score?.fit,
+                persona = score?.persona,
+                risk = score?.risk,
+                overall = score?.overall,
+            )
+        }
+        val feedback = verdict.feedback.ifBlank { null }
         LOGGER.info {
-            "Critic picked candidate ${verdict.best}/${candidates.size} " +
+            "Critic picked candidate $bestIndex/${candidates.size} " +
                 "(overall=${verdict.bestOverall()}, needsRepair=${verdict.needsRepair}) for $roomTarget"
         }
 
         val needsRepair = verdict.needsRepair || verdict.bestOverall() < llmProperties.critic.repairThreshold
-        if (!needsRepair) return best
+        if (!needsRepair) {
+            return ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
+        }
 
-        val repaired = repair(prompt, best, verdict.feedback) ?: return best
+        val repaired = repair(prompt, best, verdict.feedback)
+            ?: return ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
 
         // Re-critique original best vs repaired and keep the winner, so a repair can never regress.
         val recheck = replyCritic.evaluate(prompt, listOf(best, repaired))
         return if (recheck?.best == 1) {
             LOGGER.info { "Repaired reply accepted for $roomTarget" }
-            repaired
+            ReplyGeneration(reply = repaired, chosenIndex = bestIndex, repaired = true, criticUsed = true, criticFeedback = feedback, candidates = traces)
         } else {
             LOGGER.info { "Repaired reply rejected for $roomTarget, keeping original best" }
-            best
+            ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
         }
     }
 
@@ -130,3 +170,26 @@ class ReplyGenerator(
         return text
     }
 }
+
+/**
+ * Result of a reply generation, carrying the final [reply] plus the candidates and critic state the
+ * pipeline chose between so a trace can display the alternatives.
+ */
+data class ReplyGeneration(
+    val reply: String?,
+    val candidates: List<CandidateTrace> = emptyList(),
+    val chosenIndex: Int? = null,
+    val repaired: Boolean = false,
+    val criticUsed: Boolean = false,
+    val criticFeedback: String? = null,
+)
+
+/** One candidate reply the generator produced, with the critic's per-candidate scores when rated. */
+data class CandidateTrace(
+    val text: String,
+    val chosen: Boolean = false,
+    val fit: Int? = null,
+    val persona: Int? = null,
+    val risk: Int? = null,
+    val overall: Int? = null,
+)

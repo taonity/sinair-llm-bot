@@ -81,6 +81,42 @@ export interface OutboundMessage {
   sentAt: string | null
 }
 
+export interface PipelineField {
+  label: string
+  value: string
+}
+
+export interface PipelineAlternative {
+  text: string
+  chosen: boolean
+  fields: PipelineField[]
+}
+
+export type PipelineStageStatus = 'OK' | 'STOP' | 'SKIP' | 'PASS' | 'INFO'
+
+export interface PipelineStage {
+  key: string
+  label: string
+  status: PipelineStageStatus
+  summary: string
+  fields: PipelineField[]
+  alternatives: PipelineAlternative[]
+}
+
+export interface PipelineRun {
+  id: string
+  pipelineKey: string
+  roomTarget: string
+  triggerMessageId: string | null
+  triggerSenderLogin: string
+  triggerText: string
+  outcome: string
+  outcomeDetail: string | null
+  outboundMessageId: string | null
+  stages: PipelineStage[]
+  createdAt: string
+}
+
 export interface RoomSummary {
   id: string
   roomTarget: string
