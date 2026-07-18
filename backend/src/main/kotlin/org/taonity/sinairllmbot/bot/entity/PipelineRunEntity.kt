@@ -4,7 +4,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -30,10 +29,11 @@ class PipelineRunEntity(
     val outcome: String,
     val outcomeDetail: String? = null,
     val outboundMessageId: String? = null,
-    @Lob
+    // Mapped as plain String (not @Lob): on Postgres @Lob on a String becomes a Large Object (oid),
+    // which fails to read back from a `text` column ("Bad value for type long"). The Flyway column
+    // is TEXT, so a plain String maps correctly (same as OutboundMessageEntity.messageText).
     val stagesJson: String,
     val totalTokens: Int = 0,
-    @Lob
     val llmUsageJson: String = "[]",
     val createdAt: Instant = Instant.now(),
 )
