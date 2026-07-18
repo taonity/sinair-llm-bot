@@ -62,32 +62,6 @@ function shortModel(model: string): string {
   return slash >= 0 ? model.slice(slash + 1) : model
 }
 
-/** Compact per-row LLM summary: total token cost plus each model that ran and the tools it was offered. */
-function LlmUsageCell({ run }: { run: PipelineRun }) {
-  if (run.llmUsage.length === 0) return <span className="text-muted-foreground">—</span>
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium tabular-nums">{run.totalTokens.toLocaleString()} tok</span>
-      <div className="flex flex-wrap gap-1">
-        {run.llmUsage.map((call, i) => (
-          <span
-            key={i}
-            className="inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground"
-            title={`${call.tier} · ${call.model} · ${call.tokens} tokens${
-              call.tools.length ? ` · tools: ${call.tools.join(', ')}` : ''
-            }`}
-          >
-            <span className="font-medium text-foreground/80">{shortModel(call.model)}</span>
-            {call.tools.length > 0 && (
-              <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
-            )}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
   {
     key: 'createdAt',
@@ -124,20 +98,12 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     searchKey: 'outcome',
   },
   {
-    key: 'llm',
-    label: 'LLM · tokens',
-    value: (r) => String(r.totalTokens),
-    render: (r) => <LlmUsageCell run={r} />,
-    cellClassName: 'whitespace-normal',
-    headClassName: 'w-[190px]',
-  },
-  {
     key: 'flow',
     label: 'Flow',
     value: (r) => fieldsSummary(r.stages),
     render: (r) => <PipelineFlow stages={r.stages} />,
     cellClassName: 'whitespace-normal',
-    headClassName: 'w-[28%]',
+    headClassName: 'w-[34%]',
   },
 ]
 
