@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -16,6 +17,7 @@ import java.util.concurrent.CompletableFuture
 class CandidateGenerator(
     private val llmClient: LlmClient,
     private val llmProperties: LlmProperties,
+    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -25,14 +27,19 @@ class CandidateGenerator(
         val count = llmProperties.critic.candidateCount.coerceAtLeast(1)
         val messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage)
 
+        // Candidates run on worker threads; carry the pipeline run's usage sink into each so their
+        // reply-tier LLM calls are still recorded against the trace (thread-locals don't propagate).
+        val usageSink = pipelineLlmUsageTracker.currentSink()
         val futures = (1..count).map {
             CompletableFuture.supplyAsync {
-                llmClient.complete(
-                    tierName = prompt.tierName,
-                    messages = messages,
-                    webSearch = prompt.webSearch,
-                    temperatureOverride = llmProperties.critic.candidateTemperature,
-                )
+                pipelineLlmUsageTracker.withSink(usageSink) {
+                    llmClient.complete(
+                        tierName = prompt.tierName,
+                        messages = messages,
+                        webSearch = prompt.webSearch,
+                        temperatureOverride = llmProperties.critic.candidateTemperature,
+                    )
+                }
             }
         }
 
