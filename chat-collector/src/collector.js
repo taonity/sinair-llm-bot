@@ -21,12 +21,22 @@ const roomsByTarget = new Map();
 // replays its history burst) incoming messages are tagged `historical` so the backend stores them
 // without re-running commands or reacting. Value: { idle: Timeout, hard: Timeout }.
 const historyWarmup = new Map();
-// Per-room join timestamp (unixtime, seconds). Any message whose server-side `time` is at or before
-// the moment we (re)joined the room is a history replay, never something posted to us live. This is
-// a deterministic backstop to the idle-based warm-up window: the last replayed message can arrive
-// after the idle timer (or hard cap) has already closed the window, and this cutoff still catches
-// it so the bot never reacts to anything from before it joined. Value: unixtime seconds.
+// Per-room join cutoff (unixtime, seconds, SERVER clock). Any message whose server-side `time` is
+// at or before the moment we (re)joined the room is a history replay, never something posted to us
+// live. This is a deterministic backstop to the idle-based warm-up window: the last replayed message
+// can arrive after the idle timer (or hard cap) has already closed the window, and this cutoff still
+// catches it so the bot never reacts to anything from before it joined. The cutoff is anchored to
+// the SERVER's clock (derived from the room's online list at join, see serverTimeAtJoin) rather than
+// our local clock: the chat server is remote, so a collector clock that lags the server would
+// otherwise place a just-posted history message *after* our local join time and leak it as live.
+// Value: unixtime seconds.
 const roomJoinedAt = new Map();
+
+// Heartbeat/watchdog timers for the current connection (see startHeartbeat). lastPongAt tracks the
+// last time we saw proof the link is alive (a pong or any inbound server traffic).
+let heartbeatTimer = null;
+let heartbeatWatchdog = null;
+let lastPongAt = 0;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -70,7 +80,7 @@ function sendChatMessage(target, text) {
 /** Registers a joined room and (re)asserts the bot's nick/color in it. */
 function onRoomReady(room) {
     roomsByTarget.set(room.target, room);
-    roomJoinedAt.set(room.target, Math.floor(Date.now() / 1000));
+    roomJoinedAt.set(room.target, serverTimeAtJoin(room));
     if (config.botColor) {
         room.sendMessage(`/color ${config.botColor}`);
         logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
@@ -86,6 +96,23 @@ function onRoomReady(room) {
 /** True while the room is replaying its post-join history burst. */
 function isHistoryWarmup(target) {
     return historyWarmup.has(target);
+}
+
+/**
+ * The server's notion of "now" at the moment we joined the room, in unixtime seconds. Derived from
+ * the room's online list (each member carries a server-stamped `last_seen_time`) so the join cutoff
+ * is on the SAME clock as incoming message timestamps, immune to skew between the collector and the
+ * remote chat server. Falls back to (and never goes below) our local clock when the online list has
+ * no usable timestamps.
+ */
+function serverTimeAtJoin(room) {
+    const local = Math.floor(Date.now() / 1000);
+    let maxSeen = 0;
+    for (const member of room?.members || []) {
+        const seen = member?.last_seen_time;
+        if (typeof seen === 'number' && seen > maxSeen) maxSeen = seen;
+    }
+    return Math.max(local, maxSeen);
 }
 
 /**
@@ -169,6 +196,7 @@ export async function startCollector() {
 
     chat.on(WsChatEvents.close, () => {
         logger.warn('[collector] Disconnected from chat server');
+        stopHeartbeat();
         stopFlushTimer();
         stopSender();
         stopPresence();
@@ -195,6 +223,7 @@ export async function startCollector() {
     });
 
     chat.on(WsChatEvents.message, (room, msgobj) => {
+        markAlive();
         const member = room?.getMemberById?.(msgobj.from);
         const warmup = isHistoryWarmup(room?.target);
         const beforeJoin = isBeforeJoin(room?.target, msgobj.time);
@@ -225,6 +254,7 @@ export async function startCollector() {
     });
 
     chat.on(WsChatEvents.userStatusChange, (room, userobj) => {
+        markAlive();
         logger.debug(`[collector] userStatusChange — room=${room?.target}, member=${userobj?.name}, status=${userobj?.status} (raw=${JSON.stringify(userobj)})`);
 
         // Skip transient statuses that don't add training value
@@ -301,8 +331,74 @@ export async function startCollector() {
         startSender(sendChatMessage);
         startPresence(setRoomPresence, setRoomNick);
         startTyping(setRoomTyping);
+        startHeartbeat();
     } catch (err) {
         logger.error('[collector] Failed to initialize:', err);
+        scheduleReconnect();
+    }
+}
+
+/**
+ * Starts the liveness heartbeat for the current connection: periodically pings the socket and, if no
+ * pong (or any inbound traffic) is observed within the timeout, treats the connection as dead and
+ * forces a reconnect. This covers silent drops (NAT/idle timeouts, half-open TCP, the remote chat
+ * server vanishing) where no WebSocket close frame is ever delivered, so the `close` handler never
+ * fires and the collector would otherwise sit on a dead socket forever.
+ */
+function startHeartbeat() {
+    stopHeartbeat();
+    const sock = chat?._sock;
+    if (!sock) return;
+    markAlive();
+    // ws answers our ping frame with a pong; any pong proves the link is alive end-to-end.
+    sock.on('pong', markAlive);
+    heartbeatTimer = setInterval(() => {
+        const active = chat?._sock;
+        if (!active || active.readyState !== active.OPEN) return;
+        try {
+            active.ping();
+        } catch (err) {
+            logger.debug(`[collector] Heartbeat ping failed: ${err?.message || err}`);
+        }
+    }, config.heartbeatIntervalMs);
+    heartbeatWatchdog = setInterval(() => {
+        if (shuttingDown) return;
+        if (Date.now() - lastPongAt > config.heartbeatTimeoutMs) {
+            logger.warn('[collector] Heartbeat timeout — connection appears dead, forcing reconnect');
+            forceReconnect();
+        }
+    }, config.heartbeatIntervalMs);
+}
+
+/** Records inbound liveness (a pong or any server message) so the watchdog holds off. */
+function markAlive() {
+    lastPongAt = Date.now();
+}
+
+function stopHeartbeat() {
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+    if (heartbeatWatchdog) {
+        clearInterval(heartbeatWatchdog);
+        heartbeatWatchdog = null;
+    }
+}
+
+/** Tears down a connection the watchdog judged dead and drives the normal reconnect path. */
+function forceReconnect() {
+    stopHeartbeat();
+    const sock = chat?._sock;
+    if (sock) {
+        // terminate() destroys the half-open socket at once and fires the ws 'close' event, which
+        // drives our close handler (cleanup + scheduleReconnect).
+        try {
+            sock.terminate();
+        } catch (err) {
+            logger.debug(`[collector] Error terminating dead socket: ${err?.message || err}`);
+        }
+    } else if (!shuttingDown) {
         scheduleReconnect();
     }
 }
@@ -333,6 +429,7 @@ export async function stopCollector() {
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
     }
+    stopHeartbeat();
     stopFlushTimer();
     stopSender();
     stopPresence();

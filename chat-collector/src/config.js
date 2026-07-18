@@ -65,6 +65,13 @@ export const config = {
     // Grace period after restoreConnection() for the server's auto-rejoin (joinRoom) events
     // to arrive before we manually join any rooms that weren't restored.
     restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),
+    // Application-level heartbeat. WebSocket drops (NAT/idle timeouts, half-open TCP, the remote
+    // chat server going away) don't always deliver a close frame, so without an active liveness
+    // probe the collector can sit on a dead socket forever and never reconnect. We ping the socket
+    // every heartbeatIntervalMs and, if no pong (or any traffic) is seen within heartbeatTimeoutMs,
+    // treat the connection as dead and force a reconnect.
+    heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS || '25000', 10),
+    heartbeatTimeoutMs: parseInt(process.env.HEARTBEAT_TIMEOUT_MS || '60000', 10),
     // File where the session token is persisted so an ungraceful restart (SIGKILL/crash) can
     // reclaim the server-side "orphan" session instead of waiting out its timeout. In Docker this
     // is a mounted volume path; locally it defaults to a profile-namespaced file in the collector

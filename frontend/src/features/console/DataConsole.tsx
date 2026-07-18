@@ -307,7 +307,7 @@ export default function DataConsole() {
         </TabsContent>
 
         <TabsContent value="pipelines" className="pt-2">
-          {tab === 'pipelines' && <PipelinesTab canEdit={canEdit} onError={setError} />}
+          {tab === 'pipelines' && <PipelinesTab onError={setError} />}
         </TabsContent>
 
         <TabsContent value="summaries" className="pt-2">

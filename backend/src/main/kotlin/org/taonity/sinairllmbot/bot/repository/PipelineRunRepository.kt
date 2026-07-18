@@ -43,4 +43,7 @@ interface PipelineRunRepository : JpaRepository<PipelineRunEntity, String> {
 
     @Modifying
     fun deleteByCreatedAtBefore(cutoff: Instant): Int
+
+    @Modifying
+    fun deleteByTriggerMessageId(triggerMessageId: String): Int
 }

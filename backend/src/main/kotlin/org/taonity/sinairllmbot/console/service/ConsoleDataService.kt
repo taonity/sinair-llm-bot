@@ -103,6 +103,9 @@ class ConsoleDataService(
         val entity = chatMessageRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Chat message not found") }
         chatMessageRepository.deleteById(id)
+        // The pipeline trace(s) this message triggered are meaningless once the message is gone, so
+        // drop them too — keeps the Pipelines tab in sync with the Messages tab.
+        pipelineRunRepository.deleteByTriggerMessageId(id)
         // Tombstone the dedup key so the same message replayed in the history burst after a
         // reconnect/relogin is recognised and dropped instead of being re-ingested.
         if (!ignoredMessageRepository.existsByDedupKey(entity.dedupKey)) {

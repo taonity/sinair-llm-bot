@@ -194,10 +194,8 @@ function StageRow({ stage }: { stage: PipelineStage }) {
 }
 
 export function PipelinesTab({
-  canEdit,
   onError,
 }: {
-  canEdit: boolean
   onError: (message: string) => void
 }) {
   return (
@@ -212,8 +210,6 @@ export function PipelinesTab({
       }
       expand={(r) => <PipelineDetail run={r} />}
       roomAccessor={(r) => r.roomTarget}
-      canEdit={canEdit}
-      onDelete={(r) => consoleApi.deletePipelineRun(r.id)}
       emptyLabel="No pipeline runs yet."
       sortLabel="created time"
       onError={onError}
