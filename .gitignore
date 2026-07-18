@@ -34,9 +34,6 @@ build/
 ### Mac OS ###
 .DS_Store
 
-### Bruno ###
-# Secrets
-.env*
 
 # Dependencies
 node_modules
@@ -73,3 +70,5 @@ playwright-report/
 playwright/.cache/
 test-results/
 /screenshots/
+
+collections/openrouter/api-v1-chat-completions with web search real case.yml

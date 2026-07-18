@@ -20,7 +20,9 @@ http:
             "content": "Опиши все что знаешь о minecraft galaxy"
           }
         ],
-         "tools": [
+        "temperature" : 0.35,
+        "max_tokens" : 500,
+        "tools": [
           {
             "type": "openrouter:web_search"
           }
