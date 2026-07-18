@@ -9,6 +9,7 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
+import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
@@ -40,6 +41,7 @@ class BotMessageOrchestrator(
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val pipelineTraceService: PipelineTraceService,
+    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -65,6 +67,11 @@ class BotMessageOrchestrator(
     private fun evaluateRoom(roomTarget: String) {
         runCatching {
             val trigger = latestNonBotMessage(roomTarget) ?: return
+
+            // Collect the token cost / model / tool-set of every LLM call made below, so the
+            // persisted trace can show what this evaluation actually spent (summary refresh
+            // included, since it runs as part of this pipeline run).
+            pipelineLlmUsageTracker.begin()
 
             runCatching { roomSummaryService.refreshIfStale(roomTarget) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }

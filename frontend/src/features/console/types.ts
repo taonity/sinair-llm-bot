@@ -103,6 +103,13 @@ export interface PipelineStage {
   alternatives: PipelineAlternative[]
 }
 
+export interface LlmCallUsage {
+  tier: string
+  model: string
+  tokens: number
+  tools: string[]
+}
+
 export interface PipelineRun {
   id: string
   pipelineKey: string
@@ -114,6 +121,8 @@ export interface PipelineRun {
   outcomeDetail: string | null
   outboundMessageId: string | null
   stages: PipelineStage[]
+  totalTokens: number
+  llmUsage: LlmCallUsage[]
   createdAt: string
 }
 

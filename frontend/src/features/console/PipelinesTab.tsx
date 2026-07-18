@@ -18,7 +18,6 @@ const STATUS_DOT: Record<PipelineStageStatus, string> = {
   SKIP: 'bg-muted-foreground/50',
   INFO: 'bg-slate-400',
 }
-
 function outcomeBadge(outcome: string) {
   const tone =
     outcome === 'REPLIED'
@@ -57,6 +56,38 @@ function fieldsSummary(stages: PipelineStage[]): string {
   return stages.map((s) => s.label).join(' › ')
 }
 
+/** Drops the provider prefix ("openai/gpt-4o-mini" -> "gpt-4o-mini") for a compact model label. */
+function shortModel(model: string): string {
+  const slash = model.lastIndexOf('/')
+  return slash >= 0 ? model.slice(slash + 1) : model
+}
+
+/** Compact per-row LLM summary: total token cost plus each model that ran and the tools it was offered. */
+function LlmUsageCell({ run }: { run: PipelineRun }) {
+  if (run.llmUsage.length === 0) return <span className="text-muted-foreground">—</span>
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium tabular-nums">{run.totalTokens.toLocaleString()} tok</span>
+      <div className="flex flex-wrap gap-1">
+        {run.llmUsage.map((call, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            title={`${call.tier} · ${call.model} · ${call.tokens} tokens${
+              call.tools.length ? ` · tools: ${call.tools.join(', ')}` : ''
+            }`}
+          >
+            <span className="font-medium text-foreground/80">{shortModel(call.model)}</span>
+            {call.tools.length > 0 && (
+              <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+            )}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
   {
     key: 'createdAt',
@@ -93,12 +124,20 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     searchKey: 'outcome',
   },
   {
+    key: 'llm',
+    label: 'LLM · tokens',
+    value: (r) => String(r.totalTokens),
+    render: (r) => <LlmUsageCell run={r} />,
+    cellClassName: 'whitespace-normal',
+    headClassName: 'w-[190px]',
+  },
+  {
     key: 'flow',
     label: 'Flow',
     value: (r) => fieldsSummary(r.stages),
     render: (r) => <PipelineFlow stages={r.stages} />,
     cellClassName: 'whitespace-normal',
-    headClassName: 'w-[34%]',
+    headClassName: 'w-[28%]',
   },
 ]
 
@@ -109,6 +148,28 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
       {run.outcomeDetail && (
         <div className="text-xs text-muted-foreground">
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
+        </div>
+      )}
+      {run.llmUsage.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="text-xs font-medium">
+            LLM usage · {run.totalTokens.toLocaleString()} tokens total
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {run.llmUsage.map((call, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              >
+                <span className="font-medium text-foreground/80">{call.tier}</span>
+                <span>{call.model}</span>
+                <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
+                {call.tools.length > 0 && (
+                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       <ol className="flex flex-col gap-3">

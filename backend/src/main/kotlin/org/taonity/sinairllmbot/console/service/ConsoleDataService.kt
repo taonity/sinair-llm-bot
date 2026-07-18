@@ -20,6 +20,7 @@ import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
 import org.taonity.sinairllmbot.console.dto.AuditLogDto
 import org.taonity.sinairllmbot.console.dto.ChatEventDto
 import org.taonity.sinairllmbot.console.dto.ChatMessageDto
+import org.taonity.sinairllmbot.console.dto.LlmCallUsageDto
 import org.taonity.sinairllmbot.console.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.console.dto.PageResponse
 import org.taonity.sinairllmbot.console.dto.PipelineRunDto
@@ -214,7 +215,9 @@ class ConsoleDataService(
             room.isNullOrBlank() -> pipelineRunRepository.findAll(pageable)
             else -> pipelineRunRepository.findByRoomTarget(room, pageable)
         }
-        return PageResponse.of(result) { PipelineRunDto.from(it, parseStages(it.stagesJson)) }
+        return PageResponse.of(result) {
+            PipelineRunDto.from(it, parseStages(it.stagesJson), parseLlmUsage(it.llmUsageJson))
+        }
     }
 
     fun locatePipelineRunPage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
@@ -243,6 +246,12 @@ class ConsoleDataService(
         val type = objectMapper.typeFactory.constructCollectionType(List::class.java, PipelineStageDto::class.java)
         val stages: List<PipelineStageDto> = objectMapper.readValue(json, type)
         stages
+    }.getOrElse { emptyList() }
+
+    private fun parseLlmUsage(json: String): List<LlmCallUsageDto> = runCatching {
+        val type = objectMapper.typeFactory.constructCollectionType(List::class.java, LlmCallUsageDto::class.java)
+        val usage: List<LlmCallUsageDto> = objectMapper.readValue(json, type)
+        usage
     }.getOrElse { emptyList() }
 
     fun listSummaries(principal: GoogleUserPrincipal): List<RoomSummaryDto> {

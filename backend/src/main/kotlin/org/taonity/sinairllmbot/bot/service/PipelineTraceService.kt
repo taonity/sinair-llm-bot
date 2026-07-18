@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
@@ -16,6 +17,7 @@ import tools.jackson.databind.ObjectMapper
 @Service
 class PipelineTraceService(
     private val pipelineRunRepository: PipelineRunRepository,
+    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
     private val objectMapper: ObjectMapper,
 ) {
     private companion object {
@@ -32,6 +34,7 @@ class PipelineTraceService(
         outboundMessageId: String? = null,
     ) {
         runCatching {
+            val llmUsage = pipelineLlmUsageTracker.drain()
             pipelineRunRepository.save(
                 PipelineRunEntity(
                     pipelineKey = pipelineKey,
@@ -43,6 +46,8 @@ class PipelineTraceService(
                     outcomeDetail = outcomeDetail,
                     outboundMessageId = outboundMessageId,
                     stagesJson = objectMapper.writeValueAsString(stages),
+                    totalTokens = llmUsage.sumOf { it.tokens },
+                    llmUsageJson = objectMapper.writeValueAsString(llmUsage),
                 ),
             )
         }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }

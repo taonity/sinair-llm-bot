@@ -32,5 +32,8 @@ class PipelineRunEntity(
     val outboundMessageId: String? = null,
     @Lob
     val stagesJson: String,
+    val totalTokens: Int = 0,
+    @Lob
+    val llmUsageJson: String = "[]",
     val createdAt: Instant = Instant.now(),
 )

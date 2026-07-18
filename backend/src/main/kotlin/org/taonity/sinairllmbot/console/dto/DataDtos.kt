@@ -114,24 +114,36 @@ data class PipelineRunDto(
     val outcomeDetail: String?,
     val outboundMessageId: String?,
     val stages: List<PipelineStageDto>,
+    val totalTokens: Int,
+    val llmUsage: List<LlmCallUsageDto>,
     val createdAt: Instant,
 ) {
     companion object {
-        fun from(e: PipelineRunEntity, stages: List<PipelineStageDto>) = PipelineRunDto(
-            id = e.id,
-            pipelineKey = e.pipelineKey,
-            roomTarget = e.roomTarget,
-            triggerMessageId = e.triggerMessageId,
-            triggerSenderLogin = e.triggerSenderLogin,
-            triggerText = e.triggerText,
-            outcome = e.outcome,
-            outcomeDetail = e.outcomeDetail,
-            outboundMessageId = e.outboundMessageId,
-            stages = stages,
-            createdAt = e.createdAt,
-        )
+        fun from(e: PipelineRunEntity, stages: List<PipelineStageDto>, llmUsage: List<LlmCallUsageDto>) =
+            PipelineRunDto(
+                id = e.id,
+                pipelineKey = e.pipelineKey,
+                roomTarget = e.roomTarget,
+                triggerMessageId = e.triggerMessageId,
+                triggerSenderLogin = e.triggerSenderLogin,
+                triggerText = e.triggerText,
+                outcome = e.outcome,
+                outcomeDetail = e.outcomeDetail,
+                outboundMessageId = e.outboundMessageId,
+                stages = stages,
+                totalTokens = e.totalTokens,
+                llmUsage = llmUsage,
+                createdAt = e.createdAt,
+            )
     }
 }
+
+data class LlmCallUsageDto(
+    val tier: String = "",
+    val model: String = "",
+    val tokens: Int = 0,
+    val tools: List<String> = emptyList(),
+)
 
 data class PipelineStageDto(
     val key: String = "",

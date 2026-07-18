@@ -7,6 +7,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
+import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 
@@ -20,6 +22,7 @@ import java.time.Duration
 class LlmClient(
     private val llmProperties: LlmProperties,
     private val objectMapper: ObjectMapper,
+    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -96,6 +99,14 @@ class LlmClient(
                     "LLM tier=$tierName: web_search $outcome"
                 }
             }
+            pipelineLlmUsageTracker.record(
+                LlmCallUsage(
+                    tier = tierName,
+                    model = tier.model,
+                    tokens = usage?.totalTokens ?: 0,
+                    tools = if (webSearch) listOf("web_search") else emptyList(),
+                ),
+            )
             LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0, citationUrls = citationUrls)
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
