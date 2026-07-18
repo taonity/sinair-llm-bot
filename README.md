@@ -251,12 +251,14 @@ erDiagram
     pipeline_run {
         timestamp_without_time_zone created_at "{NOT_NULL}"
         character_varying id PK "{NOT_NULL}"
+        text llm_usage_json "{NOT_NULL}"
         character_varying outbound_message_id 
         character_varying outcome "{NOT_NULL}"
         character_varying outcome_detail 
         character_varying pipeline_key "{NOT_NULL}"
         character_varying room_target "{NOT_NULL}"
         text stages_json "{NOT_NULL}"
+        integer total_tokens "{NOT_NULL}"
         character_varying trigger_message_id 
         character_varying trigger_sender_login "{NOT_NULL}"
         text trigger_text "{NOT_NULL}"
