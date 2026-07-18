@@ -63,8 +63,8 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     label: 'When',
     value: (r) => r.createdAt,
     render: (r) => formatTime(r.createdAt),
-    cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
-    headClassName: 'w-[150px]',
+    cellClassName: 'whitespace-nowrap text-muted-foreground tabular-nums',
+    headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
   },
   {
