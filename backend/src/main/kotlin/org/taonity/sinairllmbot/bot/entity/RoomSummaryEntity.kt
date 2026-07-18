@@ -17,7 +17,10 @@ class RoomSummaryEntity(
     @Column(unique = true)
     val roomTarget: String,
     // Plain String (not @Lob): on Postgres @Lob on a String maps to a Large Object (oid) and fails
-    // to read from the `text` column ("Bad value for type long"). The Flyway column is TEXT.
+    // to read from the `text` column ("Bad value for type long"). columnDefinition = "text" also
+    // keeps Hibernate-generated schemas (ddl-auto=create-drop in tests) from capping the summary at
+    // VARCHAR(255). The Flyway column is TEXT.
+    @Column(columnDefinition = "text")
     var summary: String,
     /** Total messages seen in the room at the last refresh; drives the refresh cadence. */
     var messageCount: Int = 0,

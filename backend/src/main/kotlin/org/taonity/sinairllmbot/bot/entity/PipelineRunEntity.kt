@@ -1,5 +1,6 @@
 package org.taonity.sinairllmbot.bot.entity
 
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -30,10 +31,13 @@ class PipelineRunEntity(
     val outcomeDetail: String? = null,
     val outboundMessageId: String? = null,
     // Mapped as plain String (not @Lob): on Postgres @Lob on a String becomes a Large Object (oid),
-    // which fails to read back from a `text` column ("Bad value for type long"). The Flyway column
-    // is TEXT, so a plain String maps correctly (same as OutboundMessageEntity.messageText).
+    // which fails to read back from a `text` column ("Bad value for type long"). columnDefinition
+    // = "text" keeps Hibernate-generated schemas (tests use ddl-auto=create-drop) from capping these
+    // large JSON documents at VARCHAR(255); the Flyway column is already TEXT.
+    @Column(columnDefinition = "text")
     val stagesJson: String,
     val totalTokens: Int = 0,
+    @Column(columnDefinition = "text")
     val llmUsageJson: String = "[]",
     val createdAt: Instant = Instant.now(),
 )
