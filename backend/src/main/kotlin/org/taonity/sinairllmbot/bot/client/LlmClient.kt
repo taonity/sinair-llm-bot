@@ -105,6 +105,7 @@ class LlmClient(
                     model = tier.model,
                     tokens = usage?.totalTokens ?: 0,
                     tools = if (webSearch) listOf("web_search") else emptyList(),
+                    responsePayload = rawResponse.orEmpty(),
                 ),
             )
             LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0, citationUrls = citationUrls)

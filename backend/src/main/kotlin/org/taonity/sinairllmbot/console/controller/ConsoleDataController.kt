@@ -1,6 +1,7 @@
 package org.taonity.sinairllmbot.console.controller
 
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -123,6 +124,13 @@ class ConsoleDataController(
         @RequestParam(defaultValue = "25") size: Int,
         @RequestParam(defaultValue = "desc") direction: String,
     ): PageLocation = PageLocation(consoleDataService.locatePipelineRunPage(principal, id, size, direction))
+
+    @GetMapping("/pipeline-runs/{id}/llm-usage/{index}/raw", produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun pipelineRunLlmPayload(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+        @PathVariable index: Int,
+    ): String = consoleDataService.pipelineRunLlmPayload(principal, id, index)
 
     @DeleteMapping("/pipeline-runs/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

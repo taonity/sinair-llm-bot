@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
+import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
@@ -216,7 +217,7 @@ class ConsoleDataService(
             else -> pipelineRunRepository.findByRoomTarget(room, pageable)
         }
         return PageResponse.of(result) {
-            PipelineRunDto.from(it, parseStages(it.stagesJson), parseLlmUsage(it.llmUsageJson))
+            PipelineRunDto.from(it, parseStages(it.stagesJson), parseLlmUsage(it.llmUsageJson).map(LlmCallUsageDto::from))
         }
     }
 
@@ -242,17 +243,35 @@ class ConsoleDataService(
         auditService.record(AuditAction.DELETE_PIPELINE_RUN, "pipeline_run", id, actor)
     }
 
+    /** Returns the raw provider response payload (pretty-printed) for one LLM call of a pipeline run. */
+    fun pipelineRunLlmPayload(principal: GoogleUserPrincipal, id: String, index: Int): String {
+        accessGuard.requireView(principal)
+        val entity = pipelineRunRepository.findById(id)
+            .orElseThrow { ConsoleNotFoundException("Pipeline run not found") }
+        val call = parseLlmUsage(entity.llmUsageJson).getOrNull(index)
+            ?: throw ConsoleNotFoundException("LLM call not found")
+        if (call.responsePayload.isBlank()) {
+            throw ConsoleNotFoundException("No response payload stored for this LLM call")
+        }
+        return prettyJson(call.responsePayload)
+    }
+
     private fun parseStages(json: String): List<PipelineStageDto> = runCatching {
         val type = objectMapper.typeFactory.constructCollectionType(List::class.java, PipelineStageDto::class.java)
         val stages: List<PipelineStageDto> = objectMapper.readValue(json, type)
         stages
     }.getOrElse { emptyList() }
 
-    private fun parseLlmUsage(json: String): List<LlmCallUsageDto> = runCatching {
-        val type = objectMapper.typeFactory.constructCollectionType(List::class.java, LlmCallUsageDto::class.java)
-        val usage: List<LlmCallUsageDto> = objectMapper.readValue(json, type)
+    private fun parseLlmUsage(json: String): List<LlmCallUsage> = runCatching {
+        val type = objectMapper.typeFactory.constructCollectionType(List::class.java, LlmCallUsage::class.java)
+        val usage: List<LlmCallUsage> = objectMapper.readValue(json, type)
         usage
     }.getOrElse { emptyList() }
+
+    /** Re-indents a stored JSON payload for readable display; returns it unchanged if not valid JSON. */
+    private fun prettyJson(json: String): String = runCatching {
+        objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(json))
+    }.getOrElse { json }
 
     fun listSummaries(principal: GoogleUserPrincipal): List<RoomSummaryDto> {
         accessGuard.requireView(principal)

@@ -108,6 +108,7 @@ export interface LlmCallUsage {
   model: string
   tokens: number
   tools: string[]
+  hasResponsePayload: boolean
 }
 
 export interface PipelineRun {

@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.console.dto
 
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
@@ -143,7 +144,18 @@ data class LlmCallUsageDto(
     val model: String = "",
     val tokens: Int = 0,
     val tools: List<String> = emptyList(),
-)
+    val hasResponsePayload: Boolean = false,
+) {
+    companion object {
+        fun from(u: LlmCallUsage) = LlmCallUsageDto(
+            tier = u.tier,
+            model = u.model,
+            tokens = u.tokens,
+            tools = u.tools,
+            hasResponsePayload = u.responsePayload.isNotBlank(),
+        )
+    }
+}
 
 data class PipelineStageDto(
     val key: String = "",

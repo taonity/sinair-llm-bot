@@ -4,14 +4,16 @@ import org.springframework.stereotype.Component
 import java.util.Collections
 
 /**
- * One LLM call made during a pipeline run: which tier/model answered, its token cost, and the
- * server-tool set it was offered (e.g. web_search).
+ * One LLM call made during a pipeline run: which tier/model answered, its token cost, the
+ * server-tool set it was offered (e.g. web_search), and the raw provider response payload (stored
+ * for later inspection in the console).
  */
 data class LlmCallUsage(
     val tier: String,
     val model: String,
     val tokens: Int,
     val tools: List<String> = emptyList(),
+    val responsePayload: String = "",
 )
 
 /**

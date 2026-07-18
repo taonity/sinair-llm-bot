@@ -167,6 +167,16 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
                 {call.tools.length > 0 && (
                   <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
                 )}
+                {call.hasResponsePayload && (
+                  <a
+                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/raw`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+                  >
+                    raw JSON
+                  </a>
+                )}
               </span>
             ))}
           </div>
