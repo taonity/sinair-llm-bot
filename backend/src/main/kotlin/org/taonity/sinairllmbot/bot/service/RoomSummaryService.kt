@@ -89,8 +89,10 @@ class RoomSummaryService(
             append("transient chatter about fixing bugs, testing features, tweaking settings or ")
             append("day-to-day troubleshooting; keep such an item only if it is still an active, ")
             append("ongoing thread. Prefer what will still matter next week over what was resolved ")
-            append("today. Keep it compact and dense: stay strictly under $maxChars characters and ")
-            append("always finish your final sentence — never stop mid-thought. Write the summary in ")
+            append("today. Be thorough and information-rich: aim to use most of the available space, ")
+            append("landing close to $maxChars characters, without padding or repetition. Stay ")
+            append("strictly under $maxChars characters and always finish your final sentence — never ")
+            append("stop mid-thought. Write the summary in ")
             append(botProperties.persona.language)
             append(". Output only the summary text.")
         }
