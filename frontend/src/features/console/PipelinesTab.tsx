@@ -30,7 +30,7 @@ function outcomeBadge(outcome: string) {
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
             : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
   return (
-    <Badge variant="outline" className={cn('font-normal', tone)}>
+    <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)}>
       {outcome}
     </Badge>
   )
