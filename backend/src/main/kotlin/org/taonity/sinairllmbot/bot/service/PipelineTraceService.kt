@@ -56,26 +56,29 @@ class PipelineTraceService(
     }
 
     /**
-     * Records a summary-refresh as its own pipeline run (no triggering message), so the console shows
-     * it with the same detail as a reply run: its stages and the LLM call that produced it (with the
-     * request/response payloads gathered by the usage tracker). Synthetic trigger fields carry the
-     * room and a human label since a refresh is not tied to one message.
+     * Records a summary-refresh as its own pipeline run, so the console shows it with the same detail
+     * as a reply run: its stages and the LLM call that produced it (with the request/response payloads
+     * gathered by the usage tracker). The [trigger] attributes the source — the triggering message
+     * (when a new message drove the refresh) or the background job that requested it.
      */
     fun recordSummary(
         roomTarget: String,
+        trigger: SummaryRefreshTrigger,
         outcome: String,
         stages: List<PipelineStage>,
         outcomeDetail: String? = null,
     ) {
         runCatching {
             val llmUsage = pipelineLlmUsageTracker.drain()
+            val triggerMessage = (trigger as? SummaryRefreshTrigger.Message)?.message
             pipelineRunRepository.save(
                 PipelineRunEntity(
                     pipelineKey = PipelineKeys.SUMMARY,
                     roomTarget = roomTarget,
-                    triggerMessageId = null,
-                    triggerSenderLogin = SYSTEM_ACTOR,
-                    triggerText = "Summary refresh · $roomTarget",
+                    triggerMessageId = triggerMessage?.id,
+                    triggerSenderLogin = triggerMessage?.senderLogin ?: SYSTEM_ACTOR,
+                    triggerText = triggerMessage?.messageText?.take(TRIGGER_TEXT_MAX)
+                        ?: "Summary refresh · ${trigger.label}",
                     outcome = outcome,
                     outcomeDetail = outcomeDetail,
                     outboundMessageId = null,

@@ -70,8 +70,9 @@ class BotMessageOrchestrator(
 
             // Refresh the rolling summary first. It records its own "summary" pipeline run (with the
             // LLM call and its request/response payloads), so it is traced independently of — and not
-            // conflated with — the reply run's LLM usage tracked below.
-            runCatching { roomSummaryService.refreshIfStale(roomTarget) }
+            // conflated with — the reply run's LLM usage tracked below. The triggering message is
+            // attributed on the summary run so the console shows what drove the refresh.
+            runCatching { roomSummaryService.refreshIfStale(roomTarget, SummaryRefreshTrigger.Message(trigger)) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
             // Collect the token cost / model / tool-set of every LLM call the reply pipeline makes

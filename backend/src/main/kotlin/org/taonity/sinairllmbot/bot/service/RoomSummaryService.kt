@@ -42,16 +42,16 @@ class RoomSummaryService(
         roomSummaryRepository.findByRoomTarget(roomTarget)?.summary.orEmpty()
 
     @Transactional
-    fun refreshIfStale(roomTarget: String) {
-        refreshInternal(roomTarget, force = false)
+    fun refreshIfStale(roomTarget: String, trigger: SummaryRefreshTrigger) {
+        refreshInternal(roomTarget, force = false, trigger = trigger)
     }
 
     @Transactional
-    fun forceRefresh(roomTarget: String) {
-        refreshInternal(roomTarget, force = true)
+    fun forceRefresh(roomTarget: String, trigger: SummaryRefreshTrigger) {
+        refreshInternal(roomTarget, force = true, trigger = trigger)
     }
 
-    private fun refreshInternal(roomTarget: String, force: Boolean) {
+    private fun refreshInternal(roomTarget: String, force: Boolean, trigger: SummaryRefreshTrigger) {
         val existing = roomSummaryRepository.findByRoomTarget(roomTarget)
         val totalMessages = chatMessageRepository.countByRoomTarget(roomTarget).toInt()
         val sinceLast = totalMessages - (existing?.messageCount ?: 0)
@@ -72,11 +72,13 @@ class RoomSummaryService(
         if (newSummary == null) {
             pipelineTraceService.recordSummary(
                 roomTarget = roomTarget,
+                trigger = trigger,
                 outcome = PipelineOutcome.SUMMARY_FAILED,
                 stages = listOf(
                     summaryStage(
                         status = PipelineStageStatus.STOP,
                         summaryText = "LLM produced no summary",
+                        trigger = trigger,
                         totalMessages = totalMessages,
                         sinceLast = sinceLast,
                         previousSummary = previousSummary,
@@ -107,11 +109,13 @@ class RoomSummaryService(
         }
         pipelineTraceService.recordSummary(
             roomTarget = roomTarget,
+            trigger = trigger,
             outcome = PipelineOutcome.SUMMARY_REFRESHED,
             stages = listOf(
                 summaryStage(
                     status = PipelineStageStatus.OK,
                     summaryText = "${previousSummary?.length ?: 0} → ${newSummary.length} chars",
+                    trigger = trigger,
                     totalMessages = totalMessages,
                     sinceLast = sinceLast,
                     previousSummary = previousSummary,
@@ -127,6 +131,7 @@ class RoomSummaryService(
     private fun summaryStage(
         status: PipelineStageStatus,
         summaryText: String,
+        trigger: SummaryRefreshTrigger,
         totalMessages: Int,
         sinceLast: Int,
         previousSummary: String?,
@@ -139,6 +144,7 @@ class RoomSummaryService(
         status = status,
         summary = summaryText,
         fields = listOf(
+            PipelineField("source", trigger.label),
             PipelineField("tier", llmProperties.gateTier),
             PipelineField("messages", totalMessages.toString()),
             PipelineField("newMessages", sinceLast.toString()),

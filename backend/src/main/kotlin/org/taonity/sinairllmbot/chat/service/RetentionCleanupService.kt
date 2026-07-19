@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.bot.service.RoomSummaryService
+import org.taonity.sinairllmbot.bot.service.SummaryRefreshTrigger
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
@@ -35,7 +36,7 @@ class RetentionCleanupService(
 
         val affectedRooms = chatMessageRepository.findDistinctRoomTargetBySentAtBefore(cutoff)
         for (room in affectedRooms) {
-            roomSummaryService.forceRefresh(room)
+            roomSummaryService.forceRefresh(room, SummaryRefreshTrigger.Job("retention cleanup"))
         }
 
         val messages = chatMessageRepository.deleteBySentAtBefore(cutoff)
