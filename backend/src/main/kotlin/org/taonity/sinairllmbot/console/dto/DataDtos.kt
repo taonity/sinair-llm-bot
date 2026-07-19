@@ -6,6 +6,7 @@ import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
+import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
 import org.taonity.sinairllmbot.console.entity.AuditLogEntity
 import java.time.Instant
 
@@ -87,14 +88,32 @@ data class RoomSummaryDto(
     val summary: String,
     val messageCount: Int,
     val updatedAt: Instant,
+    val history: List<SummaryVersionDto> = emptyList(),
 ) {
     companion object {
-        fun from(e: RoomSummaryEntity) = RoomSummaryDto(
+        fun from(e: RoomSummaryEntity, history: List<SummaryVersionDto> = emptyList()) = RoomSummaryDto(
             id = e.id,
             roomTarget = e.roomTarget,
             summary = e.summary,
             messageCount = e.messageCount,
             updatedAt = e.updatedAt,
+            history = history,
+        )
+    }
+}
+
+data class SummaryVersionDto(
+    val id: String?,
+    val summary: String,
+    val messageCount: Int,
+    val createdAt: Instant,
+) {
+    companion object {
+        fun from(e: RoomSummaryHistoryEntity) = SummaryVersionDto(
+            id = e.id,
+            summary = e.summary,
+            messageCount = e.messageCount,
+            createdAt = e.createdAt,
         )
     }
 }

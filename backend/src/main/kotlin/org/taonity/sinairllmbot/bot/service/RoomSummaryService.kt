@@ -8,11 +8,13 @@ import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
+import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
+import org.taonity.sinairllmbot.bot.repository.RoomSummaryHistoryRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
@@ -25,6 +27,7 @@ import java.time.Instant
 @Service
 class RoomSummaryService(
     private val roomSummaryRepository: RoomSummaryRepository,
+    private val roomSummaryHistoryRepository: RoomSummaryHistoryRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val contextBuilder: ConversationContextBuilder,
     private val llmClient: LlmClient,
@@ -35,6 +38,12 @@ class RoomSummaryService(
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
+
+        /**
+         * Keep the 10 latest summaries per room in the console: the current [RoomSummaryEntity]
+         * plus up to this many superseded versions in [RoomSummaryHistoryEntity].
+         */
+        private const val MAX_HISTORY_VERSIONS = 9
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +111,7 @@ class RoomSummaryService(
                 ),
             )
         } else {
+            archivePreviousVersion(existing)
             existing.summary = newSummary
             existing.messageCount = totalMessages
             existing.updatedAt = Instant.now()
@@ -126,6 +136,22 @@ class RoomSummaryService(
             ),
         )
         LOGGER.info { "Refreshed room summary for $roomTarget ($totalMessages msgs)" }
+    }
+
+    /** Archive the summary that is about to be overwritten, then prune to the latest few versions. */
+    private fun archivePreviousVersion(existing: RoomSummaryEntity) {
+        roomSummaryHistoryRepository.save(
+            RoomSummaryHistoryEntity(
+                roomTarget = existing.roomTarget,
+                summary = existing.summary,
+                messageCount = existing.messageCount,
+                createdAt = existing.updatedAt,
+            ),
+        )
+        val versions = roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(existing.roomTarget)
+        if (versions.size > MAX_HISTORY_VERSIONS) {
+            roomSummaryHistoryRepository.deleteAll(versions.drop(MAX_HISTORY_VERSIONS))
+        }
     }
 
     private fun summaryStage(

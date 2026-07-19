@@ -108,6 +108,28 @@ export function SummariesTab({
                   )}
                 </div>
               )}
+              {s.history.length > 0 && (
+                <div className="flex flex-col gap-1 pt-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Previous versions ({s.history.length})
+                  </span>
+                  {s.history.map((h) => (
+                    <details
+                      key={h.id}
+                      className="rounded-md border bg-muted/30 px-2 py-1"
+                    >
+                      <summary className="cursor-pointer select-none text-xs text-muted-foreground">
+                        {formatTime(h.createdAt)} · {h.messageCount} messages · {h.summary.length} chars
+                      </summary>
+                      <Textarea
+                        readOnly
+                        value={h.summary}
+                        className="mt-2 min-h-[200px] resize-y font-mono text-xs"
+                      />
+                    </details>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )

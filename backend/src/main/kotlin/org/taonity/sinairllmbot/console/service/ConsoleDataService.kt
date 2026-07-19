@@ -11,6 +11,7 @@ import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
+import org.taonity.sinairllmbot.bot.repository.RoomSummaryHistoryRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
@@ -27,6 +28,7 @@ import org.taonity.sinairllmbot.console.dto.PageResponse
 import org.taonity.sinairllmbot.console.dto.PipelineRunDto
 import org.taonity.sinairllmbot.console.dto.PipelineStageDto
 import org.taonity.sinairllmbot.console.dto.RoomSummaryDto
+import org.taonity.sinairllmbot.console.dto.SummaryVersionDto
 import org.taonity.sinairllmbot.console.entity.AuditAction
 import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
 import org.taonity.sinairllmbot.console.repository.AuditLogRepository
@@ -44,6 +46,7 @@ class ConsoleDataService(
     private val ignoredMessageRepository: IgnoredMessageRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val roomSummaryRepository: RoomSummaryRepository,
+    private val roomSummaryHistoryRepository: RoomSummaryHistoryRepository,
     private val pipelineRunRepository: PipelineRunRepository,
     private val auditLogRepository: AuditLogRepository,
     private val accessGuard: AccessGuard,
@@ -282,8 +285,12 @@ class ConsoleDataService(
         accessGuard.requireView(principal)
         return roomSummaryRepository.findAll()
             .sortedByDescending { it.updatedAt }
-            .map(RoomSummaryDto::from)
+            .map { RoomSummaryDto.from(it, historyFor(it.roomTarget)) }
     }
+
+    private fun historyFor(roomTarget: String): List<SummaryVersionDto> =
+        roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(roomTarget)
+            .map(SummaryVersionDto::from)
 
     @Transactional
     fun updateSummary(principal: GoogleUserPrincipal, id: String, summary: String): RoomSummaryDto {
@@ -293,7 +300,7 @@ class ConsoleDataService(
         entity.summary = summary
         val saved = roomSummaryRepository.save(entity)
         auditService.record(AuditAction.EDIT_SUMMARY, "room_summary", id, actor)
-        return RoomSummaryDto.from(saved)
+        return RoomSummaryDto.from(saved, historyFor(saved.roomTarget))
     }
 
     fun listAuditLogs(principal: GoogleUserPrincipal, q: String?, field: String?, page: Int, size: Int): PageResponse<AuditLogDto> {

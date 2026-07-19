@@ -128,12 +128,20 @@ export interface PipelineRun {
   createdAt: string
 }
 
+export interface SummaryVersion {
+  id: string
+  summary: string
+  messageCount: number
+  createdAt: string
+}
+
 export interface RoomSummary {
   id: string
   roomTarget: string
   summary: string
   messageCount: number
   updatedAt: string
+  history: SummaryVersion[]
 }
 
 export interface AuditLog {
