@@ -14,7 +14,7 @@ export const TOTAL_MESSAGES = 500;
 export const DAYS = 10;
 
 const EXT_BASE = 300000; // dedup_key = `ext:${EXT_BASE + globalIndex}`
-const ROOM = '#chat';
+const ROOM = '#test1';
 
 // Start of the 10-day window (UTC, midnight). Defaults to the last 10 days
 // ending today; override with CHAT_LOADER_START_DATE=YYYY-MM-DD.

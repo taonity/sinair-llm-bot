@@ -95,7 +95,7 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     label: 'Outcome',
     value: (r) => r.outcome,
     render: (r) => outcomeBadge(r.outcome),
-    headClassName: 'w-[120px]',
+    headClassName: 'w-[160px]',
     skeleton: 'h-5 w-16 rounded-full',
     searchKey: 'outcome',
   },
