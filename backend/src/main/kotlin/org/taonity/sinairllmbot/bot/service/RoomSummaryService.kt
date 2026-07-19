@@ -8,6 +8,11 @@ import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
+import org.taonity.sinairllmbot.bot.pipeline.PipelineField
+import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
+import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
+import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
+import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
@@ -25,6 +30,8 @@ class RoomSummaryService(
     private val llmClient: LlmClient,
     private val botProperties: BotProperties,
     private val llmProperties: LlmProperties,
+    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
+    private val pipelineTraceService: PipelineTraceService,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -56,7 +63,32 @@ class RoomSummaryService(
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 60)
         if (transcript.isBlank()) return
 
-        val newSummary = generateSummary(existing?.summary, transcript) ?: return
+        val previousSummary = existing?.summary
+        // Trace the refresh as its own "summary" pipeline run so the console shows the same detail as
+        // a reply run (its LLM call, with request/response payloads). begin()/record run on this
+        // thread; the reply pipeline (BotMessageOrchestrator) starts its own tracking afterwards.
+        pipelineLlmUsageTracker.begin()
+        val newSummary = generateSummary(previousSummary, transcript)
+        if (newSummary == null) {
+            pipelineTraceService.recordSummary(
+                roomTarget = roomTarget,
+                outcome = PipelineOutcome.SUMMARY_FAILED,
+                stages = listOf(
+                    summaryStage(
+                        status = PipelineStageStatus.STOP,
+                        summaryText = "LLM produced no summary",
+                        totalMessages = totalMessages,
+                        sinceLast = sinceLast,
+                        previousSummary = previousSummary,
+                        newSummary = null,
+                        transcript = transcript,
+                        force = force,
+                    ),
+                ),
+                outcomeDetail = "summary generation failed",
+            )
+            return
+        }
 
         if (existing == null) {
             roomSummaryRepository.save(
@@ -73,8 +105,49 @@ class RoomSummaryService(
             existing.updatedAt = Instant.now()
             roomSummaryRepository.save(existing)
         }
+        pipelineTraceService.recordSummary(
+            roomTarget = roomTarget,
+            outcome = PipelineOutcome.SUMMARY_REFRESHED,
+            stages = listOf(
+                summaryStage(
+                    status = PipelineStageStatus.OK,
+                    summaryText = "${previousSummary?.length ?: 0} → ${newSummary.length} chars",
+                    totalMessages = totalMessages,
+                    sinceLast = sinceLast,
+                    previousSummary = previousSummary,
+                    newSummary = newSummary,
+                    transcript = transcript,
+                    force = force,
+                ),
+            ),
+        )
         LOGGER.info { "Refreshed room summary for $roomTarget ($totalMessages msgs)" }
     }
+
+    private fun summaryStage(
+        status: PipelineStageStatus,
+        summaryText: String,
+        totalMessages: Int,
+        sinceLast: Int,
+        previousSummary: String?,
+        newSummary: String?,
+        transcript: String,
+        force: Boolean,
+    ): PipelineStage = PipelineStage(
+        key = "summary",
+        label = "Summary refresh",
+        status = status,
+        summary = summaryText,
+        fields = listOf(
+            PipelineField("tier", llmProperties.gateTier),
+            PipelineField("messages", totalMessages.toString()),
+            PipelineField("newMessages", sinceLast.toString()),
+            PipelineField("prevChars", (previousSummary?.length ?: 0).toString()),
+            PipelineField("newChars", (newSummary?.length ?: 0).toString()),
+            PipelineField("transcriptChars", transcript.length.toString()),
+            PipelineField("forced", force.toString()),
+        ),
+    )
 
     private fun generateSummary(previousSummary: String?, transcript: String): String? {
         val maxChars = botProperties.context.maxSummaryChars

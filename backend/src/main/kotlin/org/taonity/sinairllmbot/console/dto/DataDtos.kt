@@ -144,6 +144,7 @@ data class LlmCallUsageDto(
     val model: String = "",
     val tokens: Int = 0,
     val tools: List<String> = emptyList(),
+    val hasRequestPayload: Boolean = false,
     val hasResponsePayload: Boolean = false,
 ) {
     companion object {
@@ -152,6 +153,7 @@ data class LlmCallUsageDto(
             model = u.model,
             tokens = u.tokens,
             tools = u.tools,
+            hasRequestPayload = u.requestPayload.isNotBlank(),
             hasResponsePayload = u.responsePayload.isNotBlank(),
         )
     }

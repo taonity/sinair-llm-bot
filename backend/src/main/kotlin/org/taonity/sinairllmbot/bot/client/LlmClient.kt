@@ -61,6 +61,8 @@ class LlmClient(
             responseFormat = if (forceJson) ResponseFormat.JSON_OBJECT else null,
             tools = if (webSearch) listOf(Tool.webSearch()) else null,
         )
+        // Serialized once so the persisted trace can show the exact request body sent to the provider.
+        val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
 
         LOGGER.debug { "OpenRouter request (tier=$tierName):\n${prettyJson(request)}" }
 
@@ -105,6 +107,7 @@ class LlmClient(
                     model = tier.model,
                     tokens = usage?.totalTokens ?: 0,
                     tools = if (webSearch) listOf("web_search") else emptyList(),
+                    requestPayload = requestJson,
                     responsePayload = rawResponse.orEmpty(),
                 ),
             )

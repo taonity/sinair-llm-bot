@@ -68,13 +68,15 @@ class BotMessageOrchestrator(
         runCatching {
             val trigger = latestNonBotMessage(roomTarget) ?: return
 
-            // Collect the token cost / model / tool-set of every LLM call made below, so the
-            // persisted trace can show what this evaluation actually spent (summary refresh
-            // included, since it runs as part of this pipeline run).
-            pipelineLlmUsageTracker.begin()
-
+            // Refresh the rolling summary first. It records its own "summary" pipeline run (with the
+            // LLM call and its request/response payloads), so it is traced independently of — and not
+            // conflated with — the reply run's LLM usage tracked below.
             runCatching { roomSummaryService.refreshIfStale(roomTarget) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
+
+            // Collect the token cost / model / tool-set of every LLM call the reply pipeline makes
+            // below, so the persisted reply trace can show what this evaluation actually spent.
+            pipelineLlmUsageTracker.begin()
 
             // Every decision point below is appended as a pipeline stage so the console can show
             // exactly why the bot did (or did not) reply to this message. The trace is persisted on

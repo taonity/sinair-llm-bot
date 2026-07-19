@@ -243,17 +243,22 @@ class ConsoleDataService(
         auditService.record(AuditAction.DELETE_PIPELINE_RUN, "pipeline_run", id, actor)
     }
 
-    /** Returns the raw provider response payload (pretty-printed) for one LLM call of a pipeline run. */
-    fun pipelineRunLlmPayload(principal: GoogleUserPrincipal, id: String, index: Int): String {
+    /** Returns the raw provider request or response payload (pretty-printed) for one LLM call of a run. */
+    fun pipelineRunLlmPayload(principal: GoogleUserPrincipal, id: String, index: Int, kind: String): String {
         accessGuard.requireView(principal)
         val entity = pipelineRunRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Pipeline run not found") }
         val call = parseLlmUsage(entity.llmUsageJson).getOrNull(index)
             ?: throw ConsoleNotFoundException("LLM call not found")
-        if (call.responsePayload.isBlank()) {
-            throw ConsoleNotFoundException("No response payload stored for this LLM call")
+        val payload = when (kind) {
+            "request" -> call.requestPayload
+            "response" -> call.responsePayload
+            else -> throw ConsoleNotFoundException("Unknown payload kind: $kind")
         }
-        return prettyJson(call.responsePayload)
+        if (payload.isBlank()) {
+            throw ConsoleNotFoundException("No $kind payload stored for this LLM call")
+        }
+        return prettyJson(payload)
     }
 
     private fun parseStages(json: String): List<PipelineStageDto> = runCatching {

@@ -63,9 +63,12 @@ object PipelineOutcome {
     const val COOLDOWN = "COOLDOWN"
     const val MUTE_COMMAND = "MUTE_COMMAND"
     const val UNMUTE_COMMAND = "UNMUTE_COMMAND"
+    const val SUMMARY_REFRESHED = "SUMMARY_REFRESHED"
+    const val SUMMARY_FAILED = "SUMMARY_FAILED"
 }
 
 /** Known pipeline identifiers. New pipelines just add a constant here. */
 object PipelineKeys {
     const val REPLY = "reply"
+    const val SUMMARY = "summary"
 }

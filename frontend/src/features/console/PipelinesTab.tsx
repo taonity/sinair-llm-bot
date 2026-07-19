@@ -20,13 +20,15 @@ const STATUS_DOT: Record<PipelineStageStatus, string> = {
 }
 function outcomeBadge(outcome: string) {
   const tone =
-    outcome === 'REPLIED'
+    outcome === 'REPLIED' || outcome === 'SUMMARY_REFRESHED'
       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
       : outcome === 'SILENT'
         ? 'text-muted-foreground'
-        : outcome === 'COOLDOWN' || outcome === 'MUTED'
-          ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
-          : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
+        : outcome === 'SUMMARY_FAILED'
+          ? 'border-red-500/40 bg-red-500/10 text-red-600'
+          : outcome === 'COOLDOWN' || outcome === 'MUTED'
+            ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
+            : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
   return (
     <Badge variant="outline" className={cn('font-normal', tone)}>
       {outcome}
@@ -133,14 +135,24 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
                 {call.tools.length > 0 && (
                   <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
                 )}
-                {call.hasResponsePayload && (
+                {call.hasRequestPayload && (
                   <a
-                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/raw`}
+                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/request`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
                   >
-                    raw JSON
+                    request
+                  </a>
+                )}
+                {call.hasResponsePayload && (
+                  <a
+                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/response`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+                  >
+                    response
                   </a>
                 )}
               </span>

@@ -108,6 +108,7 @@ export interface LlmCallUsage {
   model: string
   tokens: number
   tools: string[]
+  hasRequestPayload: boolean
   hasResponsePayload: boolean
 }
 

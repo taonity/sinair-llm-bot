@@ -125,12 +125,13 @@ class ConsoleDataController(
         @RequestParam(defaultValue = "desc") direction: String,
     ): PageLocation = PageLocation(consoleDataService.locatePipelineRunPage(principal, id, size, direction))
 
-    @GetMapping("/pipeline-runs/{id}/llm-usage/{index}/raw", produces = [MediaType.APPLICATION_JSON_VALUE])
+    @GetMapping("/pipeline-runs/{id}/llm-usage/{index}/{kind}", produces = [MediaType.APPLICATION_JSON_VALUE])
     fun pipelineRunLlmPayload(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,
         @PathVariable id: String,
         @PathVariable index: Int,
-    ): String = consoleDataService.pipelineRunLlmPayload(principal, id, index)
+        @PathVariable kind: String,
+    ): String = consoleDataService.pipelineRunLlmPayload(principal, id, index, kind)
 
     @DeleteMapping("/pipeline-runs/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
