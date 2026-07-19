@@ -274,9 +274,19 @@ erDiagram
     room_summary {
         character_varying id PK "{NOT_NULL}"
         integer message_count "{NOT_NULL}"
+        character_varying pipeline_run_id 
         character_varying room_target UK "{NOT_NULL}"
         text summary "{NOT_NULL}"
         timestamp_without_time_zone updated_at "{NOT_NULL}"
+    }
+
+    room_summary_history {
+        timestamp_without_time_zone created_at "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
+        integer message_count "{NOT_NULL}"
+        character_varying pipeline_run_id 
+        character_varying room_target "{NOT_NULL}"
+        text summary "{NOT_NULL}"
     }
 
     spring_session {
