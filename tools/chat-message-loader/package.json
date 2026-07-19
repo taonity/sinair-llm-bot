@@ -1,0 +1,19 @@
+{
+  "name": "chat-message-loader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Seed / clear chat_message rows for testing.",
+  "bin": {
+    "chat-message-loader": "loader.js"
+  },
+  "scripts": {
+    "clear": "node loader.js clear",
+    "load": "node loader.js load",
+    "reload": "node loader.js reload",
+    "count": "node loader.js count"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
