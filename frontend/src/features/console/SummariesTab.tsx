@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { consoleApi } from './api'
 import { formatTime } from './format'
-import type { RoomSummary } from './types'
+import type { RoomSummary, SummaryVersion } from './types'
 
 export function SummariesTab({
   canEdit,
@@ -18,13 +18,20 @@ export function SummariesTab({
 }) {
   const [summaries, setSummaries] = useState<RoomSummary[] | null>(null)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const [savingId, setSavingId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const result = await consoleApi.listSummaries()
       setSummaries(result)
-      setDrafts(Object.fromEntries(result.map((s) => [s.id, s.summary])))
+      setDrafts(
+        Object.fromEntries(
+          result.flatMap((s) => [
+            [s.id, s.summary] as const,
+            ...s.history.map((h) => [h.id, h.summary] as const),
+          ]),
+        ),
+      )
     } catch {
       onError('Failed to load summaries.')
     }
@@ -34,18 +41,77 @@ export function SummariesTab({
     void load()
   }, [load])
 
-  const save = async (summary: RoomSummary) => {
-    setSavingId(summary.id)
+  const save = async (id: string) => {
+    setBusyId(id)
     try {
-      const updated = await consoleApi.updateSummary(summary.id, drafts[summary.id] ?? '')
-      if (updated) {
-        setSummaries((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)))
-      }
+      await consoleApi.updateSummary(id, drafts[id] ?? '')
+      await load()
     } catch {
       onError('Failed to save summary.')
     } finally {
-      setSavingId(null)
+      setBusyId(null)
     }
+  }
+
+  const remove = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this summary version?')) return
+    setBusyId(id)
+    try {
+      await consoleApi.deleteSummary(id)
+      await load()
+    } catch {
+      onError('Failed to delete summary.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const editor = (
+    id: string,
+    original: string,
+    pipelineRunId: string | null,
+    detailAvailable: boolean,
+    minHeight: string,
+  ) => {
+    const dirty = (drafts[id] ?? '') !== original
+    return (
+      <div className="flex flex-col gap-2">
+        <Textarea
+          value={drafts[id] ?? ''}
+          readOnly={!canEdit}
+          className={`${minHeight} resize-y font-mono text-xs`}
+          onChange={(e) => setDrafts((prev) => ({ ...prev, [id]: e.target.value }))}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <>
+              <Button size="sm" disabled={!dirty || busyId === id} onClick={() => save(id)}>
+                {busyId === id ? 'Saving…' : 'Save'}
+              </Button>
+              {dirty && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDrafts((prev) => ({ ...prev, [id]: original }))}
+                >
+                  Reset
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={busyId === id}
+                onClick={() => remove(id)}
+              >
+                Delete
+              </Button>
+            </>
+          )}
+          <SourceLink pipelineRunId={pipelineRunId} detailAvailable={detailAvailable} />
+        </div>
+      </div>
+    )
   }
 
   if (!summaries) {
@@ -57,11 +123,7 @@ export function SummariesTab({
             <Skeleton className="h-3 w-44" />
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Textarea
-              readOnly
-              value=""
-              className="min-h-[300px] resize-y font-mono text-xs"
-            />
+            <Textarea readOnly value="" className="min-h-[300px] resize-y font-mono text-xs" />
             {canEdit && <Skeleton className="h-8 w-16" />}
           </CardContent>
         </Card>
@@ -75,65 +137,61 @@ export function SummariesTab({
         <p className="text-sm text-muted-foreground">No summaries yet.</p>
       )}
 
-      {summaries.map((s) => {
-        const dirty = (drafts[s.id] ?? '') !== s.summary
-        return (
-          <Card key={s.id}>
-            <CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-              <span className="font-medium">{s.roomTarget}</span>
-              <span className="text-xs text-muted-foreground">
-                {s.messageCount} messages · updated {formatTime(s.updatedAt)}
-              </span>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              <Textarea
-                value={drafts[s.id] ?? ''}
-                readOnly={!canEdit}
-                className="min-h-[300px] resize-y font-mono text-xs"
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [s.id]: e.target.value }))}
-              />
-              {canEdit && (
-                <div className="flex gap-2">
-                  <Button size="sm" disabled={!dirty || savingId === s.id} onClick={() => save(s)}>
-                    {savingId === s.id ? 'Saving…' : 'Save'}
-                  </Button>
-                  {dirty && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDrafts((prev) => ({ ...prev, [s.id]: s.summary }))}
-                    >
-                      Reset
-                    </Button>
-                  )}
-                </div>
-              )}
-              {s.history.length > 0 && (
-                <div className="flex flex-col gap-1 pt-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Previous versions ({s.history.length})
-                  </span>
-                  {s.history.map((h) => (
-                    <details
-                      key={h.id}
-                      className="rounded-md border bg-muted/30 px-2 py-1"
-                    >
-                      <summary className="cursor-pointer select-none text-xs text-muted-foreground">
-                        {formatTime(h.createdAt)} · {h.messageCount} messages · {h.summary.length} chars
-                      </summary>
-                      <Textarea
-                        readOnly
-                        value={h.summary}
-                        className="mt-2 min-h-[200px] resize-y font-mono text-xs"
-                      />
-                    </details>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
+      {summaries.map((s) => (
+        <Card key={s.id}>
+          <CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+            <span className="font-medium">{s.roomTarget}</span>
+            <span className="text-xs text-muted-foreground">
+              {s.messageCount} messages · updated {formatTime(s.updatedAt)}
+            </span>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {editor(s.id, s.summary, s.pipelineRunId, s.detailAvailable, 'min-h-[300px]')}
+
+            {s.history.length > 0 && (
+              <div className="flex flex-col gap-1 pt-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Previous versions ({s.history.length})
+                </span>
+                {s.history.map((h: SummaryVersion) => (
+                  <details key={h.id} className="rounded-md border bg-muted/30 px-2 py-1">
+                    <summary className="cursor-pointer select-none text-xs text-muted-foreground">
+                      {formatTime(h.createdAt)} · {h.messageCount} messages · {h.summary.length} chars
+                    </summary>
+                    <div className="mt-2">
+                      {editor(h.id, h.summary, h.pipelineRunId, h.detailAvailable, 'min-h-[200px]')}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
+  )
+}
+
+function SourceLink({
+  pipelineRunId,
+  detailAvailable,
+}: {
+  pipelineRunId: string | null
+  detailAvailable: boolean
+}) {
+  if (pipelineRunId && detailAvailable) {
+    return (
+      <a
+        href={`/api/console/pipeline-runs/${encodeURIComponent(pipelineRunId)}/llm-usage/0/request`}
+        target="_blank"
+        rel="noreferrer"
+        className="text-xs text-sky-600 underline underline-offset-2 hover:text-sky-500"
+      >
+        source transcript
+      </a>
+    )
+  }
+  return (
+    <span className="text-xs text-muted-foreground">source messages purged (7-day retention)</span>
   )
 }

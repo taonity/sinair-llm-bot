@@ -67,26 +67,25 @@ class PipelineTraceService(
         outcome: String,
         stages: List<PipelineStage>,
         outcomeDetail: String? = null,
-    ) {
-        runCatching {
-            val llmUsage = pipelineLlmUsageTracker.drain()
-            val triggerMessage = (trigger as? SummaryRefreshTrigger.Message)?.message
-            pipelineRunRepository.save(
-                PipelineRunEntity(
-                    pipelineKey = PipelineKeys.SUMMARY,
-                    roomTarget = roomTarget,
-                    triggerMessageId = triggerMessage?.id,
-                    triggerSenderLogin = triggerMessage?.senderLogin ?: SYSTEM_ACTOR,
-                    triggerText = triggerMessage?.messageText?.take(TRIGGER_TEXT_MAX)
-                        ?: "Summary refresh · ${trigger.label}",
-                    outcome = outcome,
-                    outcomeDetail = outcomeDetail,
-                    outboundMessageId = null,
-                    stagesJson = objectMapper.writeValueAsString(stages),
-                    totalTokens = llmUsage.sumOf { it.tokens },
-                    llmUsageJson = objectMapper.writeValueAsString(llmUsage),
-                ),
-            )
-        }.onFailure { LOGGER.warn(it) { "Failed to record summary trace for $roomTarget" } }
-    }
+    ): String? = runCatching {
+        val llmUsage = pipelineLlmUsageTracker.drain()
+        val triggerMessage = (trigger as? SummaryRefreshTrigger.Message)?.message
+        val saved = pipelineRunRepository.save(
+            PipelineRunEntity(
+                pipelineKey = PipelineKeys.SUMMARY,
+                roomTarget = roomTarget,
+                triggerMessageId = triggerMessage?.id,
+                triggerSenderLogin = triggerMessage?.senderLogin ?: SYSTEM_ACTOR,
+                triggerText = triggerMessage?.messageText?.take(TRIGGER_TEXT_MAX)
+                    ?: "Summary refresh · ${trigger.label}",
+                outcome = outcome,
+                outcomeDetail = outcomeDetail,
+                outboundMessageId = null,
+                stagesJson = objectMapper.writeValueAsString(stages),
+                totalTokens = llmUsage.sumOf { it.tokens },
+                llmUsageJson = objectMapper.writeValueAsString(llmUsage),
+            ),
+        )
+        saved.id
+    }.onFailure { LOGGER.warn(it) { "Failed to record summary trace for $roomTarget" } }.getOrNull()
 }

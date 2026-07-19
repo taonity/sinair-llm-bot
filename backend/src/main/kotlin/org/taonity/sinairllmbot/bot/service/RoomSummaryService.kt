@@ -101,23 +101,22 @@ class RoomSummaryService(
             return
         }
 
-        if (existing == null) {
-            roomSummaryRepository.save(
-                RoomSummaryEntity(
-                    roomTarget = roomTarget,
-                    summary = newSummary,
-                    messageCount = totalMessages,
-                    updatedAt = Instant.now(),
-                ),
+        val current = if (existing == null) {
+            RoomSummaryEntity(
+                roomTarget = roomTarget,
+                summary = newSummary,
+                messageCount = totalMessages,
+                updatedAt = Instant.now(),
             )
         } else {
             archivePreviousVersion(existing)
             existing.summary = newSummary
             existing.messageCount = totalMessages
             existing.updatedAt = Instant.now()
-            roomSummaryRepository.save(existing)
+            existing
         }
-        pipelineTraceService.recordSummary(
+        roomSummaryRepository.save(current)
+        val runId = pipelineTraceService.recordSummary(
             roomTarget = roomTarget,
             trigger = trigger,
             outcome = PipelineOutcome.SUMMARY_REFRESHED,
@@ -135,6 +134,12 @@ class RoomSummaryService(
                 ),
             ),
         )
+        // Link the summary to the pipeline run holding its source transcript, so the console can show
+        // the messages behind it — until retention purges that run after 7 days (the summary stays).
+        if (runId != null) {
+            current.pipelineRunId = runId
+            roomSummaryRepository.save(current)
+        }
         LOGGER.info { "Refreshed room summary for $roomTarget ($totalMessages msgs)" }
     }
 
@@ -146,6 +151,7 @@ class RoomSummaryService(
                 summary = existing.summary,
                 messageCount = existing.messageCount,
                 createdAt = existing.updatedAt,
+                pipelineRunId = existing.pipelineRunId,
             ),
         )
         val versions = roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(existing.roomTarget)

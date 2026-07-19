@@ -25,4 +25,9 @@ class RoomSummaryEntity(
     /** Total messages seen in the room at the last refresh; drives the refresh cadence. */
     var messageCount: Int = 0,
     var updatedAt: Instant = Instant.now(),
+    /**
+     * The pipeline run that produced this summary (holds the source transcript). Purged by retention
+     * after 7 days; the summary text itself is kept. Null until the first refresh links it.
+     */
+    var pipelineRunId: String? = null,
 )

@@ -130,6 +130,8 @@ export const consoleApi = {
   updateSummary: (id: string, summary: string) =>
     mutate<RoomSummary>(`/summaries/${encodeURIComponent(id)}`, 'PUT', { summary }),
 
+  deleteSummary: (id: string) => mutate(`/summaries/${encodeURIComponent(id)}`, 'DELETE'),
+
   listAuditLogs: (page: number, size: number, q?: string, field?: string) =>
     get<PageResponse<AuditLog>>(buildListQuery('/audit-logs', page, size, q, field)),
 }

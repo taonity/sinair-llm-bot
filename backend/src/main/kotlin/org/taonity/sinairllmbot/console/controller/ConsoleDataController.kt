@@ -152,6 +152,13 @@ class ConsoleDataController(
         @RequestBody body: UpdateSummaryBody,
     ): RoomSummaryDto = consoleDataService.updateSummary(principal, id, body.summary)
 
+    @DeleteMapping("/summaries/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteSummary(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+    ) = consoleDataService.deleteSummary(principal, id)
+
     @GetMapping("/audit-logs")
     fun auditLogs(
         @AuthenticationPrincipal principal: GoogleUserPrincipal,

@@ -34,6 +34,7 @@ import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
 import org.taonity.sinairllmbot.console.repository.AuditLogRepository
 import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 import tools.jackson.databind.ObjectMapper
+import java.time.Instant
 
 /**
  * Read and mutate console data. Reads require VIEWER access, mutations require EDITOR access.
@@ -285,22 +286,89 @@ class ConsoleDataService(
         accessGuard.requireView(principal)
         return roomSummaryRepository.findAll()
             .sortedByDescending { it.updatedAt }
-            .map { RoomSummaryDto.from(it, historyFor(it.roomTarget)) }
+            .map(::toRoomSummaryDto)
     }
 
-    private fun historyFor(roomTarget: String): List<SummaryVersionDto> =
-        roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(roomTarget)
-            .map(SummaryVersionDto::from)
+    private fun toRoomSummaryDto(e: RoomSummaryEntity) = RoomSummaryDto(
+        id = e.id,
+        roomTarget = e.roomTarget,
+        summary = e.summary,
+        messageCount = e.messageCount,
+        updatedAt = e.updatedAt,
+        pipelineRunId = e.pipelineRunId,
+        detailAvailable = detailAvailable(e.pipelineRunId),
+        history = roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(e.roomTarget)
+            .map { h ->
+                SummaryVersionDto(
+                    id = h.id,
+                    summary = h.summary,
+                    messageCount = h.messageCount,
+                    createdAt = h.createdAt,
+                    pipelineRunId = h.pipelineRunId,
+                    detailAvailable = detailAvailable(h.pipelineRunId),
+                )
+            },
+    )
 
+    /** A summary's source transcript is available only while its pipeline run survives retention. */
+    private fun detailAvailable(pipelineRunId: String?): Boolean =
+        pipelineRunId != null && pipelineRunRepository.existsById(pipelineRunId)
+
+    /**
+     * Edits any summary version. Ids are globally unique across the two tables, so a single id
+     * resolves to either the current summary or an archived one. Always returns the room's refreshed
+     * card so the caller sees the updated history.
+     */
     @Transactional
     fun updateSummary(principal: GoogleUserPrincipal, id: String, summary: String): RoomSummaryDto {
         val actor = accessGuard.requireEdit(principal)
-        val entity: RoomSummaryEntity = roomSummaryRepository.findById(id)
+        val current = roomSummaryRepository.findById(id).orElse(null)
+        if (current != null) {
+            current.summary = summary
+            val saved = roomSummaryRepository.save(current)
+            auditService.record(AuditAction.EDIT_SUMMARY, "room_summary", id, actor)
+            return toRoomSummaryDto(saved)
+        }
+        val version = roomSummaryHistoryRepository.findById(id)
             .orElseThrow { ConsoleNotFoundException("Summary not found") }
-        entity.summary = summary
-        val saved = roomSummaryRepository.save(entity)
-        auditService.record(AuditAction.EDIT_SUMMARY, "room_summary", id, actor)
-        return RoomSummaryDto.from(saved, historyFor(saved.roomTarget))
+        version.summary = summary
+        val saved = roomSummaryHistoryRepository.save(version)
+        auditService.record(AuditAction.EDIT_SUMMARY, "room_summary_history", id, actor)
+        val room = roomSummaryRepository.findByRoomTarget(saved.roomTarget)
+            ?: throw ConsoleNotFoundException("Summary not found")
+        return toRoomSummaryDto(room)
+    }
+
+    /**
+     * Deletes any summary version. Deleting an archived version just removes it. Deleting the current
+     * summary promotes the most recent archived version to current (a revert) so the room keeps a
+     * summary and its remaining history stays visible; if there is none, the row is removed and the
+     * bot regenerates from scratch on the next refresh.
+     */
+    @Transactional
+    fun deleteSummary(principal: GoogleUserPrincipal, id: String) {
+        val actor = accessGuard.requireEdit(principal)
+        val current = roomSummaryRepository.findById(id).orElse(null)
+        if (current != null) {
+            val newest = roomSummaryHistoryRepository
+                .findByRoomTargetOrderByCreatedAtDesc(current.roomTarget)
+                .firstOrNull()
+            if (newest != null) {
+                current.summary = newest.summary
+                current.pipelineRunId = newest.pipelineRunId
+                current.updatedAt = Instant.now()
+                roomSummaryRepository.save(current)
+                roomSummaryHistoryRepository.delete(newest)
+            } else {
+                roomSummaryRepository.delete(current)
+            }
+            auditService.record(AuditAction.DELETE_SUMMARY, "room_summary", id, actor)
+            return
+        }
+        val version = roomSummaryHistoryRepository.findById(id)
+            .orElseThrow { ConsoleNotFoundException("Summary not found") }
+        roomSummaryHistoryRepository.delete(version)
+        auditService.record(AuditAction.DELETE_SUMMARY, "room_summary_history", id, actor)
     }
 
     fun listAuditLogs(principal: GoogleUserPrincipal, q: String?, field: String?, page: Int, size: Int): PageResponse<AuditLogDto> {

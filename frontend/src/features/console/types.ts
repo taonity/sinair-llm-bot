@@ -133,6 +133,8 @@ export interface SummaryVersion {
   summary: string
   messageCount: number
   createdAt: string
+  pipelineRunId: string | null
+  detailAvailable: boolean
 }
 
 export interface RoomSummary {
@@ -141,6 +143,8 @@ export interface RoomSummary {
   summary: string
   messageCount: number
   updatedAt: string
+  pipelineRunId: string | null
+  detailAvailable: boolean
   history: SummaryVersion[]
 }
 
