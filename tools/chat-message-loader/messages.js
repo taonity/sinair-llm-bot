@@ -13,10 +13,21 @@ import { randomUUID } from 'node:crypto';
 export const TOTAL_MESSAGES = 500;
 export const DAYS = 10;
 
-// First day of the 10-day window (UTC). Month is 0-based: 6 === July.
-const WINDOW_START = Date.UTC(2026, 6, 5, 0, 0, 0);
 const EXT_BASE = 300000; // dedup_key = `ext:${EXT_BASE + globalIndex}`
 const ROOM = '#chat';
+
+// Start of the 10-day window (UTC, midnight). Defaults to the last 10 days
+// ending today; override with CHAT_LOADER_START_DATE=YYYY-MM-DD.
+function resolveWindowStart() {
+  const override = process.env.CHAT_LOADER_START_DATE;
+  if (override) {
+    const [y, m, d] = override.split('-').map(Number);
+    return Date.UTC(y, m - 1, d, 0, 0, 0);
+  }
+  const now = new Date();
+  const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0);
+  return todayStart - (DAYS - 1) * 86400000;
+}
 
 const USERS = [
   { login: 'Sobol', color: '#8ad6ff', memberId: 701, userId: 3101 },
@@ -295,6 +306,7 @@ function quoteSnippet(text) {
 export function buildMessages(seed = 20260705) {
   const rand = mulberry32(seed);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+  const windowStart = resolveWindowStart();
 
   // Flatten threads into a reusable pool, reshuffling order each pass so the
   // 10 days do not replay topics in the same sequence.
@@ -319,7 +331,7 @@ export function buildMessages(seed = 20260705) {
   let flowIdx = 0;
 
   for (let day = 0; day < DAYS; day++) {
-    const dayStart = WINDOW_START + day * 86400000;
+    const dayStart = windowStart + day * 86400000;
     // Start the day's chatter in the morning and walk forward.
     let cursor = dayStart + (8 * 3600 + Math.floor(rand() * 1800)) * 1000;
 

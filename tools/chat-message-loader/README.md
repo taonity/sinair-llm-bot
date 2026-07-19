@@ -1,9 +1,12 @@
 # chat-message-loader
 
 Small CLI to load and clear `chat_message` rows for testing. Generates a base of
-**500 messages** written by **6 made-up users**, spread over **10 days**, in the
-same casual style as `data/history.csv` (reply-quotes, emoticons, occasional
-links and `code`). No pipeline or summary rows are produced.
+**500 messages** written by **6 made-up users**, spread over the **last 10 days**
+(ending today), in the same casual style as `data/history.csv` (reply-quotes,
+emoticons, occasional links and `code`). No pipeline or summary rows are produced.
+
+Override the window start with `CHAT_LOADER_START_DATE=YYYY-MM-DD` if you need a
+fixed date range instead of the rolling last-10-days default.
 
 ## Setup
 
