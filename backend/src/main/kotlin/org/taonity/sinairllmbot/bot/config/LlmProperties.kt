@@ -37,6 +37,7 @@ data class LlmProperties(
         val candidateCount: Int,
         val candidateTemperature: Double,
         val repairThreshold: Int,
+        val prompt: String,
     )
 
     fun tier(name: String): Tier =

@@ -47,6 +47,10 @@ app:
       candidate-count: 3
       candidate-temperature: 0.9
       repair-threshold: 7
+      prompt: |
+        Rate each candidate reply in {language} against the brief below.
+        BOT BRIEF:
+        {brief}
     tiers:
       gate:
         model: test/gate-model

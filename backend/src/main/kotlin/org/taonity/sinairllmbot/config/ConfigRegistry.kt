@@ -75,6 +75,7 @@ class ConfigRegistry(
             }
             else -> Unit
         }
+        field.validate(value)
         return value
     }
 
@@ -137,6 +138,12 @@ class ConfigRegistry(
             key = "app.llm.critic.repair-threshold", group = "LLM · Critic", type = ConfigType.INT, min = 0.0, max = 10.0,
             read = { it.llm.critic.repairThreshold },
             apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(repairThreshold = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.llm.critic.prompt", group = "LLM · Critic", type = ConfigType.TEXT,
+            read = { it.llm.critic.prompt },
+            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(prompt = v as String))) },
+            validate = { v -> requireCriticPlaceholders(v as String) },
         )
 
         return fields
@@ -349,5 +356,19 @@ class ConfigRegistry(
     private companion object {
         private val STRING_LIST_TYPE = object : TypeReference<List<String>>() {}
         private val TIER_KEY_REGEX = Regex("""app\.llm\.tiers\.([^.]+)\.(model|temperature|max-tokens)""")
+
+        // Placeholder tokens the critic template MUST contain; substituted at runtime in ReplyCritic.
+        // Keep in sync with ReplyCritic's render() tokens.
+        private val REQUIRED_CRITIC_PLACEHOLDERS = listOf("{brief}", "{language}")
+
+        private fun requireCriticPlaceholders(template: String) {
+            val missing = REQUIRED_CRITIC_PLACEHOLDERS.filterNot { template.contains(it) }
+            if (missing.isNotEmpty()) {
+                throw ConfigValidationException(
+                    "Critic prompt is missing required placeholder(s): ${missing.joinToString(", ")}. " +
+                        "The template must include ${REQUIRED_CRITIC_PLACEHOLDERS.joinToString(", ")}.",
+                )
+            }
+        }
     }
 }

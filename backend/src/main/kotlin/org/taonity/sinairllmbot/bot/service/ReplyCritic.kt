@@ -28,50 +28,23 @@ class ReplyCritic(
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         // Stable marker so local WireMock stubs can distinguish critic calls from the triage classifier.
+        // Code-owned (not part of the editable template) so console edits can't break stub routing.
         private const val MARKER = "REPLY CRITIC"
+        // Code-owned output contract appended after the template so the JSON schema can never be
+        // edited away from the console (its removal would silently disable the critic).
+        private const val JSON_CONTRACT =
+            "Respond with ONLY a JSON object: {\"scores\":[{\"fit\":n,\"persona\":n,\"risk\":n," +
+                "\"overall\":n}],\"best\":n,\"needsRepair\":boolean,\"feedback\":string}."
         private val JSON_FENCE = Regex("^```(?:json)?|```$", RegexOption.IGNORE_CASE)
     }
 
     fun evaluate(prompt: ReplyPrompt, candidates: List<String>): CriticVerdict? {
         if (candidates.isEmpty()) return null
 
-        val persona = botProperties.persona
         val system = buildString {
-            append(MARKER).append(". You are a strict critic for a chat bot's reply. Below is the ")
-            append("exact brief the bot was given (its persona and rules) and the recent conversation. ")
-            append("The bot drafted several candidate replies. Rate EACH candidate 0-10 on:\n")
-            append("- fit: does it actually answer/react to the latest message, stay on topic, and ")
-            append("keep a natural chat length? If the latest message is a direct request or ")
-            append("question addressed to the bot, fit MUST reward candidates that fully and ")
-            append("correctly do what was asked, and heavily punish ones that dodge, half-answer, ")
-            append("or reply with a clarifying/filler question instead of delivering the result (an ")
-            append("arrogant nitpick is fine ONLY if the real answer is still there). Even when the ")
-            append("answer IS delivered, heavily punish any candidate that tacks a question onto the ")
-            append("end that probes why the asker wants or needs it, what they need it for, or ")
-            append("whether they really need it (e.g. 'why do you need this?', 'what for?') — the ")
-            append("bot must not question the motive behind a request; a candidate ending on a flat ")
-            append("statement or jab is better than one ending on such a question. Also punish ")
-            append("candidates that resurrect a stale/finished topic nobody is currently discussing ")
-            append("or that ask an unprompted 'how's X going?' filler question about an earlier thing.\n")
-            append("- persona: does it match the bot's style rules — casual, short, in ")
-            append(persona.language).append(", ONE message, no markdown, no name prefix, never ")
-            append("assistant-like or lecturing? A witty, self-aware aside (about being a layered ")
-            append("multi-model system, its own quirks, or someone tweaking it) is fine when it ")
-            append("clearly fits the moment; but punish self-reference that is forced, unprompted or ")
-            append("used as filler — dragging up its own code, prompt, settings, deployment or 'the ")
-            append("feature it was tested on' out of nowhere, or earnestly narrating its own ")
-            append("machinery as the topic. Also punish emoji misuse: any emoji/smiley outside the ")
-            append("brief's allowed EMOJI set, unicode emoji or kaomoji, or overuse (more than one, ")
-            append("or a smiley that adds nothing) — plain text with no smiley is perfectly fine.\n")
-            append("- risk: hallucination/safety risk. 0 = safe; 10 = states likely-false 'latest/")
-            append("current' facts, invents APIs/features/prices, or breaks the rules.\n")
-            append("overall (0-10) should reward high fit and persona and punish risk. Pick the best ")
-            append("candidate by 0-based index. Set needsRepair=true when even the best candidate is ")
-            append("weak or violates a rule. In feedback, say concretely what to fix in the best ")
-            append("candidate to make it a great chat reply (empty string if nothing to fix).\n")
-            append("Respond with ONLY a JSON object: {\"scores\":[{\"fit\":n,\"persona\":n,\"risk\":n,")
-            append("\"overall\":n}],\"best\":n,\"needsRepair\":boolean,\"feedback\":string}.\n\n")
-            append("BOT BRIEF:\n").append(prompt.system)
+            append(MARKER).append(". ")
+            append(render(llmProperties.critic.prompt, brief = prompt.system, language = botProperties.persona.language))
+            append("\n\n").append(JSON_CONTRACT)
         }
 
         val user = buildString {
@@ -89,6 +62,15 @@ class ReplyCritic(
 
         return parse(raw.content, candidates.size)
     }
+
+    /**
+     * Substitutes the runtime placeholder tokens into the configurable critic rubric. Tokens are
+     * guaranteed present by config-save validation (see ConfigRegistry.requireCriticPlaceholders).
+     */
+    private fun render(template: String, brief: String, language: String): String =
+        template.trim()
+            .replace("{language}", language)
+            .replace("{brief}", brief)
 
     private fun parse(content: String, candidateCount: Int): CriticVerdict? {
         val cleaned = content.trim().lines()

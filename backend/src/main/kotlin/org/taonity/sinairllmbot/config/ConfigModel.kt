@@ -37,6 +37,12 @@ class ConfigField(
     val enumValues: (EffectiveConfig) -> List<String> = { emptyList() },
     val read: (EffectiveConfig) -> Any?,
     val apply: (EffectiveConfig, Any) -> EffectiveConfig,
+    /**
+     * Optional field-specific validation run after the generic type/range/enum/blank checks, e.g.
+     * to require placeholder tokens in a templated prompt. Receives the already-parsed typed value
+     * and must throw [ConfigValidationException] to reject it.
+     */
+    val validate: (Any) -> Unit = {},
 ) {
     /** Human label derived from the last path segment (tier name lives in [group]). */
     val label: String = key.substringAfterLast('.')
