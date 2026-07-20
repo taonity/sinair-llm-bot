@@ -8,6 +8,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -20,10 +21,10 @@ class PipelineTraceService(
     private val pipelineRunRepository: PipelineRunRepository,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
     private val objectMapper: ObjectMapper,
+    private val settings: BotSettings,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private const val TRIGGER_TEXT_MAX = 2000
         private const val SYSTEM_ACTOR = "system"
     }
 
@@ -43,7 +44,7 @@ class PipelineTraceService(
                     roomTarget = trigger.roomTarget,
                     triggerMessageId = trigger.id,
                     triggerSenderLogin = trigger.senderLogin,
-                    triggerText = trigger.messageText.take(TRIGGER_TEXT_MAX),
+                    triggerText = trigger.messageText.take(settings.bot().limits.traceTriggerTextMax),
                     outcome = outcome,
                     outcomeDetail = outcomeDetail,
                     outboundMessageId = outboundMessageId,
@@ -76,7 +77,7 @@ class PipelineTraceService(
                 roomTarget = roomTarget,
                 triggerMessageId = triggerMessage?.id,
                 triggerSenderLogin = triggerMessage?.senderLogin ?: SYSTEM_ACTOR,
-                triggerText = triggerMessage?.messageText?.take(TRIGGER_TEXT_MAX)
+                triggerText = triggerMessage?.messageText?.take(settings.bot().limits.traceTriggerTextMax)
                     ?: "Summary refresh · ${trigger.label}",
                 outcome = outcome,
                 outcomeDetail = outcomeDetail,

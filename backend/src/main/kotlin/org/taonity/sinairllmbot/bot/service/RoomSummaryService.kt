@@ -39,12 +39,6 @@ class RoomSummaryService(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
-
-        /**
-         * Keep the 10 latest summaries per room in the console: the current [RoomSummaryEntity]
-         * plus up to this many superseded versions in [RoomSummaryHistoryEntity].
-         */
-        private const val MAX_HISTORY_VERSIONS = 9
     }
 
     @Transactional(readOnly = true)
@@ -156,8 +150,9 @@ class RoomSummaryService(
             ),
         )
         val versions = roomSummaryHistoryRepository.findByRoomTargetOrderByCreatedAtDesc(existing.roomTarget)
-        if (versions.size > MAX_HISTORY_VERSIONS) {
-            roomSummaryHistoryRepository.deleteAll(versions.drop(MAX_HISTORY_VERSIONS))
+        val maxHistoryVersions = botProperties.limits.summaryHistoryVersions
+        if (versions.size > maxHistoryVersions) {
+            roomSummaryHistoryRepository.deleteAll(versions.drop(maxHistoryVersions))
         }
     }
 

@@ -28,7 +28,6 @@ class ReplyGenerator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private const val MAX_REPLY_CHARS = 800
     }
 
     /**
@@ -165,8 +164,9 @@ class ReplyGenerator(
         // Collapse blank-line paragraph breaks into a single newline: chat participants don't
         // double-space their messages, and the extra gap looks off.
         text = text.replace(Regex("\\n[ \\t]*\\n+"), "\n")
-        if (text.length > MAX_REPLY_CHARS) {
-            text = text.take(MAX_REPLY_CHARS).trimEnd() + "\u2026"
+        val maxReplyChars = botProperties.limits.maxReplyChars
+        if (text.length > maxReplyChars) {
+            text = text.take(maxReplyChars).trimEnd() + "\u2026"
         }
         return text
     }

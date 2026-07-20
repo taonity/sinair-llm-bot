@@ -19,6 +19,8 @@ app:
     owner-emails: ${CONSOLE_OWNER_EMAILS}
     # Comma-separated list of Google account emails bootstrapped as data-console admins on login.
     admin-emails: ${CONSOLE_ADMIN_EMAILS:}
+    # Upper bound on page size for console list endpoints (requested sizes are clamped to this).
+    max-page-size: 100
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
@@ -125,6 +127,8 @@ app:
     max-page-bytes: 2000000
     max-context-chars: 6000
     max-chars-per-source: 4000
+    # Cap on how many not-fetched documentation/API links from one source are listed for context.
+    max-doc-links: 5
     vision-tier: vision
     image:
       # Hard byte cap so a huge image can't be pulled in; https-only, private/internal hosts blocked.
@@ -265,6 +269,27 @@ app:
       # it auto-clears. A safety cap so a stalled/failed reply generation can't leave the indicator
       # stuck on; under normal flow it clears as soon as the reply is generated and sent.
       ttl-seconds: 15
+    limits:
+      # Hard cap on the length of a generated reply; anything longer is truncated with an ellipsis.
+      max-reply-chars: 800
+      # How many characters of a triggering message are stored on a pipeline trace (observability).
+      trace-trigger-text-max: 2000
+      # How many recent chat events are scanned to derive the room presence line.
+      event-scan-limit: 120
+      # How many superseded room-summary versions are kept per room (on top of the current one).
+      summary-history-versions: 9
+      # Trigger + this many recent messages are scanned for URLs to ground a reply on.
+      link-context-messages: 5
+
+# Data-retention cleanup. Each policy owns how long records are kept and the cron that fires the
+# cleanup job; the cron is honoured live (edits from the console apply on the next scheduling cycle).
+  retention:
+    chat:
+      retention-days: 7
+      cron: "0 0 3 * * *"
+    audit:
+      retention-days: 14
+      cron: "0 30 3 * * *"
 
 # Exposed via /actuator/info (management.info.env.enabled). Deployment environment is a runtime
 # concern (same image runs in stage and prod), so it is resolved from APP_ENVIRONMENT at startup

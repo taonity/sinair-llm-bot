@@ -31,7 +31,6 @@ class ConversationContextBuilder(
 
     private companion object {
         private val PRESENT_STATUSES = setOf("online", "back", "away")
-        private const val EVENT_SCAN_LIMIT = 120
     }
 
     fun recentTranscript(roomTarget: String, limit: Int = botProperties.context.recentMessageCount): String {
@@ -84,7 +83,7 @@ class ConversationContextBuilder(
     /** e.g. "Online now: DJ1, aps, Dr.Admin(moder). " — empty string when unknown. */
     fun presenceLine(roomTarget: String): String {
         val events = chatEventRepository
-            .findByRoomTargetOrderByEventTimeDesc(roomTarget, PageRequest.of(0, EVENT_SCAN_LIMIT))
+            .findByRoomTargetOrderByEventTimeDesc(roomTarget, PageRequest.of(0, botProperties.limits.eventScanLimit))
 
         // Keep only the latest event per member to know their current status.
         val latestByMember = LinkedHashMap<Int, ChatEventEntity>()

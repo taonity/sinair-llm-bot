@@ -33,10 +33,6 @@ class ReplyPromptBuilder(
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)
-
-        // Trigger + this many recent messages are scanned for URLs to ground on (covers a link
-        // shared a message or two before the one that triggered the reply).
-        private const val LINK_CONTEXT_MESSAGES = 5
     }
 
     fun build(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean): ReplyPrompt {
@@ -166,7 +162,7 @@ class ReplyPromptBuilder(
      * trigger is listed first so its own links win the per-message cap.
      */
     private fun linkScanText(roomTarget: String, trigger: ChatMessageEntity): String {
-        val recent = contextBuilder.recentMessageTexts(roomTarget, LINK_CONTEXT_MESSAGES)
+        val recent = contextBuilder.recentMessageTexts(roomTarget, botProperties.limits.linkContextMessages)
             .filter { it != trigger.messageText }
         return (listOf(trigger.messageText) + recent).joinToString("\n")
     }

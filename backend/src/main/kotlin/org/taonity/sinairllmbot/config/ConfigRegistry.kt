@@ -1,5 +1,6 @@
 package org.taonity.sinairllmbot.config
 
+import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import tools.jackson.core.type.TypeReference
@@ -294,6 +295,33 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(typing = c.bot.typing.copy(ttlSeconds = v as Long))) },
         )
 
+        // ---- Bot · Limits ----
+        fields += ConfigField(
+            key = "app.bot.limits.max-reply-chars", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 4000.0,
+            read = { it.bot.limits.maxReplyChars },
+            apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(maxReplyChars = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.limits.trace-trigger-text-max", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 20000.0,
+            read = { it.bot.limits.traceTriggerTextMax },
+            apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(traceTriggerTextMax = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.limits.event-scan-limit", group = "Bot · Limits", type = ConfigType.INT, min = 10.0, max = 1000.0,
+            read = { it.bot.limits.eventScanLimit },
+            apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(eventScanLimit = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.limits.summary-history-versions", group = "Bot · Limits", type = ConfigType.INT, min = 0.0, max = 100.0,
+            read = { it.bot.limits.summaryHistoryVersions },
+            apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(summaryHistoryVersions = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.limits.link-context-messages", group = "Bot · Limits", type = ConfigType.INT, min = 0.0, max = 50.0,
+            read = { it.bot.limits.linkContextMessages },
+            apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(linkContextMessages = v as Int))) },
+        )
+
         // ---- Ingestion ----
         fields += ConfigField(
             key = "app.ingestion.enabled", group = "Ingestion", type = ConfigType.BOOL,
@@ -331,6 +359,11 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(ingestion = c.ingestion.copy(maxCharsPerSource = v as Int)) },
         )
         fields += ConfigField(
+            key = "app.ingestion.max-doc-links", group = "Ingestion", type = ConfigType.INT, min = 1.0, max = 50.0,
+            read = { it.ingestion.maxDocLinks },
+            apply = { c, v -> c.copy(ingestion = c.ingestion.copy(maxDocLinks = v as Int)) },
+        )
+        fields += ConfigField(
             key = "app.ingestion.vision-tier", group = "Ingestion", type = ConfigType.ENUM, enumValues = tierNames,
             read = { it.ingestion.visionTier },
             apply = { c, v -> c.copy(ingestion = c.ingestion.copy(visionTier = v as String)) },
@@ -339,6 +372,37 @@ class ConfigRegistry(
             key = "app.ingestion.image.max-bytes", group = "Ingestion", type = ConfigType.LONG, min = 1000.0, max = 50000000.0,
             read = { it.ingestion.image.maxBytes },
             apply = { c, v -> c.copy(ingestion = c.ingestion.copy(image = c.ingestion.image.copy(maxBytes = v as Long))) },
+        )
+
+        // ---- Retention ----
+        fields += ConfigField(
+            key = "app.retention.chat.retention-days", group = "Retention", type = ConfigType.LONG, min = 1.0, max = 3650.0,
+            read = { it.retention.chat.retentionDays },
+            apply = { c, v -> c.copy(retention = c.retention.copy(chat = c.retention.chat.copy(retentionDays = v as Long))) },
+        )
+        fields += ConfigField(
+            key = "app.retention.chat.cron", group = "Retention", type = ConfigType.STRING,
+            read = { it.retention.chat.cron },
+            apply = { c, v -> c.copy(retention = c.retention.copy(chat = c.retention.chat.copy(cron = v as String))) },
+            validate = { v -> requireValidCron(v as String) },
+        )
+        fields += ConfigField(
+            key = "app.retention.audit.retention-days", group = "Retention", type = ConfigType.LONG, min = 1.0, max = 3650.0,
+            read = { it.retention.audit.retentionDays },
+            apply = { c, v -> c.copy(retention = c.retention.copy(audit = c.retention.audit.copy(retentionDays = v as Long))) },
+        )
+        fields += ConfigField(
+            key = "app.retention.audit.cron", group = "Retention", type = ConfigType.STRING,
+            read = { it.retention.audit.cron },
+            apply = { c, v -> c.copy(retention = c.retention.copy(audit = c.retention.audit.copy(cron = v as String))) },
+            validate = { v -> requireValidCron(v as String) },
+        )
+
+        // ---- Console ----
+        fields += ConfigField(
+            key = "app.console.max-page-size", group = "Console", type = ConfigType.INT, min = 10.0, max = 1000.0,
+            read = { it.console.maxPageSize },
+            apply = { c, v -> c.copy(console = c.console.copy(maxPageSize = v as Int)) },
         )
 
         return fields
@@ -368,6 +432,12 @@ class ConfigRegistry(
                     "Critic prompt is missing required placeholder(s): ${missing.joinToString(", ")}. " +
                         "The template must include ${REQUIRED_CRITIC_PLACEHOLDERS.joinToString(", ")}.",
                 )
+            }
+        }
+
+        private fun requireValidCron(expression: String) {
+            if (!CronExpression.isValidExpression(expression)) {
+                throw ConfigValidationException("Invalid cron expression: '$expression'")
             }
         }
     }

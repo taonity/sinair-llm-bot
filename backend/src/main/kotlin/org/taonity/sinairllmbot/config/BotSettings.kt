@@ -8,6 +8,7 @@ import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
+import org.taonity.sinairllmbot.console.config.ConsolePagingProperties
 import org.taonity.sinairllmbot.config.repository.BotConfigOverrideRepository
 import org.taonity.sinairllmbot.config.repository.BotConfigTierRepository
 import java.util.concurrent.atomic.AtomicReference
@@ -30,6 +31,8 @@ class BotSettings(
     private val botDefaults: BotProperties,
     private val llmDefaults: LlmProperties,
     private val ingestionDefaults: IngestionProperties,
+    private val retentionDefaults: RetentionProperties,
+    private val consoleDefaults: ConsolePagingProperties,
     private val registry: ConfigRegistry,
     private val overrideRepository: BotConfigOverrideRepository,
     private val tierRepository: BotConfigTierRepository,
@@ -38,7 +41,7 @@ class BotSettings(
         private val LOGGER = KotlinLogging.logger {}
     }
 
-    private val yamlDefaults = EffectiveConfig(botDefaults, llmDefaults, ingestionDefaults)
+    private val yamlDefaults = EffectiveConfig(botDefaults, llmDefaults, ingestionDefaults, retentionDefaults, consoleDefaults)
 
     /** yaml defaults + custom tiers at their seeded values (the "reset" target for every field). */
     private val baseline = AtomicReference(yamlDefaults)
@@ -49,6 +52,10 @@ class BotSettings(
     fun llm(): LlmProperties = snapshot.get().llm
 
     override fun ingestion(): IngestionProperties = snapshot.get().ingestion
+
+    fun retention(): RetentionProperties = snapshot.get().retention
+
+    fun console(): ConsolePagingProperties = snapshot.get().console
 
     /** The reset target: yaml defaults with custom tiers folded in at their seeded values. */
     fun defaults(): EffectiveConfig = baseline.get()

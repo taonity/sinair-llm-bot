@@ -22,7 +22,6 @@ class ContextBuilder(
         private val KEYWORD_SPLIT = Regex("\\W+")
         private val PARAGRAPH_SPLIT = Regex("\n{2,}")
         private const val MIN_KEYWORD_LENGTH = 4
-        private const val MAX_DOC_LINKS = 5
     }
 
     data class GroundedContext(
@@ -71,7 +70,7 @@ class ContextBuilder(
                 .filter { it.kind == LinkKind.DOCS || it.kind == LinkKind.API }
                 .map { it.url }
                 .distinct()
-                .take(MAX_DOC_LINKS)
+                .take(properties.maxDocLinks)
             if (docLinks.isNotEmpty()) {
                 append("Documentation links (not fetched): ").append(docLinks.joinToString(", ")).append("\n")
             }

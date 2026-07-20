@@ -21,6 +21,8 @@ data class IngestionProperties(
     val maxContextChars: Int = 6_000,
     /** Per-source character budget within the total context. */
     val maxCharsPerSource: Int = 4_000,
+    /** Hard cap on how many documentation/page links from one message are ingested. */
+    val maxDocLinks: Int = 5,
     val image: Image = Image(),
     /** LLM tier (under `app.llm.tiers`) used for a reply that must analyse an attached image. */
     val visionTier: String = "vision",

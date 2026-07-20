@@ -96,6 +96,21 @@ app:
       session-gap-minutes: 45
     typing:
       ttl-seconds: 15
+    limits:
+      max-reply-chars: 800
+      trace-trigger-text-max: 2000
+      event-scan-limit: 120
+      summary-history-versions: 9
+      link-context-messages: 5
+  retention:
+    chat:
+      retention-days: 7
+      cron: "0 0 3 * * *"
+    audit:
+      retention-days: 14
+      cron: "0 30 3 * * *"
+  console:
+    max-page-size: 100
 #logging:
 #  level:
 #    root: DEBUG

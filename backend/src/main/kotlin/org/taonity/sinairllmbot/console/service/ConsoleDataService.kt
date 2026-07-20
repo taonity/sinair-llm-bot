@@ -32,6 +32,7 @@ import org.taonity.sinairllmbot.console.dto.SummaryVersionDto
 import org.taonity.sinairllmbot.console.entity.AuditAction
 import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
 import org.taonity.sinairllmbot.console.repository.AuditLogRepository
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
@@ -53,14 +54,11 @@ class ConsoleDataService(
     private val accessGuard: AccessGuard,
     private val auditService: AuditService,
     private val objectMapper: ObjectMapper,
+    private val settings: BotSettings,
 ) {
-    companion object {
-        private const val MAX_PAGE_SIZE = 100
-    }
-
     private fun pageable(page: Int, size: Int, sortProperty: String, direction: String) = PageRequest.of(
         page.coerceAtLeast(0),
-        size.coerceIn(1, MAX_PAGE_SIZE),
+        size.coerceIn(1, settings.console().maxPageSize),
         sortDirection(direction).let { dir -> Sort.by(dir, sortProperty).and(Sort.by(dir, "id")) },
     )
 
@@ -68,7 +66,7 @@ class ConsoleDataService(
         if (direction.equals("asc", ignoreCase = true)) Sort.Direction.ASC else Sort.Direction.DESC
 
     private fun pageIndexOf(rowsBefore: Long, size: Int): Int {
-        val safeSize = size.coerceIn(1, MAX_PAGE_SIZE)
+        val safeSize = size.coerceIn(1, settings.console().maxPageSize)
         return (rowsBefore / safeSize).toInt()
     }
 
@@ -373,7 +371,7 @@ class ConsoleDataService(
 
     fun listAuditLogs(principal: GoogleUserPrincipal, q: String?, field: String?, page: Int, size: Int): PageResponse<AuditLogDto> {
         accessGuard.requireAdmin(principal)
-        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, MAX_PAGE_SIZE))
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, settings.console().maxPageSize))
         val result = if (q.isNullOrBlank()) {
             auditLogRepository.findAllByOrderByOccurredAtDesc(pageable)
         } else {

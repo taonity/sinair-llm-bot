@@ -3,12 +3,15 @@ package org.taonity.sinairllmbot.config
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.console.config.ConsolePagingProperties
 
 /** The merged effective configuration: yaml defaults overlaid with DB overrides. */
 data class EffectiveConfig(
     val bot: BotProperties,
     val llm: LlmProperties,
     val ingestion: IngestionProperties,
+    val retention: RetentionProperties,
+    val console: ConsolePagingProperties,
 )
 
 /** The value kind of a tunable field, driving parsing, validation and UI rendering. */

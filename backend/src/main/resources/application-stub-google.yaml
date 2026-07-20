@@ -26,21 +26,25 @@ spring:
             scope: profile,email
         provider:
           google:
-            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
-            token-uri: http://127.0.0.1:9561/oauth2/token
-            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo
+            authorization-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/authorize
+            token-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/token
+            user-info-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/v3/userinfo
           google-stub-alice:
-            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
-            token-uri: http://127.0.0.1:9561/oauth2/token
-            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo/alice
+            authorization-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/authorize
+            token-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/token
+            user-info-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/v3/userinfo/alice
             user-name-attribute: sub
           google-stub-bob:
-            authorization-uri: http://127.0.0.1:9561/oauth2/authorize
-            token-uri: http://127.0.0.1:9561/oauth2/token
-            user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo/bob
+            authorization-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/authorize
+            token-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/token
+            user-info-uri: http://127.0.0.1:${app.stub.google.port}/oauth2/v3/userinfo/bob
             user-name-attribute: sub
 
 app:
+  # Port the in-process Google OAuth2 WireMock stub binds to (see GoogleWireMockConfig).
+  stub:
+    google:
+      port: 9561
   default-success-url: http://127.0.0.1:3000
   login-url: http://127.0.0.1:3000
   console:
