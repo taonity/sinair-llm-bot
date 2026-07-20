@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.stereotype.Service
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import java.time.Instant
@@ -19,9 +19,10 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class BotTypingService(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
     private val outboundMessageRepository: OutboundMessageRepository,
 ) {
+    private val botProperties get() = settings.bot()
     private val typingUntil = ConcurrentHashMap<String, Instant>()
 
     fun markTyping(roomTarget: String) {

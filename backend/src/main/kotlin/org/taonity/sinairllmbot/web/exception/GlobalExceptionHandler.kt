@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import org.taonity.sinairllmbot.console.exception.ConsoleForbiddenException
 import org.taonity.sinairllmbot.console.exception.ConsoleNotFoundException
+import org.taonity.sinairllmbot.config.ConfigValidationException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -40,6 +41,13 @@ class GlobalExceptionHandler {
         LOGGER.debug(e) { "Console resource not found" }
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(ClientErrorResponse(ClientErrorCode.NOT_FOUND, e.message ?: "Not found"))
+    }
+
+    @ExceptionHandler(ConfigValidationException::class)
+    fun handleConfigValidation(e: ConfigValidationException): ResponseEntity<ClientErrorResponse> {
+        LOGGER.debug(e) { "Config validation failed" }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ClientErrorResponse(ClientErrorCode.VALIDATION_ERROR, e.message ?: "Invalid config value"))
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)

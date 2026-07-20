@@ -5,8 +5,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
-import org.taonity.sinairllmbot.bot.config.BotProperties
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
@@ -31,11 +30,13 @@ class RoomSummaryService(
     private val chatMessageRepository: ChatMessageRepository,
     private val contextBuilder: ConversationContextBuilder,
     private val llmClient: LlmClient,
-    private val botProperties: BotProperties,
-    private val llmProperties: LlmProperties,
+    private val settings: BotSettings,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
     private val pipelineTraceService: PipelineTraceService,
 ) {
+    private val botProperties get() = settings.bot()
+    private val llmProperties get() = settings.llm()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
 

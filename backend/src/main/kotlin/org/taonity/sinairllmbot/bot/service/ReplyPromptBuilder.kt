@@ -4,11 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.ContentPart
-import org.taonity.sinairllmbot.bot.config.BotProperties
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.ingestion.ContextBuilder
 import org.taonity.sinairllmbot.bot.ingestion.SourceIngestionService
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -23,13 +21,15 @@ import java.util.Locale
 class ReplyPromptBuilder(
     private val contextBuilder: ConversationContextBuilder,
     private val roomSummaryService: RoomSummaryService,
-    private val botProperties: BotProperties,
-    private val llmProperties: LlmProperties,
+    private val settings: BotSettings,
     private val sourceIngestionService: SourceIngestionService,
     private val ingestionContextBuilder: ContextBuilder,
-    private val ingestionProperties: IngestionProperties,
     private val emojiCatalog: EmojiCatalog,
 ) {
+    private val botProperties get() = settings.bot()
+    private val llmProperties get() = settings.llm()
+    private val ingestionProperties get() = settings.ingestion()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.ENGLISH)

@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.ingestion
 
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
@@ -15,8 +15,10 @@ import java.nio.charset.StandardCharsets
 class HtmlPageFetcher(
     private val safeHttpFetcher: SafeHttpFetcher,
     private val contentExtractor: ContentExtractor,
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     fun fetch(url: String): SourceDocument {
         val result = safeHttpFetcher.fetch(
             rawUrl = url,

@@ -11,4 +11,8 @@ enum class AuditAction {
     APPROVE_ACCESS,
     REJECT_ACCESS,
     CHANGE_ROLE,
+    EDIT_CONFIG,
+    RESET_CONFIG,
+    ADD_TIER,
+    DELETE_TIER,
 }

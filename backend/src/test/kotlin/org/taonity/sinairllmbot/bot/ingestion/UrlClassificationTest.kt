@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 
 class UrlExtractorTest {
     private val extractor = UrlExtractor()
@@ -30,7 +31,7 @@ class UrlExtractorTest {
 }
 
 class UrlClassifierTest {
-    private val classifier = UrlClassifier(IngestionProperties())
+    private val classifier = UrlClassifier(IngestionSettings { IngestionProperties() })
 
     @Test
     fun `classifies github repo urls`() {

@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.ingestion
 
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import java.net.URI
 
 /**
@@ -10,8 +10,10 @@ import java.net.URI
  */
 @Component
 class UrlClassifier(
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     private companion object {
         private val GITHUB_REPO = Regex(
             """^https?://(?:www\.)?github\.com/([^/\s]+)/([^/\s#?]+)""",

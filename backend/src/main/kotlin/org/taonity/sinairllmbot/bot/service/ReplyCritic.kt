@@ -5,8 +5,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
-import org.taonity.sinairllmbot.bot.config.BotProperties
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -20,10 +19,12 @@ import tools.jackson.databind.ObjectMapper
 @Service
 class ReplyCritic(
     private val llmClient: LlmClient,
-    private val llmProperties: LlmProperties,
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
     private val objectMapper: ObjectMapper,
 ) {
+    private val llmProperties get() = settings.llm()
+    private val botProperties get() = settings.bot()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         // Stable marker so local WireMock stubs can distinguish critic calls from the triage classifier.

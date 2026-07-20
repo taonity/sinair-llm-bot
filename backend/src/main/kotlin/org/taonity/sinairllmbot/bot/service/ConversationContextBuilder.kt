@@ -2,7 +2,7 @@ package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
@@ -25,8 +25,10 @@ import java.time.Instant
 class ConversationContextBuilder(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
 ) {
+    private val botProperties get() = settings.bot()
+
     private companion object {
         private val PRESENT_STATUSES = setOf("online", "back", "away")
         private const val EVENT_SCAN_LIMIT = 120

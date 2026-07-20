@@ -4,7 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import java.util.concurrent.CompletableFuture
 
@@ -16,9 +16,11 @@ import java.util.concurrent.CompletableFuture
 @Service
 class CandidateGenerator(
     private val llmClient: LlmClient,
-    private val llmProperties: LlmProperties,
+    private val settings: BotSettings,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
+    private val llmProperties get() = settings.llm()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }

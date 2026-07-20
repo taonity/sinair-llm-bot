@@ -3,7 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.springframework.stereotype.Service
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.RoomBotStateEntity
 import org.taonity.sinairllmbot.bot.repository.RoomBotStateRepository
 import java.time.Instant
@@ -18,9 +18,11 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Service
 class BotSleepService(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
     private val roomBotStateRepository: RoomBotStateRepository,
 ) {
+    private val botProperties get() = settings.bot()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }

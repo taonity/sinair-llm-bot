@@ -1,0 +1,23 @@
+{
+  "priority": 5,
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/models"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "data": [
+        { "id": "stub/gate" },
+        { "id": "stub/cheap" },
+        { "id": "stub/smart" },
+        { "id": "stub/critic" },
+        { "id": "stub/vision" },
+        { "id": "openai/gpt-4o-mini" },
+        { "id": "anthropic/claude-sonnet-4" },
+        { "id": "google/gemini-2.5-flash" }
+      ]
+    }
+  }
+}

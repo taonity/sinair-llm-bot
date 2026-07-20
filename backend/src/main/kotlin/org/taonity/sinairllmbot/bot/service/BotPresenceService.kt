@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.stereotype.Service
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.dto.BotPresence
 import org.taonity.sinairllmbot.bot.dto.RoomPresenceDto
 
@@ -16,11 +16,13 @@ import org.taonity.sinairllmbot.bot.dto.RoomPresenceDto
  */
 @Service
 class BotPresenceService(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
     private val cooldownTracker: BotCooldownTracker,
     private val mutedRoomRegistry: MutedRoomRegistry,
     private val botSleepService: BotSleepService,
 ) {
+    private val botProperties get() = settings.bot()
+
     fun presenceFor(roomTarget: String): BotPresence {
         if (botSleepService.isAsleep(roomTarget)) return BotPresence.AWAY
         val ready = botProperties.enabled &&

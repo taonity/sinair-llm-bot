@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.ingestion
 
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
@@ -14,8 +14,10 @@ import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
  */
 @Component
 class ContextBuilder(
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     private companion object {
         private val KEYWORD_SPLIT = Regex("\\W+")
         private val PARAGRAPH_SPLIT = Regex("\n{2,}")

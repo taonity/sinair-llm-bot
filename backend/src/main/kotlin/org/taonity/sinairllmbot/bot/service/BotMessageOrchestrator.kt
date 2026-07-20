@@ -4,7 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
@@ -28,7 +28,7 @@ import kotlin.random.Random
  */
 @Service
 class BotMessageOrchestrator(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
     private val botDebouncer: BotDebouncer,
     private val commandGate: CommandGate,
     private val messageTriageService: MessageTriageService,
@@ -43,6 +43,8 @@ class BotMessageOrchestrator(
     private val pipelineTraceService: PipelineTraceService,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
+    private val botProperties get() = settings.bot()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }

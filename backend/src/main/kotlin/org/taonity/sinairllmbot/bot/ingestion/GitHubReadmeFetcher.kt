@@ -8,7 +8,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.taonity.sinairllmbot.bot.LogRedact
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
@@ -22,8 +22,10 @@ import java.time.Duration
 @Component
 class GitHubReadmeFetcher(
     private val contentExtractor: ContentExtractor,
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val README_HTML = MediaType.parseMediaType("application/vnd.github.html")

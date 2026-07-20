@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -12,8 +12,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class BotCooldownTracker(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
 ) {
+    private val botProperties get() = settings.bot()
     private val replyTimestamps = ConcurrentHashMap<String, MutableList<Instant>>()
 
     fun canReply(roomTarget: String, now: Instant = Instant.now()): Boolean {

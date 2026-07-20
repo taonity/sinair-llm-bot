@@ -6,7 +6,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import tools.jackson.databind.ObjectMapper
@@ -20,7 +20,7 @@ import java.time.Duration
  */
 @Component
 class LlmClient(
-    private val llmProperties: LlmProperties,
+    private val settings: BotSettings,
     private val objectMapper: ObjectMapper,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
 ) {
@@ -28,6 +28,7 @@ class LlmClient(
         private val LOGGER = KotlinLogging.logger {}
     }
 
+    private val llmProperties get() = settings.llm()
     private val restClient: RestClient = buildRestClient()
     private val prettyWriter = objectMapper.writerWithDefaultPrettyPrinter()
 

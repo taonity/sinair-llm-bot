@@ -3,7 +3,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.LogRedact
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URI
@@ -21,8 +21,10 @@ import java.time.Duration
 @Component
 class SafeHttpFetcher(
     private val validator: SafeUrlValidator,
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private const val BUFFER_SIZE = 8192

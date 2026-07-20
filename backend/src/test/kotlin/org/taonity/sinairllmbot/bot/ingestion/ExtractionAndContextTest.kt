@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
@@ -58,7 +59,7 @@ class ContentExtractorTest {
 }
 
 class ContextBuilderTest {
-    private val builder = ContextBuilder(IngestionProperties())
+    private val builder = ContextBuilder(IngestionSettings { IngestionProperties() })
 
     @Test
     fun `renders source blocks and collects image data urls`() {

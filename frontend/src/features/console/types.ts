@@ -156,3 +156,36 @@ export interface AuditLog {
   actorEmail: string
   occurredAt: string
 }
+
+export type ConfigFieldType =
+  | 'BOOL'
+  | 'INT'
+  | 'LONG'
+  | 'DOUBLE'
+  | 'STRING'
+  | 'TEXT'
+  | 'ENUM'
+  | 'STRING_LIST'
+
+export interface ConfigField {
+  key: string
+  group: string
+  label: string
+  type: ConfigFieldType
+  min: number | null
+  max: number | null
+  enumValues: string[]
+  defaultValue: unknown
+  value: unknown
+  overridden: boolean
+}
+
+export interface TierInfo {
+  name: string
+  custom: boolean
+}
+
+export interface ConfigSchema {
+  fields: ConfigField[]
+  tiers: TierInfo[]
+}

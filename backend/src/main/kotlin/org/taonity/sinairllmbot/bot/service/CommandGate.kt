@@ -1,7 +1,7 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.stereotype.Component
-import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
 /**
@@ -16,8 +16,10 @@ import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
  */
 @Component
 class CommandGate(
-    private val botProperties: BotProperties,
+    private val settings: BotSettings,
 ) {
+    private val botProperties get() = settings.bot()
+
     fun evaluate(message: ChatMessageEntity): CommandDecision {
         val text = message.messageText.trim()
         return when {

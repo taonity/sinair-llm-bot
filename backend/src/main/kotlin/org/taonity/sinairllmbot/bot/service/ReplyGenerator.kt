@@ -4,8 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
-import org.taonity.sinairllmbot.bot.config.BotProperties
-import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
 /**
@@ -22,9 +21,11 @@ class ReplyGenerator(
     private val promptBuilder: ReplyPromptBuilder,
     private val candidateGenerator: CandidateGenerator,
     private val replyCritic: ReplyCritic,
-    private val botProperties: BotProperties,
-    private val llmProperties: LlmProperties,
+    private val settings: BotSettings,
 ) {
+    private val botProperties get() = settings.bot()
+    private val llmProperties get() = settings.llm()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private const val MAX_REPLY_CHARS = 800

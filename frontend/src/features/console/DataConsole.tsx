@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminPanel } from './AdminPanel'
 import { consoleApi } from './api'
+import { ConfigTab } from './ConfigTab'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
 import { PipelinesTab } from './PipelinesTab'
@@ -146,7 +147,15 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
   },
 ]
 
-type TabKey = 'messages' | 'events' | 'outbound' | 'pipelines' | 'summaries' | 'admin' | 'about'
+type TabKey =
+  | 'messages'
+  | 'events'
+  | 'outbound'
+  | 'pipelines'
+  | 'summaries'
+  | 'config'
+  | 'admin'
+  | 'about'
 
 export default function DataConsole() {
   const [access, setAccess] = useState<AccessInfo | null>(null)
@@ -200,6 +209,7 @@ export default function DataConsole() {
     outbound: 'Outbound',
     pipelines: 'Pipelines',
     summaries: 'Summaries',
+    config: 'Config',
     ...(access.isAdmin ? { admin: 'Admin' } : {}),
     about: 'About',
   }
@@ -234,6 +244,7 @@ export default function DataConsole() {
             <TabsTrigger value="outbound">Outbound</TabsTrigger>
             <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
             <TabsTrigger value="summaries">Summaries</TabsTrigger>
+            <TabsTrigger value="config">Config</TabsTrigger>
             {access.isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
@@ -312,6 +323,10 @@ export default function DataConsole() {
 
         <TabsContent value="summaries" className="pt-2">
           {tab === 'summaries' && <SummariesTab canEdit={canEdit} onError={setError} />}
+        </TabsContent>
+
+        <TabsContent value="config" className="pt-2">
+          {tab === 'config' && <ConfigTab canEdit={access.isOwner} onError={setError} />}
         </TabsContent>
 
         {access.isAdmin && (

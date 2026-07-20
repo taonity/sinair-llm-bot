@@ -12,6 +12,11 @@ function git(command) {
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Pin the workspace root to this app so the root-level package-lock.json (Maven monorepo)
+  // doesn't make Next.js infer the wrong root when multiple lockfiles are present.
+  turbopack: {
+    root: __dirname,
+  },
   env: {
     BUILD_TIME: new Date().toISOString(),
     GIT_COMMIT_SHA: process.env.GIT_COMMIT_SHA || git('rev-parse HEAD'),

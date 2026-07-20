@@ -3,7 +3,7 @@ package org.taonity.sinairllmbot.bot.ingestion
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.LogRedact
-import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
+import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 
 /**
@@ -15,8 +15,10 @@ import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 class SourceIngestionService(
     private val urlExtractor: UrlExtractor,
     private val sourceFetcher: SourceFetcher,
-    private val properties: IngestionProperties,
+    private val settings: IngestionSettings,
 ) {
+    private val properties get() = settings.ingestion()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }

@@ -6,6 +6,7 @@ import type {
   AuditLog,
   ChatEvent,
   ChatMessage,
+  ConfigSchema,
   ConsoleRole,
   OutboundMessage,
   PageResponse,
@@ -34,6 +35,19 @@ class ApiError extends Error {
   }
 }
 
+/** Extracts the backend's error message (ClientErrorResponse.errorMessage) if present. */
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const data = (await res.json()) as { errorMessage?: string }
+    if (data && typeof data.errorMessage === 'string' && data.errorMessage) {
+      return data.errorMessage
+    }
+  } catch {
+    // ignore parse errors, fall back to generic message
+  }
+  return `Request failed (${res.status})`
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetchWithTimeout(`${BASE}${path}`, { timeoutMs: 10000 })
   if (!res.ok) {
@@ -54,7 +68,7 @@ async function mutate<T>(path: string, method: string, body?: unknown): Promise<
     timeoutMs: 10000,
   })
   if (!res.ok) {
-    throw new ApiError(res.status, `Request failed (${res.status})`)
+    throw new ApiError(res.status, await errorMessage(res))
   }
   if (res.status === 204) {
     return null
@@ -134,6 +148,20 @@ export const consoleApi = {
 
   listAuditLogs: (page: number, size: number, q?: string, field?: string) =>
     get<PageResponse<AuditLog>>(buildListQuery('/audit-logs', page, size, q, field)),
+
+  getConfig: () => get<ConfigSchema>('/config'),
+
+  updateConfig: (values: Record<string, unknown>) =>
+    mutate<ConfigSchema>('/config', 'PUT', { values }),
+
+  resetConfig: (key: string) =>
+    mutate<ConfigSchema>(`/config/${encodeURIComponent(key)}`, 'DELETE'),
+
+  addTier: (body: { name: string; model: string; temperature: number; maxTokens: number }) =>
+    mutate<ConfigSchema>('/config/tiers', 'POST', body),
+
+  deleteTier: (name: string) =>
+    mutate<ConfigSchema>(`/config/tiers/${encodeURIComponent(name)}`, 'DELETE'),
 }
 
 function buildListQuery(
