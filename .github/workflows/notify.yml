@@ -40,11 +40,11 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [[ "$STATUS" == "success" ]]; then
-            title="✅ ${ENVIRONMENT} deploy succeeded"
+            title="${ENVIRONMENT} deploy succeeded"
             priority="default"
             tags="white_check_mark,rocket"
           else
-            title="❌ ${ENVIRONMENT} deploy ${STATUS}"
+            title="${ENVIRONMENT} deploy ${STATUS}"
             priority="high"
             tags="x,rotating_light"
           fi
