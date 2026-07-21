@@ -198,6 +198,22 @@ erDiagram
         character_varying target_type "{NOT_NULL}"
     }
 
+    bot_config_override {
+        character_varying config_key PK "{NOT_NULL}"
+        timestamp_without_time_zone updated_at "{NOT_NULL}"
+        character_varying updated_by "{NOT_NULL}"
+        character_varying value_json "{NOT_NULL}"
+    }
+
+    bot_config_tier {
+        timestamp_without_time_zone created_at "{NOT_NULL}"
+        character_varying created_by "{NOT_NULL}"
+        integer max_tokens "{NOT_NULL}"
+        character_varying model "{NOT_NULL}"
+        character_varying name PK "{NOT_NULL}"
+        double_precision temperature "{NOT_NULL}"
+    }
+
     chat_event {
         character_varying dedup_key UK "{NOT_NULL}"
         character_varying event_data 
@@ -251,6 +267,8 @@ erDiagram
     pipeline_run {
         timestamp_without_time_zone created_at "{NOT_NULL}"
         character_varying id PK "{NOT_NULL}"
+        integer json_parse_failure_count "{NOT_NULL}"
+        text json_parse_failures_json "{NOT_NULL}"
         text llm_usage_json "{NOT_NULL}"
         character_varying outbound_message_id 
         character_varying outcome "{NOT_NULL}"
