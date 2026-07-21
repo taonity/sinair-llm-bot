@@ -24,7 +24,7 @@ class EmojiCatalog {
                     .toList()
             }
         } catch (exception: Exception) {
-            LOGGER.warn { "Failed to load emoji catalog from $RESOURCE: ${exception.javaClass.simpleName}" }
+            LOGGER.warn(exception) { "Failed to load emoji catalog from $RESOURCE" }
             emptyList()
         }
     }

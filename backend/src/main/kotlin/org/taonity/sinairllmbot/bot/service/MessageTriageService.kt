@@ -125,7 +125,7 @@ class MessageTriageService(
             objectMapper.readValue(cleaned, TriageVerdict::class.java)
         } catch (exception: Exception) {
             salvage(cleaned) ?: run {
-                LOGGER.warn { "Failed to parse triage verdict (len=${content.length}): ${exception.javaClass.simpleName}" }
+                LOGGER.warn(exception) { "Failed to parse triage verdict (len=${content.length})" }
                 TriageVerdict(respond = false)
             }
         }

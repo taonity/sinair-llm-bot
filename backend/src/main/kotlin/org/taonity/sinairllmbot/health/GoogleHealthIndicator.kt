@@ -41,7 +41,7 @@ class GoogleHealthIndicator(
             builder.build()
         } catch (exception: Exception) {
             val elapsedMs = Duration.between(start, Instant.now()).toMillis()
-            LOGGER.warn { "Google availability check failed for $userInfoUri" }
+            LOGGER.warn(exception) { "Google availability check failed for $userInfoUri" }
             Health.down()
                 .withDetail("url", userInfoUri)
                 .withDetail("responseTimeMs", elapsedMs)

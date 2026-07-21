@@ -39,7 +39,7 @@ class ControllerLoggingInterceptor : HandlerInterceptor {
         val elapsed = System.currentTimeMillis() - startTime
 
         if (ex != null) {
-            LOGGER.warn { "${describe(request, handler)} failed in ${elapsed}ms with ${ex.javaClass.simpleName}" }
+            LOGGER.warn(ex) { "${describe(request, handler)} failed in ${elapsed}ms" }
             return
         }
 

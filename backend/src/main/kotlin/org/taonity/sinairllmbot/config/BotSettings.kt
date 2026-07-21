@@ -94,7 +94,7 @@ class BotSettings(
             effective = try {
                 field.apply(effective, registry.parseStored(field, row.valueJson, effective))
             } catch (e: Exception) {
-                LOGGER.warn { "Ignoring invalid config override '${row.configKey}': ${e.message}" }
+                LOGGER.warn(e) { "Ignoring invalid config override '${row.configKey}'" }
                 effective
             }
         }

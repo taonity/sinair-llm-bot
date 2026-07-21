@@ -34,7 +34,7 @@ class OAuth2AuthenticationFailureHandler(
     ) {
         val errorCode = when {
             exception is OAuth2AuthenticationException && exception.error.errorCode == "invalid_user_info_response" -> {
-                LOGGER.warn { "User authentication failed due to account whitelist: ${exception.message}" }
+                LOGGER.warn(exception) { "User authentication failed due to account whitelist" }
                 AuthenticationErrorCode.UNAUTHORIZED_ACCOUNT
             }
             else -> {
