@@ -162,6 +162,21 @@ export default function DataConsole() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabKey>('messages')
+  // Tabs are mounted lazily on first visit and then kept mounted (see keepMounted below), so
+  // switching back to an already-seen tab restores its rows/search/scroll instantly instead of
+  // replaying the skeleton load. Trade-off: a revisited tab shows data from its first load until
+  // the user hits Refresh.
+  const [visited, setVisited] = useState<Set<TabKey>>(() => new Set<TabKey>(['messages']))
+
+  const selectTab = useCallback((next: TabKey) => {
+    setTab(next)
+    setVisited((prev) => {
+      if (prev.has(next)) return prev
+      const updated = new Set(prev)
+      updated.add(next)
+      return updated
+    })
+  }, [])
 
   const loadAccess = useCallback(async () => {
     try {
@@ -218,13 +233,13 @@ export default function DataConsole() {
     <div className="flex flex-col gap-3">
       {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
 
-      <Tabs value={tab} onValueChange={(v) => setTab((v ?? 'messages') as TabKey)}>
+      <Tabs value={tab} onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}>
         <div className="flex items-center justify-between gap-2">
           {/* Mobile: compact dropdown keeps every tab one tap away without hidden horizontal scroll. */}
           <Select
             items={tabItems}
             value={tab}
-            onValueChange={(v) => setTab((v ?? 'messages') as TabKey)}
+            onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}
           >
             <SelectTrigger size="sm" className="h-8 w-36 sm:hidden">
               <SelectValue />
@@ -254,8 +269,8 @@ export default function DataConsole() {
           </div>
         </div>
 
-        <TabsContent value="messages" className="pt-2">
-          {tab === 'messages' && (
+        <TabsContent value="messages" className="pt-2" keepMounted>
+          {visited.has('messages') && (
             <DataTab<ChatMessage>
               columns={MESSAGE_COLUMNS}
               rowKey={(m) => m.id}
@@ -275,8 +290,8 @@ export default function DataConsole() {
           )}
         </TabsContent>
 
-        <TabsContent value="events" className="pt-2">
-          {tab === 'events' && (
+        <TabsContent value="events" className="pt-2" keepMounted>
+          {visited.has('events') && (
             <DataTab<ChatEvent>
               columns={EVENT_COLUMNS}
               rowKey={(e) => e.id}
@@ -296,8 +311,8 @@ export default function DataConsole() {
           )}
         </TabsContent>
 
-        <TabsContent value="outbound" className="pt-2">
-          {tab === 'outbound' && (
+        <TabsContent value="outbound" className="pt-2" keepMounted>
+          {visited.has('outbound') && (
             <DataTab<OutboundMessage>
               columns={OUTBOUND_COLUMNS}
               rowKey={(m) => m.id}
@@ -317,26 +332,26 @@ export default function DataConsole() {
           )}
         </TabsContent>
 
-        <TabsContent value="pipelines" className="pt-2">
-          {tab === 'pipelines' && <PipelinesTab onError={setError} />}
+        <TabsContent value="pipelines" className="pt-2" keepMounted>
+          {visited.has('pipelines') && <PipelinesTab onError={setError} />}
         </TabsContent>
 
-        <TabsContent value="summaries" className="pt-2">
-          {tab === 'summaries' && <SummariesTab canEdit={canEdit} onError={setError} />}
+        <TabsContent value="summaries" className="pt-2" keepMounted>
+          {visited.has('summaries') && <SummariesTab canEdit={canEdit} onError={setError} />}
         </TabsContent>
 
-        <TabsContent value="config" className="pt-2">
-          {tab === 'config' && <ConfigTab canEdit={access.isOwner} onError={setError} />}
+        <TabsContent value="config" className="pt-2" keepMounted>
+          {visited.has('config') && <ConfigTab canEdit={access.isOwner} onError={setError} />}
         </TabsContent>
 
         {access.isAdmin && (
-          <TabsContent value="admin" className="pt-2">
-            {tab === 'admin' && <AdminPanel access={access} onError={setError} />}
+          <TabsContent value="admin" className="pt-2" keepMounted>
+            {visited.has('admin') && <AdminPanel access={access} onError={setError} />}
           </TabsContent>
         )}
 
-        <TabsContent value="about" className="pt-2">
-          {tab === 'about' && <AppInfoPanel />}
+        <TabsContent value="about" className="pt-2" keepMounted>
+          {visited.has('about') && <AppInfoPanel />}
         </TabsContent>
       </Tabs>
     </div>

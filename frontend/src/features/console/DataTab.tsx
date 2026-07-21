@@ -94,6 +94,7 @@ export function DataTab<T>({
   const [size, setSize] = useState(DEFAULT_PAGE_SIZE)
   const [data, setData] = useState<PageResponse<T> | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [query, setQuery] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [field, setField] = useState('all')
@@ -105,8 +106,18 @@ export function DataTab<T>({
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const reload = useCallback(
-    async (targetPage: number, targetSize: number, q: string, searchField: string, dir: string) => {
-      setLoading(true)
+    async (
+      targetPage: number,
+      targetSize: number,
+      q: string,
+      searchField: string,
+      dir: string,
+      // A silent reload keeps the current table visible and only spins the refresh icon,
+      // instead of swapping the rows out for skeletons.
+      opts?: { silent?: boolean },
+    ) => {
+      if (opts?.silent) setRefreshing(true)
+      else setLoading(true)
       try {
         const result = await load(targetPage, targetSize, q.trim() || undefined, searchField, dir)
         setData(result)
@@ -114,7 +125,8 @@ export function DataTab<T>({
       } catch {
         onError('Failed to load data.')
       } finally {
-        setLoading(false)
+        if (opts?.silent) setRefreshing(false)
+        else setLoading(false)
       }
     },
     [load, onError],
@@ -122,8 +134,13 @@ export function DataTab<T>({
 
   // Initial load only. Subsequent loads are triggered explicitly by user actions
   // (search, paging, page-size, sort, jump) so that a programmatic search-clear during a
-  // jump can't reset the page back to 0.
+  // jump can't reset the page back to 0. Guarded by a ref so it fires exactly once per mount:
+  // `reload` is recreated whenever the parent passes a fresh inline `load` prop (e.g. on every
+  // re-render), and without the guard that would re-trigger a skeleton load on each parent render.
+  const didInitialLoad = useRef(false)
   useEffect(() => {
+    if (didInitialLoad.current) return
+    didInitialLoad.current = true
     void reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
   }, [reload])
 
@@ -272,10 +289,10 @@ export function DataTab<T>({
           <Button
             variant="ghost"
             size="sm"
-            disabled={loading}
-            onClick={() => reload(page, size, activeQuery, field, direction)}
+            disabled={loading || refreshing}
+            onClick={() => reload(page, size, activeQuery, field, direction, { silent: true })}
           >
-            <RotateCw className={loading ? 'animate-spin' : ''} />
+            <RotateCw className={loading || refreshing ? 'animate-spin' : ''} />
             Refresh
           </Button>
         </div>
