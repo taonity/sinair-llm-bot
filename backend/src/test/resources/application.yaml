@@ -42,6 +42,7 @@ app:
     active-reply-tier: cheap
     gate-tier: gate
     critic-tier: critic
+    json-retry-attempts: 1
     critic:
       enabled: false
       candidate-count: 3

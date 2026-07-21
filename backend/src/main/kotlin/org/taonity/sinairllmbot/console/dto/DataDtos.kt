@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.console.dto
 
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
@@ -120,10 +121,16 @@ data class PipelineRunDto(
     val stages: List<PipelineStageDto>,
     val totalTokens: Int,
     val llmUsage: List<LlmCallUsageDto>,
+    val jsonParseFailures: List<JsonParseFailureDto>,
     val createdAt: Instant,
 ) {
     companion object {
-        fun from(e: PipelineRunEntity, stages: List<PipelineStageDto>, llmUsage: List<LlmCallUsageDto>) =
+        fun from(
+            e: PipelineRunEntity,
+            stages: List<PipelineStageDto>,
+            llmUsage: List<LlmCallUsageDto>,
+            jsonParseFailures: List<JsonParseFailureDto>,
+        ) =
             PipelineRunDto(
                 id = e.id,
                 pipelineKey = e.pipelineKey,
@@ -137,8 +144,20 @@ data class PipelineRunDto(
                 stages = stages,
                 totalTokens = e.totalTokens,
                 llmUsage = llmUsage,
+                jsonParseFailures = jsonParseFailures,
                 createdAt = e.createdAt,
             )
+    }
+}
+
+/** One failed JSON-deserialization attempt of a run's triage/critic prompt, with the raw payload. */
+data class JsonParseFailureDto(
+    val label: String = "",
+    val attempt: Int = 0,
+    val payload: String = "",
+) {
+    companion object {
+        fun from(f: JsonParseFailure) = JsonParseFailureDto(label = f.label, attempt = f.attempt, payload = f.payload)
     }
 }
 

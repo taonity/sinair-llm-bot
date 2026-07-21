@@ -9,6 +9,7 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
+import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
@@ -32,6 +33,7 @@ class RoomSummaryService(
     private val llmClient: LlmClient,
     private val settings: BotSettings,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
+    private val jsonParseFailureTracker: JsonParseFailureTracker,
     private val pipelineTraceService: PipelineTraceService,
 ) {
     private val botProperties get() = settings.bot()
@@ -72,6 +74,7 @@ class RoomSummaryService(
         // a reply run (its LLM call, with request/response payloads). begin()/record run on this
         // thread; the reply pipeline (BotMessageOrchestrator) starts its own tracking afterwards.
         pipelineLlmUsageTracker.begin()
+        jsonParseFailureTracker.begin()
         val newSummary = generateSummary(previousSummary, transcript)
         if (newSummary == null) {
             pipelineTraceService.recordSummary(

@@ -9,6 +9,7 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
+import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
@@ -42,6 +43,7 @@ class BotMessageOrchestrator(
     private val chatMessageRepository: ChatMessageRepository,
     private val pipelineTraceService: PipelineTraceService,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
+    private val jsonParseFailureTracker: JsonParseFailureTracker,
 ) {
     private val botProperties get() = settings.bot()
 
@@ -80,6 +82,9 @@ class BotMessageOrchestrator(
             // Collect the token cost / model / tool-set of every LLM call the reply pipeline makes
             // below, so the persisted reply trace can show what this evaluation actually spent.
             pipelineLlmUsageTracker.begin()
+            // Also collect any JSON-deserialization failures the triage/critic prompts hit while
+            // retrying, so the trace shows how resilient this run's JSON prompts had to be.
+            jsonParseFailureTracker.begin()
 
             // Every decision point below is appended as a pipeline stage so the console can show
             // exactly why the bot did (or did not) reply to this message. The trace is persisted on

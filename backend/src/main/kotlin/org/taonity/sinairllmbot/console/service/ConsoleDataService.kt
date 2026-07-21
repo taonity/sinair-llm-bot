@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
+import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
@@ -22,6 +23,7 @@ import org.taonity.sinairllmbot.chat.repository.IgnoredMessageRepository
 import org.taonity.sinairllmbot.console.dto.AuditLogDto
 import org.taonity.sinairllmbot.console.dto.ChatEventDto
 import org.taonity.sinairllmbot.console.dto.ChatMessageDto
+import org.taonity.sinairllmbot.console.dto.JsonParseFailureDto
 import org.taonity.sinairllmbot.console.dto.LlmCallUsageDto
 import org.taonity.sinairllmbot.console.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.console.dto.PageResponse
@@ -219,7 +221,12 @@ class ConsoleDataService(
             else -> pipelineRunRepository.findByRoomTarget(room, pageable)
         }
         return PageResponse.of(result) {
-            PipelineRunDto.from(it, parseStages(it.stagesJson), parseLlmUsage(it.llmUsageJson).map(LlmCallUsageDto::from))
+            PipelineRunDto.from(
+                it,
+                parseStages(it.stagesJson),
+                parseLlmUsage(it.llmUsageJson).map(LlmCallUsageDto::from),
+                parseJsonFailures(it.jsonParseFailuresJson).map(JsonParseFailureDto::from),
+            )
         }
     }
 
@@ -273,6 +280,12 @@ class ConsoleDataService(
         val type = objectMapper.typeFactory.constructCollectionType(List::class.java, LlmCallUsage::class.java)
         val usage: List<LlmCallUsage> = objectMapper.readValue(json, type)
         usage
+    }.getOrElse { emptyList() }
+
+    private fun parseJsonFailures(json: String): List<JsonParseFailure> = runCatching {
+        val type = objectMapper.typeFactory.constructCollectionType(List::class.java, JsonParseFailure::class.java)
+        val failures: List<JsonParseFailure> = objectMapper.readValue(json, type)
+        failures
     }.getOrElse { emptyList() }
 
     /** Re-indents a stored JSON payload for readable display; returns it unchanged if not valid JSON. */

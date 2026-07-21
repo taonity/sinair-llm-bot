@@ -100,3 +100,24 @@ describe('fetchFromBackend', () => {
   })
 })
 ```
+
+## Seeding demo pipeline runs (console "Pipelines" tab)
+
+Under the stubs, real bot traffic only ever produces `SILENT` runs (the triage stub answers
+`respond:false` unless a message contains `@segfault`, which the auto-traffic never sends). To
+exercise the **Pipelines** tab and its detail view (stages, alternatives, LLM usage, JSON-parse
+failures) against real data, add the opt-in `demo-data` profile — it inserts one representative
+`pipeline_run` per outcome/kind on startup when the table is empty. It is independent of the OAuth2
+stub, so it activates on its own profile rather than piggy-backing on `stub-google`.
+
+```bash
+mvn -pl backend spring-boot:run \
+  '-Dspring-boot.run.jvmArguments=-Dspring.profiles.active=h2,stub-google,local,demo-data'
+```
+
+The seeded runs cover `REPLIED` (plain / critic / repaired / web-search / with JSON-parse
+failures), `SILENT`, `COOLDOWN`, `MUTE_COMMAND`, `UNMUTE_COMMAND`, `MUTED`, `SUMMARY_REFRESHED`,
+and `SUMMARY_FAILED`. The `local` profile cleans and re-migrates the schema on each boot, so the
+seeder repopulates on every restart. To add or tweak a case, edit the fixtures in
+`backend/src/main/kotlin/org/taonity/sinairllmbot/local/DevPipelineSeeder.kt`.
+

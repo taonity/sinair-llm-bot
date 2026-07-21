@@ -112,6 +112,12 @@ export interface LlmCallUsage {
   hasResponsePayload: boolean
 }
 
+export interface JsonParseFailure {
+  label: string
+  attempt: number
+  payload: string
+}
+
 export interface PipelineRun {
   id: string
   pipelineKey: string
@@ -125,6 +131,7 @@ export interface PipelineRun {
   stages: PipelineStage[]
   totalTokens: number
   llmUsage: LlmCallUsage[]
+  jsonParseFailures: JsonParseFailure[]
   createdAt: string
 }
 

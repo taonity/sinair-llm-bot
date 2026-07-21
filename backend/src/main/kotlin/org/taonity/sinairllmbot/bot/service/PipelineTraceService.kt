@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
@@ -20,6 +21,7 @@ import tools.jackson.databind.ObjectMapper
 class PipelineTraceService(
     private val pipelineRunRepository: PipelineRunRepository,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
+    private val jsonParseFailureTracker: JsonParseFailureTracker,
     private val objectMapper: ObjectMapper,
     private val settings: BotSettings,
 ) {
@@ -38,6 +40,7 @@ class PipelineTraceService(
     ) {
         runCatching {
             val llmUsage = pipelineLlmUsageTracker.drain()
+            val jsonFailures = jsonParseFailureTracker.drain()
             pipelineRunRepository.save(
                 PipelineRunEntity(
                     pipelineKey = pipelineKey,
@@ -51,6 +54,8 @@ class PipelineTraceService(
                     stagesJson = objectMapper.writeValueAsString(stages),
                     totalTokens = llmUsage.sumOf { it.tokens },
                     llmUsageJson = objectMapper.writeValueAsString(llmUsage),
+                    jsonParseFailureCount = jsonFailures.size,
+                    jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
                 ),
             )
         }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
@@ -70,6 +75,7 @@ class PipelineTraceService(
         outcomeDetail: String? = null,
     ): String? = runCatching {
         val llmUsage = pipelineLlmUsageTracker.drain()
+        val jsonFailures = jsonParseFailureTracker.drain()
         val triggerMessage = (trigger as? SummaryRefreshTrigger.Message)?.message
         val saved = pipelineRunRepository.save(
             PipelineRunEntity(
@@ -85,6 +91,8 @@ class PipelineTraceService(
                 stagesJson = objectMapper.writeValueAsString(stages),
                 totalTokens = llmUsage.sumOf { it.tokens },
                 llmUsageJson = objectMapper.writeValueAsString(llmUsage),
+                jsonParseFailureCount = jsonFailures.size,
+                jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
             ),
         )
         saved.id

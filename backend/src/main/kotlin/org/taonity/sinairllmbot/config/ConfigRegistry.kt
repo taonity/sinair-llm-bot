@@ -118,6 +118,11 @@ class ConfigRegistry(
             read = { it.llm.replyWebSearch },
             apply = { c, v -> c.copy(llm = c.llm.copy(replyWebSearch = v as Boolean)) },
         )
+        fields += ConfigField(
+            key = "app.llm.json-retry-attempts", group = "LLM", type = ConfigType.INT, min = 1.0, max = 5.0,
+            read = { it.llm.jsonRetryAttempts },
+            apply = { c, v -> c.copy(llm = c.llm.copy(jsonRetryAttempts = v as Int)) },
+        )
 
         // ---- LLM · Critic ----
         fields += ConfigField(

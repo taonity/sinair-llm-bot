@@ -1,14 +1,14 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
-import type { PipelineRun, PipelineStage, PipelineStageStatus } from './types'
+import type { JsonParseFailure, PipelineRun, PipelineStage, PipelineStageStatus } from './types'
 
 /** Dot colour per stage status, kept semantic so the flow strip reads at a glance. */
 const STATUS_DOT: Record<PipelineStageStatus, string> = {
@@ -94,7 +94,21 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     key: 'outcome',
     label: 'Outcome',
     value: (r) => r.outcome,
-    render: (r) => outcomeBadge(r.outcome),
+    render: (r) => (
+      <div className="flex flex-wrap items-center gap-1">
+        {outcomeBadge(r.outcome)}
+        {r.jsonParseFailures.length > 0 && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-amber-500/40 bg-amber-500/10 font-normal text-amber-600"
+            title={`${r.jsonParseFailures.length} JSON parse failure(s) — the model returned unparseable JSON and the prompt was retried. Expand the row to inspect the payloads.`}
+          >
+            <AlertTriangle className="size-3" />
+            {r.jsonParseFailures.length}
+          </Badge>
+        )}
+      </div>
+    ),
     headClassName: 'w-[160px]',
     skeleton: 'h-5 w-16 rounded-full',
     searchKey: 'outcome',
@@ -109,6 +123,33 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
   },
 ]
 
+/** Lists the JSON-parse failures of a run: how many times a JSON prompt returned unparseable
+ * output (each one a retry) and the exact offending payload, in a collapsible spoiler. */
+function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1.5">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+        <AlertTriangle className="size-3.5" />
+        {failures.length} JSON parse failure{failures.length === 1 ? '' : 's'} — retried on unparseable output
+      </div>
+      <div className="flex flex-col gap-1">
+        {failures.map((f, i) => (
+          <details key={i} className="group text-xs">
+            <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground marker:hidden hover:text-foreground">
+              <ChevronRight className="size-3 transition-transform group-open:rotate-90" />
+              <span className="font-medium text-foreground/80">{f.label}</span>
+              <span>attempt {f.attempt}</span>
+            </summary>
+            <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-background px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+              {f.payload || '<empty>'}
+            </pre>
+          </details>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Full detail shown when a pipeline row is expanded: every stage, its flags, and any alternatives. */
 function PipelineDetail({ run }: { run: PipelineRun }) {
   return (
@@ -118,6 +159,7 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
         </div>
       )}
+      {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="text-xs font-medium">

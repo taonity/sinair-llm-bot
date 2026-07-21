@@ -39,5 +39,12 @@ class PipelineRunEntity(
     val totalTokens: Int = 0,
     @Column(columnDefinition = "text")
     val llmUsageJson: String = "[]",
+    // How many times a JSON-only prompt (triage/critic) in this run returned output that couldn't be
+    // deserialized (each retry is one failure), plus the offending payloads as a JSON array (see
+    // [org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure]). Surfaced in the console so an
+    // operator can see how flaky the model's JSON was and inspect exactly what it returned.
+    val jsonParseFailureCount: Int = 0,
+    @Column(columnDefinition = "text")
+    val jsonParseFailuresJson: String = "[]",
     val createdAt: Instant = Instant.now(),
 )

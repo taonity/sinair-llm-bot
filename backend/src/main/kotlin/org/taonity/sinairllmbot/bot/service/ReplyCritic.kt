@@ -1,7 +1,6 @@
 package org.taonity.sinairllmbot.bot.service
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
@@ -21,12 +20,12 @@ class ReplyCritic(
     private val llmClient: LlmClient,
     private val settings: BotSettings,
     private val objectMapper: ObjectMapper,
+    private val jsonPromptRunner: JsonPromptRunner,
 ) {
     private val llmProperties get() = settings.llm()
     private val botProperties get() = settings.bot()
 
     private companion object {
-        private val LOGGER = KotlinLogging.logger {}
         // Stable marker so local WireMock stubs can distinguish critic calls from the triage classifier.
         // Code-owned (not part of the editable template) so console edits can't break stub routing.
         private const val MARKER = "REPLY CRITIC"
@@ -54,13 +53,17 @@ class ReplyCritic(
             }
         }
 
-        val raw = llmClient.complete(
-            tierName = llmProperties.criticTier,
-            messages = listOf(ChatMessage.system(system), ChatMessage.user(user)),
-            forceJson = true,
-        ) ?: return null
-
-        return parse(raw.content, candidates.size)
+        return jsonPromptRunner.run(
+            label = "critic",
+            call = {
+                llmClient.complete(
+                    tierName = llmProperties.criticTier,
+                    messages = listOf(ChatMessage.system(system), ChatMessage.user(user)),
+                    forceJson = true,
+                )
+            },
+            parse = { parse(it, candidates.size) },
+        )
     }
 
     /**
@@ -81,7 +84,6 @@ class ReplyCritic(
             val verdict = objectMapper.readValue(cleaned, CriticVerdict::class.java)
             verdict.copy(best = verdict.best.coerceIn(0, candidateCount - 1))
         } catch (exception: Exception) {
-            LOGGER.warn(exception) { "Failed to parse critic verdict (len=${content.length})" }
             null
         }
     }

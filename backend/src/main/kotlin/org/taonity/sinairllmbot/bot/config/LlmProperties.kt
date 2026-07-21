@@ -24,6 +24,11 @@ data class LlmProperties(
     val tiers: Map<String, Tier>,
     /** When true, reply generation offers OpenRouter's `openrouter:web_search` server tool so the model can ground answers in live results. */
     val replyWebSearch: Boolean = false,
+    /**
+     * Total attempts a JSON-expecting prompt (triage, critic) makes to obtain a deserializable JSON
+     * response before giving up: on a parse failure the same prompt is re-issued. 1 disables retries.
+     */
+    val jsonRetryAttempts: Int,
     val critic: Critic,
 ) {
     data class Tier(

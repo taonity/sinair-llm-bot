@@ -35,6 +35,10 @@ app:
     # current facts); within those, the model decides whether to actually search. Each performed
     # search adds cost and latency.
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
+    # How many times a JSON-only prompt (the triage classifier and the critic) may re-ask the model
+    # when its response can't be deserialized into the expected object. Guards against occasional
+    # malformed/truncated JSON. 1 disables retries; each extra attempt costs another call.
+    json-retry-attempts: 3
     # Critic layer: generate several reply candidates, have a cheap model rate them against the same
     # persona/context the generator saw, pick the best and repair it once if it scores too low.
     critic:

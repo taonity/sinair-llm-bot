@@ -40,6 +40,7 @@ class MessageTriageService(
     private val contextBuilder: ConversationContextBuilder,
     private val settings: BotSettings,
     private val objectMapper: ObjectMapper,
+    private val jsonPromptRunner: JsonPromptRunner,
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
@@ -107,16 +108,17 @@ class MessageTriageService(
             append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"needsSearch\": boolean, ")
             append("\"category\": string}. Default respond=false.")
         }
-        val raw = llmClient.complete(
-            tierName = llmProperties.gateTier,
-            messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript")),
-            forceJson = true,
-        ) ?: return TriageVerdict(respond = false)
-
-        return parse(raw.content)
+        val messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript"))
+        // Retries the whole prompt when the model returns unparseable JSON; the salvage fallback
+        // (recovering the booleans from truncated output) counts as success and stops the retries.
+        return jsonPromptRunner.run(
+            label = "triage",
+            call = { llmClient.complete(tierName = llmProperties.gateTier, messages = messages, forceJson = true) },
+            parse = { parse(it) },
+        ) ?: TriageVerdict(respond = false)
     }
 
-    private fun parse(content: String): TriageVerdict {
+    private fun parse(content: String): TriageVerdict? {
         val cleaned = content.trim().lines()
             .filterNot { JSON_FENCE.containsMatchIn(it.trim()) && it.trim().startsWith("```") }
             .joinToString("\n")
@@ -124,10 +126,7 @@ class MessageTriageService(
         return try {
             objectMapper.readValue(cleaned, TriageVerdict::class.java)
         } catch (exception: Exception) {
-            salvage(cleaned) ?: run {
-                LOGGER.warn(exception) { "Failed to parse triage verdict (len=${content.length})" }
-                TriageVerdict(respond = false)
-            }
+            salvage(cleaned)
         }
     }
 
