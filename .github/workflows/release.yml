@@ -228,6 +228,18 @@ jobs:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
 
+  notify-stage:
+    needs: deploy-stage
+    if: always()
+    uses: ./.github/workflows/notify.yml
+    with:
+      environment: stage
+      status: ${{ needs.deploy-stage.result }}
+    secrets:
+      NTFY_URL: ${{ secrets.NTFY_URL }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+
   approve-prod:
     needs:
       - prepare
@@ -252,4 +264,16 @@ jobs:
     secrets:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+
+  notify-prod:
+    needs: deploy-prod
+    if: always()
+    uses: ./.github/workflows/notify.yml
+    with:
+      environment: prod
+      status: ${{ needs.deploy-prod.result }}
+    secrets:
+      NTFY_URL: ${{ secrets.NTFY_URL }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
 

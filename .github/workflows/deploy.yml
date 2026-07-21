@@ -21,4 +21,16 @@ jobs:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
 
+  notify:
+    needs: deploy
+    if: always()
+    uses: ./.github/workflows/notify.yml
+    with:
+      environment: ${{ inputs.environment }}
+      status: ${{ needs.deploy.result }}
+    secrets:
+      NTFY_URL: ${{ secrets.NTFY_URL }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+
 
