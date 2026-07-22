@@ -21,6 +21,28 @@ app:
     admin-emails: ${CONSOLE_ADMIN_EMAILS:}
     # Upper bound on page size for console list endpoints (requested sizes are clamped to this).
     max-page-size: 100
+  github:
+    # GitHub organization whose repositories the bot may read. Code-awareness lookups are scoped to
+    # it server-side, so a lookup can never reach a repository outside this organization.
+    org: taonity
+    # Read-only GitHub token (fine-grained PAT or App installation token, Contents+Metadata: read).
+    # Blank = unauthenticated: still works for public repos but is rate-limited and cannot search code.
+    token: ${GITHUB_TOKEN:}
+    api-base-url: https://api.github.com
+    user-agent: sinair-llm-bot
+    fetch-timeout-seconds: 8
+    # Agentic repo lookup: when the gate classifies a message as needing the code, the reply model is
+    # offered read-only GitHub tools (search_code / get_file) and answers from what it actually reads.
+    repo-lookup:
+      enabled: ${GITHUB_REPO_LOOKUP_ENABLED:true}
+      # LLM tier (see app.llm.tiers) used for repo-grounded replies — needs strong tool-use.
+      tier: repo
+      # Max tool-call rounds before the model must answer; caps latency and per-message cost.
+      max-rounds: 4
+      # Max code-search results returned to the model per search.
+      max-search-results: 8
+      # Max characters of a fetched file passed to the model (longer files are truncated).
+      max-file-chars: 4000
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
@@ -110,6 +132,11 @@ app:
         model: anthropic/claude-sonnet-4
         temperature: 0.2
         max-tokens: 500
+      # Repo-lookup tier: strong tool-use + code reasoning for GitHub code-awareness replies.
+      repo:
+        model: google/gemini-2.5-pro
+        temperature: 0.3
+        max-tokens: 700
       # Cheap JSON judge for the critic layer; rates candidate replies and gives repair feedback.
       critic:
         model: google/gemini-2.5-flash-lite

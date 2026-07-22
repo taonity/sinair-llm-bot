@@ -22,10 +22,40 @@ data class ChatCompletionRequest(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class Tool(
     val type: String,
+    val function: FunctionDef? = null,
 ) {
     companion object {
         fun webSearch() = Tool(type = "openrouter:web_search")
+
+        /** A client-side function tool the model may call; [parameters] is a JSON-Schema object. */
+        fun function(name: String, description: String, parameters: Map<String, Any?>) =
+            Tool(type = "function", function = FunctionDef(name, description, parameters))
     }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    data class FunctionDef(
+        val name: String,
+        val description: String,
+        val parameters: Map<String, Any?>,
+    )
+}
+
+/**
+ * A tool call the model asks us to execute. For function tools, [function] carries the tool name and
+ * a JSON string of arguments; we run it (read-only) and feed the result back as a `tool` message.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class ToolCall(
+    val id: String? = null,
+    val type: String? = null,
+    val function: FunctionCall? = null,
+) {
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    data class FunctionCall(
+        val name: String? = null,
+        val arguments: String? = null,
+    )
 }
 
 /**
@@ -40,8 +70,10 @@ data class Tool(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ChatMessage(
     val role: String,
-    val content: Any,
+    val content: Any? = null,
     val annotations: List<Annotation>? = null,
+    @JsonProperty("tool_calls") val toolCalls: List<ToolCall>? = null,
+    @JsonProperty("tool_call_id") val toolCallId: String? = null,
 ) {
     companion object {
         fun system(content: String) = ChatMessage("system", content)
@@ -50,6 +82,10 @@ data class ChatMessage(
 
         /** Multimodal user message (e.g. grounding text plus one or more images). */
         fun userParts(parts: List<ContentPart>) = ChatMessage("user", parts)
+
+        /** Result of executing a tool call, fed back so the model can read it on the next round. */
+        fun tool(toolCallId: String, content: String) =
+            ChatMessage(role = "tool", content = content, toolCallId = toolCallId)
     }
 }
 

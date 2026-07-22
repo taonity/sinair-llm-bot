@@ -55,6 +55,7 @@ class MessageTriageService(
         private val RESPOND_REGEX = Regex("\"respond\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
         private val FRESH_REGEX = Regex("\"needs?FreshInfo\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
         private val SEARCH_REGEX = Regex("\"needs?Search\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
+        private val REPO_REGEX = Regex("\"needs?RepoLookup\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
     }
 
     fun assess(roomTarget: String): TriageVerdict {
@@ -95,6 +96,13 @@ class MessageTriageService(
             append("or continue such a look-up that was asked of it a moment earlier. Say FALSE for ")
             append("general chit-chat, opinions, or questions the bot can answer well from its own ")
             append("knowledge.\n")
+            append("4) needsRepoLookup (boolean): would answering well require reading THIS project's ")
+            append("own source code, configuration or repository history, or that of another repo in ")
+            append("the bot's GitHub organization? Say TRUE when the latest message asks how the bot, ")
+            append("the app or one of the org's projects is implemented, what a specific file, class, ")
+            append("function, endpoint, setting or config value does, why a part of the codebase ")
+            append("behaves a certain way, or what changed recently in the code. Say FALSE for general ")
+            append("programming questions that are not about these particular repositories.\n")
             append("Also classify the decision with category (string) = exactly one of: ")
             append("direct_address (the message names, @mentions or uses an alias of the bot), ")
             append("indirect_address (an unmistakable direct follow-up or reply to the bot's OWN last ")
@@ -106,7 +114,7 @@ class MessageTriageService(
             append("conversation or restate its topic.\n")
             append("Respond with ONLY a JSON object, booleans first: ")
             append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"needsSearch\": boolean, ")
-            append("\"category\": string}. Default respond=false.")
+            append("\"needsRepoLookup\": boolean, \"category\": string}. Default respond=false.")
         }
         val messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript"))
         // Retries the whole prompt when the model returns unparseable JSON; the salvage fallback
@@ -139,8 +147,9 @@ class MessageTriageService(
             ?: return null
         val needsFresh = FRESH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
         val needsSearch = SEARCH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
-        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh needsSearch=$needsSearch" }
-        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch)
+        val needsRepo = REPO_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
+        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh needsSearch=$needsSearch needsRepoLookup=$needsRepo" }
+        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch, needsRepoLookup = needsRepo)
     }
 }
 
@@ -151,6 +160,8 @@ data class TriageVerdict(
     val needsFreshInfo: Boolean = false,
     @JsonAlias("needSearch", "search", "needs_search", "need_search")
     val needsSearch: Boolean = false,
+    @JsonAlias("needRepoLookup", "repoLookup", "needs_repo_lookup", "need_repo_lookup")
+    val needsRepoLookup: Boolean = false,
     val category: String = "",
 ) {
     /**

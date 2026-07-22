@@ -6,6 +6,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
@@ -64,9 +65,96 @@ class LlmClient(
         )
         // Serialized once so the persisted trace can show the exact request body sent to the provider.
         val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
+        val rawResponse = postChatCompletion(tierName, tier, request) ?: return null
 
+        val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
+            .getOrNull()
+        val message = response?.choices?.firstOrNull()?.message
+        val content = (message?.content as? String)?.trim()
+        if (content.isNullOrBlank()) {
+            LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
+            return null
+        }
+        val citationUrls = message.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
+        recordCall(tierName, tier, response, rawResponse, requestJson, if (webSearch) listOf("web_search") else emptyList())
+        if (webSearch) {
+            LOGGER.info {
+                val outcome = if (citationUrls.isEmpty()) "offered, no citations"
+                else "used, ${citationUrls.size} citation(s)"
+                "LLM tier=$tierName: web_search $outcome"
+            }
+        }
+        return LlmResult(content = content, totalTokens = response?.usage?.totalTokens ?: 0, citationUrls = citationUrls)
+    }
+
+    /**
+     * Agentic completion: offers the given client-side [tools] and runs a bounded tool-call loop. On
+     * each round the model may ask to call one or more tools; [toolExecutor] runs them (read-only)
+     * and their results are fed back until the model produces a final text answer or [maxRounds] tool
+     * rounds are exhausted (after which one final, tool-free call forces an answer). Every provider
+     * call is recorded to the pipeline usage tracker. Returns the final assistant text, or null.
+     */
+    fun completeWithTools(
+        tierName: String,
+        messages: List<ChatMessage>,
+        tools: List<Tool>,
+        maxRounds: Int,
+        toolExecutor: (name: String, argumentsJson: String) -> String,
+    ): LlmResult? {
+        val tier = llmProperties.tier(tierName)
+        val conversation = messages.toMutableList()
+        var totalTokens = 0
+
+        for (round in 0..maxRounds) {
+            val offerTools = round < maxRounds
+            val request = ChatCompletionRequest(
+                model = tier.model,
+                messages = conversation.toList(),
+                temperature = tier.temperature,
+                maxTokens = tier.maxTokens,
+                tools = if (offerTools) tools else null,
+            )
+            val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
+            val rawResponse = postChatCompletion(tierName, tier, request) ?: return null
+            val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
+                .getOrNull()
+            val message = response?.choices?.firstOrNull()?.message
+            val toolCalls = message?.toolCalls.orEmpty()
+            totalTokens += response?.usage?.totalTokens ?: 0
+            recordCall(tierName, tier, response, rawResponse, requestJson, toolCalls.mapNotNull { it.function?.name })
+
+            if (offerTools && toolCalls.isNotEmpty()) {
+                // Echo the assistant's tool-call turn (without response-only annotations), then append
+                // each tool result so the model can read them on the next round.
+                conversation += ChatMessage(role = "assistant", content = message?.content, toolCalls = message?.toolCalls)
+                toolCalls.forEach { call ->
+                    val name = call.function?.name.orEmpty()
+                    val result = runCatching { toolExecutor(name, call.function?.arguments.orEmpty()) }
+                        .getOrElse { "ERROR: tool '$name' failed: ${it.message}" }
+                    conversation += ChatMessage.tool(call.id.orEmpty(), result)
+                    LOGGER.info { "Repo tool '$name' executed -> ${result.length} chars" }
+                }
+                continue
+            }
+
+            val content = (message?.content as? String)?.trim()
+            if (!content.isNullOrBlank()) {
+                val citationUrls = message?.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
+                return LlmResult(content = content, totalTokens = totalTokens, citationUrls = citationUrls)
+            }
+            LOGGER.warn { "Agentic tier '$tierName' returned no content on round $round" }
+            return null
+        }
+        return null
+    }
+
+    /** POSTs a chat-completion request and returns the raw JSON body, or null on any transport error. */
+    private fun postChatCompletion(
+        tierName: String,
+        tier: LlmProperties.Tier,
+        request: ChatCompletionRequest,
+    ): String? {
         LOGGER.debug { "OpenRouter request (tier=$tierName):\n${prettyJson(request)}" }
-
         return try {
             val rawResponse = restClient.post()
                 .uri("/chat/completions")
@@ -78,45 +166,38 @@ class LlmClient(
                 .body(request)
                 .retrieve()
                 .body(String::class.java)
-
             LOGGER.debug { "OpenRouter response (tier=$tierName):\n${prettyJson(rawResponse)}" }
-
-            val response = rawResponse?.let { objectMapper.readValue(it, ChatCompletionResponse::class.java) }
-            val content = (response?.choices?.firstOrNull()?.message?.content as? String)?.trim()
-            if (content.isNullOrBlank()) {
-                LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
-                return null
-            }
-            val citationUrls = response?.choices?.firstOrNull()?.message?.annotations
-                ?.mapNotNull { it.urlCitation?.url }
-                .orEmpty()
-            val usage = response?.usage
-            LOGGER.info {
-                "LLM tier=$tierName model=${tier.model} tokens=${usage?.totalTokens ?: "?"} " +
-                    "(in=${usage?.promptTokens ?: "?"}, out=${usage?.completionTokens ?: "?"})"
-            }
-            if (webSearch) {
-                LOGGER.info {
-                    val outcome = if (citationUrls.isEmpty()) "offered, no citations"
-                    else "used, ${citationUrls.size} citation(s)"
-                    "LLM tier=$tierName: web_search $outcome"
-                }
-            }
-            pipelineLlmUsageTracker.record(
-                LlmCallUsage(
-                    tier = tierName,
-                    model = tier.model,
-                    tokens = usage?.totalTokens ?: 0,
-                    tools = if (webSearch) listOf("web_search") else emptyList(),
-                    requestPayload = requestJson,
-                    responsePayload = rawResponse.orEmpty(),
-                ),
-            )
-            LlmResult(content = content, totalTokens = usage?.totalTokens ?: 0, citationUrls = citationUrls)
+            rawResponse
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
             null
         }
+    }
+
+    /** Logs token usage and records the call (tokens, model, tool set, payloads) on the trace. */
+    private fun recordCall(
+        tierName: String,
+        tier: LlmProperties.Tier,
+        response: ChatCompletionResponse?,
+        rawResponse: String?,
+        requestJson: String,
+        toolNames: List<String>,
+    ) {
+        val usage = response?.usage
+        LOGGER.info {
+            "LLM tier=$tierName model=${tier.model} tokens=${usage?.totalTokens ?: "?"} " +
+                "(in=${usage?.promptTokens ?: "?"}, out=${usage?.completionTokens ?: "?"})"
+        }
+        pipelineLlmUsageTracker.record(
+            LlmCallUsage(
+                tier = tierName,
+                model = tier.model,
+                tokens = usage?.totalTokens ?: 0,
+                tools = toolNames,
+                requestPayload = requestJson,
+                responsePayload = rawResponse.orEmpty(),
+            ),
+        )
     }
 
     /** Serializes a DTO to pretty JSON for debug logging, degrading gracefully on any failure. */
