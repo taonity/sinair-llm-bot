@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
+import org.taonity.sinairllmbot.bot.github.GithubToolService
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
@@ -21,6 +22,7 @@ class ReplyGenerator(
     private val promptBuilder: ReplyPromptBuilder,
     private val candidateGenerator: CandidateGenerator,
     private val replyCritic: ReplyCritic,
+    private val githubToolService: GithubToolService,
     private val settings: BotSettings,
 ) {
     private val botProperties get() = settings.bot()
@@ -35,21 +37,21 @@ class ReplyGenerator(
      *   lookup — either the answer is time-sensitive or the user explicitly asked the bot to look
      *   something specific up; enables live web search (see [ReplyPromptBuilder]).
      */
-    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): String? =
-        generateTraced(roomTarget, trigger, needsWebSearch).reply
+    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false, needsRepoLookup: Boolean = false): String? =
+        generateTraced(roomTarget, trigger, needsWebSearch, needsRepoLookup).reply
 
     /**
      * Like [generate] but also returns the intermediate candidates, critic scores and repair state
      * so the pipeline trace can show what alternatives were considered. The `reply` field carries
      * the final sanitized reply (null when none could be produced).
      */
-    fun generateTraced(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false): ReplyGeneration {
-        val prompt = promptBuilder.build(roomTarget, trigger, needsWebSearch)
+    fun generateTraced(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false, needsRepoLookup: Boolean = false): ReplyGeneration {
+        val prompt = promptBuilder.build(roomTarget, trigger, needsWebSearch, needsRepoLookup)
 
-        val raw = if (llmProperties.critic.enabled) {
-            generateWithCritic(roomTarget, prompt)
-        } else {
-            generateSingle(prompt)
+        val raw = when {
+            prompt.repoLookup -> generateWithRepoTools(roomTarget, prompt)
+            llmProperties.critic.enabled -> generateWithCritic(roomTarget, prompt)
+            else -> generateSingle(prompt)
         }
 
         val chosen = raw.reply ?: return raw.copy(reply = null)
@@ -59,6 +61,30 @@ class ReplyGenerator(
             return raw.copy(reply = null)
         }
         return raw.copy(reply = reply)
+    }
+
+    /**
+     * Agentic repo-grounded generation: the model is offered read-only GitHub tools and answers from
+     * the code it actually reads. Runs a single tool loop (no critic candidates) to keep cost bounded.
+     */
+    private fun generateWithRepoTools(roomTarget: String, prompt: ReplyPrompt): ReplyGeneration {
+        val content = llmClient.completeWithTools(
+            tierName = githubToolService.repoTier,
+            messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
+            tools = githubToolService.toolDefinitions(),
+            maxRounds = githubToolService.maxRounds,
+            toolExecutor = githubToolService::execute,
+        )?.content?.trim()?.takeIf { it.isNotBlank() }
+
+        if (content == null) {
+            LOGGER.warn { "Repo-lookup reply produced no content for $roomTarget" }
+            return ReplyGeneration(reply = null)
+        }
+        return ReplyGeneration(
+            reply = content,
+            chosenIndex = 0,
+            candidates = listOf(CandidateTrace(text = content, chosen = true)),
+        )
     }
 
     private fun generateSingle(prompt: ReplyPrompt): ReplyGeneration {

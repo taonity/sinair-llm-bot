@@ -144,6 +144,7 @@ class BotMessageOrchestrator(
                     PipelineField("category", triage.loggableCategory),
                     PipelineField("needsFreshInfo", triage.needsFreshInfo.toString()),
                     PipelineField("needsSearch", triage.needsSearch.toString()),
+                    PipelineField("needsRepoLookup", triage.needsRepoLookup.toString()),
                 ),
             )
 
@@ -168,7 +169,7 @@ class BotMessageOrchestrator(
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
                     "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
-                    "needsSearch=${triage.needsSearch}, category=${triage.loggableCategory})"
+                    "needsSearch=${triage.needsSearch}, needsRepoLookup=${triage.needsRepoLookup}, category=${triage.loggableCategory})"
             }
             if (!shouldReply) {
                 pipelineTraceService.record(
@@ -182,7 +183,7 @@ class BotMessageOrchestrator(
             // indicator up (via BotTypingService) until the collector delivers it.
             botTypingService.markTyping(roomTarget)
             val generation = try {
-                replyGenerator.generateTraced(roomTarget, trigger, triage.needsFreshInfo || triage.needsSearch)
+                replyGenerator.generateTraced(roomTarget, trigger, triage.needsFreshInfo || triage.needsSearch, triage.needsRepoLookup)
             } finally {
                 botTypingService.clearTyping(roomTarget)
             }
