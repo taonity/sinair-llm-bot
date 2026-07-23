@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
-import type { JsonParseFailure, PipelineRun, PipelineStage, PipelineStageStatus } from './types'
+import type { JsonParseFailure, LlmCallUsage, PipelineRun, PipelineStage, PipelineStageStatus } from './types'
 
 /** Dot colour per stage status, kept semantic so the flow strip reads at a glance. */
 const STATUS_DOT: Record<PipelineStageStatus, string> = {
@@ -150,6 +150,109 @@ function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
   )
 }
 
+/** One LLM call paired with its original index in run.llmUsage (needed for the raw payload links). */
+type UsageEntry = { call: LlmCallUsage; index: number }
+
+/** Groups contiguous calls made on the same tier (e.g. the repo tool loop's rounds) so multi-round
+ * stages collapse into a single compact block instead of a long list of near-identical chips. */
+function groupUsage(usage: LlmCallUsage[]): { tier: string; entries: UsageEntry[] }[] {
+  const groups: { tier: string; entries: UsageEntry[] }[] = []
+  usage.forEach((call, index) => {
+    const last = groups[groups.length - 1]
+    if (last && last.tier === call.tier) last.entries.push({ call, index })
+    else groups.push({ tier: call.tier, entries: [{ call, index }] })
+  })
+  return groups
+}
+
+/** The "request"/"response" raw-payload links for a single call, keyed by its original index. */
+function CallLinks({ runId, index, call }: { runId: string; index: number; call: LlmCallUsage }) {
+  return (
+    <>
+      {call.hasRequestPayload && (
+        <a
+          href={`/api/console/pipeline-runs/${encodeURIComponent(runId)}/llm-usage/${index}/request`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+        >
+          request
+        </a>
+      )}
+      {call.hasResponsePayload && (
+        <a
+          href={`/api/console/pipeline-runs/${encodeURIComponent(runId)}/llm-usage/${index}/response`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+        >
+          response
+        </a>
+      )}
+    </>
+  )
+}
+
+/** Compact chip for a single-call tier (gate, triage, reply, critic…). */
+function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
+  const { call, index } = entry
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+      <span className="font-medium text-foreground/80">{call.tier}</span>
+      <span>{call.model}</span>
+      <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
+      {call.tools.length > 0 && (
+        <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+      )}
+      <CallLinks runId={runId} index={index} call={call} />
+    </span>
+  )
+}
+
+/** Collapsible block for a multi-round tier: header sums the rounds' tokens; expanding reveals every
+ * round's own tokens, tools and raw-payload links so no detail is lost. */
+function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; entries: UsageEntry[] }) {
+  const [open, setOpen] = useState(false)
+  const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
+  const models = Array.from(new Set(entries.map((e) => e.call.model)))
+  const tools = Array.from(new Set(entries.flatMap((e) => e.call.tools)))
+  return (
+    <div className="flex w-full flex-col gap-1 rounded border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex flex-wrap items-center gap-1.5 text-left"
+      >
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        <span className="font-medium text-foreground/80">
+          {tier} × {entries.length}
+        </span>
+        <span>{models.length === 1 ? models[0] : `${models.length} models`}</span>
+        <span className="tabular-nums">Σ {tokens.toLocaleString()} tok</span>
+        {tools.length > 0 && (
+          <span className="rounded bg-sky-500/10 px-1 text-sky-600">{tools.join(', ')}</span>
+        )}
+      </button>
+      {open && (
+        <ol className="ml-4 flex flex-col gap-1 border-l pl-2">
+          {entries.map((e, i) => (
+            <li key={e.index} className="flex flex-wrap items-center gap-1.5">
+              <span className="tabular-nums text-foreground/50">#{i + 1}</span>
+              {models.length > 1 && <span>{e.call.model}</span>}
+              <span className="tabular-nums">{e.call.tokens.toLocaleString()} tok</span>
+              {e.call.tools.length > 0 && (
+                <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
+              )}
+              <CallLinks runId={runId} index={e.index} call={e.call} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 /** Full detail shown when a pipeline row is expanded: every stage, its flags, and any alternatives. */
 function PipelineDetail({ run }: { run: PipelineRun }) {
   return (
@@ -166,39 +269,13 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
             LLM usage · {run.totalTokens.toLocaleString()} tokens total
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {run.llmUsage.map((call, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              >
-                <span className="font-medium text-foreground/80">{call.tier}</span>
-                <span>{call.model}</span>
-                <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
-                {call.tools.length > 0 && (
-                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
-                )}
-                {call.hasRequestPayload && (
-                  <a
-                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/request`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-                  >
-                    request
-                  </a>
-                )}
-                {call.hasResponsePayload && (
-                  <a
-                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/response`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-                  >
-                    response
-                  </a>
-                )}
-              </span>
-            ))}
+            {groupUsage(run.llmUsage).map((group, gi) =>
+              group.entries.length === 1 ? (
+                <UsageChip key={gi} runId={run.id} entry={group.entries[0]!} />
+              ) : (
+                <UsageGroup key={gi} runId={run.id} tier={group.tier} entries={group.entries} />
+              ),
+            )}
           </div>
         </div>
       )}

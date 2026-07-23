@@ -386,6 +386,11 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(enabled = v as Boolean))) },
         )
         fields += ConfigField(
+            key = "app.github.repo-lookup.tier", group = "GitHub · Repo lookup", type = ConfigType.ENUM, enumValues = tierNames,
+            read = { it.github.repoLookup.tier },
+            apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(tier = v as String))) },
+        )
+        fields += ConfigField(
             key = "app.github.repo-lookup.max-rounds", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 1.0, max = 10.0,
             read = { it.github.repoLookup.maxRounds },
             apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxRounds = v as Int))) },

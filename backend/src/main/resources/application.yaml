@@ -133,10 +133,10 @@ app:
         temperature: 0.2
         max-tokens: 500
       # Repo-lookup tier: strong tool-use + code reasoning for GitHub code-awareness replies.
-      # Claude is used (not a Gemini "thinking" model) because its reasoning tokens don't eat the
-      # max-tokens budget mid-tool-call, which caused Gemini's MALFORMED_FUNCTION_CALL failures.
+      # GLM 5.2 handles the multi-round tool loop reliably; keep the max-tokens budget generous so a
+      # tool-call is never truncated mid-emission (which caused Gemini's MALFORMED_FUNCTION_CALL failures).
       repo:
-        model: anthropic/claude-sonnet-4
+        model: z-ai/glm-5.2
         temperature: 0.2
         max-tokens: 1500
       # Cheap JSON judge for the critic layer; rates candidate replies and gives repair feedback.
