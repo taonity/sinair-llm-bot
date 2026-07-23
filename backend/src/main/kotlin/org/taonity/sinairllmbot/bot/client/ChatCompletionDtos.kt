@@ -138,6 +138,7 @@ data class ChatCompletionResponse(
     data class Choice(
         val message: ChatMessage? = null,
         @JsonProperty("finish_reason") val finishReason: String? = null,
+        @JsonProperty("native_finish_reason") val nativeFinishReason: String? = null,
     )
 
     @JsonIgnoreProperties(ignoreUnknown = true)

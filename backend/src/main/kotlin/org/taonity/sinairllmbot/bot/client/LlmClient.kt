@@ -27,6 +27,11 @@ class LlmClient(
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
+
+        // Finish reasons that mean the model's turn was cut off (usually max-tokens too small): a
+        // plain `length` cap or Gemini's MALFORMED_FUNCTION_CALL (tool JSON truncated). We retry the
+        // agentic round on these instead of giving up.
+        private val TRUNCATION_FINISH_REASONS = setOf("length", "malformed_function_call")
     }
 
     private val llmProperties get() = settings.llm()
@@ -118,7 +123,8 @@ class LlmClient(
             val rawResponse = postChatCompletion(tierName, tier, request) ?: return null
             val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
                 .getOrNull()
-            val message = response?.choices?.firstOrNull()?.message
+            val choice = response?.choices?.firstOrNull()
+            val message = choice?.message
             val toolCalls = message?.toolCalls.orEmpty()
             totalTokens += response?.usage?.totalTokens ?: 0
             recordCall(tierName, tier, response, rawResponse, requestJson, toolCalls.mapNotNull { it.function?.name })
@@ -142,7 +148,20 @@ class LlmClient(
                 val citationUrls = message?.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
                 return LlmResult(content = content, totalTokens = totalTokens, citationUrls = citationUrls)
             }
-            LOGGER.warn { "Agentic tier '$tierName' returned no content on round $round" }
+
+            // No tool call and no text. A truncated/malformed tool call lands here: e.g. Gemini's
+            // MALFORMED_FUNCTION_CALL (tool JSON cut off) or a `length` cap hit mid-output — usually
+            // the tier's max-tokens is too small (thinking models spend it on hidden reasoning).
+            // Retry the same round while tool rounds remain; the final tool-free round forces text.
+            val finishReason = choice?.finishReason
+            val nativeFinishReason = choice?.nativeFinishReason
+            val truncated = finishReason?.lowercase() in TRUNCATION_FINISH_REASONS ||
+                nativeFinishReason?.contains("MALFORMED", ignoreCase = true) == true
+            LOGGER.warn {
+                "Agentic tier '$tierName' produced no usable output on round $round " +
+                    "(finish=$finishReason native=$nativeFinishReason)"
+            }
+            if (offerTools && truncated) continue
             return null
         }
         return null

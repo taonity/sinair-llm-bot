@@ -5,6 +5,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.bot.config.GithubProperties
+import org.taonity.sinairllmbot.bot.config.GithubSettings
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
@@ -31,17 +33,18 @@ class BotSettings(
     private val botDefaults: BotProperties,
     private val llmDefaults: LlmProperties,
     private val ingestionDefaults: IngestionProperties,
+    private val githubDefaults: GithubProperties,
     private val retentionDefaults: RetentionProperties,
     private val consoleDefaults: ConsolePagingProperties,
     private val registry: ConfigRegistry,
     private val overrideRepository: BotConfigOverrideRepository,
     private val tierRepository: BotConfigTierRepository,
-) : IngestionSettings {
+) : IngestionSettings, GithubSettings {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
 
-    private val yamlDefaults = EffectiveConfig(botDefaults, llmDefaults, ingestionDefaults, retentionDefaults, consoleDefaults)
+    private val yamlDefaults = EffectiveConfig(botDefaults, llmDefaults, ingestionDefaults, githubDefaults, retentionDefaults, consoleDefaults)
 
     /** yaml defaults + custom tiers at their seeded values (the "reset" target for every field). */
     private val baseline = AtomicReference(yamlDefaults)
@@ -52,6 +55,8 @@ class BotSettings(
     fun llm(): LlmProperties = snapshot.get().llm
 
     override fun ingestion(): IngestionProperties = snapshot.get().ingestion
+
+    override fun github(): GithubProperties = snapshot.get().github
 
     fun retention(): RetentionProperties = snapshot.get().retention
 

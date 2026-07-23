@@ -1,6 +1,7 @@
 package org.taonity.sinairllmbot.config
 
 import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.bot.config.GithubProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionProperties
 import org.taonity.sinairllmbot.console.config.ConsolePagingProperties
@@ -10,6 +11,7 @@ data class EffectiveConfig(
     val bot: BotProperties,
     val llm: LlmProperties,
     val ingestion: IngestionProperties,
+    val github: GithubProperties,
     val retention: RetentionProperties,
     val console: ConsolePagingProperties,
 )

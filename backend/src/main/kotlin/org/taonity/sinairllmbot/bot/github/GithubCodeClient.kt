@@ -9,7 +9,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.util.UriUtils
-import org.taonity.sinairllmbot.bot.config.GithubProperties
+import org.taonity.sinairllmbot.bot.config.GithubSettings
 import tools.jackson.databind.ObjectMapper
 import java.nio.charset.StandardCharsets
 import java.time.Duration
@@ -22,9 +22,11 @@ import java.util.Base64
  */
 @Component
 class GithubCodeClient(
-    private val properties: GithubProperties,
+    private val settings: GithubSettings,
     private val objectMapper: ObjectMapper,
 ) {
+    private val properties get() = settings.github()
+
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val REPO_PATTERN = Regex("^[A-Za-z0-9._-]+$")

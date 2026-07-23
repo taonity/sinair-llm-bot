@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.ContentPart
-import org.taonity.sinairllmbot.bot.config.GithubProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.ingestion.ContextBuilder
 import org.taonity.sinairllmbot.bot.ingestion.SourceIngestionService
@@ -26,11 +25,11 @@ class ReplyPromptBuilder(
     private val sourceIngestionService: SourceIngestionService,
     private val ingestionContextBuilder: ContextBuilder,
     private val emojiCatalog: EmojiCatalog,
-    private val githubProperties: GithubProperties,
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
     private val ingestionProperties get() = settings.ingestion()
+    private val githubProperties get() = settings.github()
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}

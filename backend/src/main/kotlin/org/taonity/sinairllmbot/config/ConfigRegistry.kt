@@ -379,6 +379,28 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(ingestion = c.ingestion.copy(image = c.ingestion.image.copy(maxBytes = v as Long))) },
         )
 
+        // ---- GitHub · Repo lookup ----
+        fields += ConfigField(
+            key = "app.github.repo-lookup.enabled", group = "GitHub · Repo lookup", type = ConfigType.BOOL,
+            read = { it.github.repoLookup.enabled },
+            apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(enabled = v as Boolean))) },
+        )
+        fields += ConfigField(
+            key = "app.github.repo-lookup.max-rounds", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 1.0, max = 10.0,
+            read = { it.github.repoLookup.maxRounds },
+            apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxRounds = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.github.repo-lookup.max-search-results", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 1.0, max = 20.0,
+            read = { it.github.repoLookup.maxSearchResults },
+            apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxSearchResults = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.github.repo-lookup.max-file-chars", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 500.0, max = 20000.0,
+            read = { it.github.repoLookup.maxFileChars },
+            apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxFileChars = v as Int))) },
+        )
+
         // ---- Retention ----
         fields += ConfigField(
             key = "app.retention.chat.retention-days", group = "Retention", type = ConfigType.LONG, min = 1.0, max = 3650.0,

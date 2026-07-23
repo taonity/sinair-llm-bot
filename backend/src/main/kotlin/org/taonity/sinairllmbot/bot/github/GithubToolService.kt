@@ -3,7 +3,7 @@ package org.taonity.sinairllmbot.bot.github
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.Tool
-import org.taonity.sinairllmbot.bot.config.GithubProperties
+import org.taonity.sinairllmbot.bot.config.GithubSettings
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -16,12 +16,14 @@ import tools.jackson.databind.ObjectMapper
 @Service
 class GithubToolService(
     private val githubCodeClient: GithubCodeClient,
-    private val properties: GithubProperties,
+    private val settings: GithubSettings,
     private val objectMapper: ObjectMapper,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
+
+    private val properties get() = settings.github()
 
     val repoLookupEnabled: Boolean get() = properties.repoLookup.enabled
     val repoTier: String get() = properties.repoLookup.tier
