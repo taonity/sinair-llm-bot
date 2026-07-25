@@ -14,6 +14,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
@@ -121,6 +122,21 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), replyCall(tokens = 620, tools = listOf("web_search"))),
             ),
+            // A reply that needed the project's own code, so the reply model ran the agentic repo
+            // tool loop (search_code → get_file) before answering. The tool calls are captured
+            // structurally and shown inline in the console's LLM-usage chip.
+            reply(
+                room, next(), sender = "frank", text = "@segfault где у нас описан ChatCompletionRequest?",
+                outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-6",
+                triage = triageStage(respond = true, category = "addressed", needsRepoLookup = true),
+                decision = decisionStage(reply = true, driver = "triage"),
+                generate = generateStage(
+                    summary = "1 candidate · repo-grounded",
+                    candidates = listOf(candidate("В backend/src/main/kotlin/.../client/ChatCompletionDtos.kt — data class ChatCompletionRequest.", chosen = true)),
+                    extraFields = listOf(PipelineField("candidates", "1"), PipelineField("repoLookup", "used")),
+                ),
+                usage = listOf(gateCall(respond = true), repoReplyCall()),
+            ),
             // A reply where the model's JSON was malformed and the prompt was retried (new resilience feature).
             reply(
                 room, next(), sender = "eve", text = "@segfault оцени мой код",
@@ -215,6 +231,7 @@ class DevPipelineSeeder(
         category: String,
         needsFreshInfo: Boolean = false,
         needsSearch: Boolean = false,
+        needsRepoLookup: Boolean = false,
     ) = PipelineStage(
         key = "triage", label = "Triage", status = PipelineStageStatus.OK,
         summary = "respond=$respond · $category",
@@ -223,6 +240,7 @@ class DevPipelineSeeder(
             PipelineField("category", category),
             PipelineField("needsFreshInfo", needsFreshInfo.toString()),
             PipelineField("needsSearch", needsSearch.toString()),
+            PipelineField("needsRepoLookup", needsRepoLookup.toString()),
         ),
     )
 
@@ -270,6 +288,36 @@ class DevPipelineSeeder(
     private fun replyCall(tier: String = "cheap", tokens: Int = 320, tools: List<String> = emptyList()) = LlmCallUsage(
         tier = tier, model = "stub/cheap", tokens = tokens, tools = tools,
         requestPayload = requestJson("reply"), responsePayload = responseJson("…"),
+    )
+
+    /** A repo-lookup reply call: the model ran two client-tool rounds (search_code, then get_file)
+     *  before answering. The [toolCalls] capture each invocation's arguments and result so the
+     *  console can render the full tool-call exchange inline. */
+    private fun repoReplyCall(tokens: Int = 880) = LlmCallUsage(
+        tier = "repo", model = "anthropic/claude-3.5-sonnet", tokens = tokens,
+        tools = listOf("search_code", "get_file"),
+        toolCalls = listOf(
+            ToolCallEntry(
+                name = "search_code",
+                arguments = """{"query":"ChatCompletionRequest","repo":"sinair-llm-bot"}""",
+                result = "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt\n" +
+                    "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/LlmClient.kt",
+            ),
+            ToolCallEntry(
+                name = "get_file",
+                arguments = """{"repo":"sinair-llm-bot","path":"backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt"}""",
+                result = "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt:\n" +
+                    "data class ChatCompletionRequest(\n" +
+                    "    val model: String,\n" +
+                    "    val messages: List<ChatMessage>,\n" +
+                    "    val temperature: Double? = null,\n" +
+                    "    @JsonProperty(\"max_tokens\") val maxTokens: Int? = null,\n" +
+                    "    val tools: List<Tool>? = null,\n" +
+                    ")\n... [truncated]",
+            ),
+        ),
+        requestPayload = requestJson("reply with repo tools"),
+        responsePayload = responseJson("…"),
     )
 
     private fun criticCall() = LlmCallUsage(

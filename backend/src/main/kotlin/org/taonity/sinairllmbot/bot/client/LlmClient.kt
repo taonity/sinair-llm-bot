@@ -10,6 +10,7 @@ import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 
@@ -81,7 +82,7 @@ class LlmClient(
             return null
         }
         val citationUrls = message.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
-        recordCall(tierName, tier, response, rawResponse, requestJson, if (webSearch) listOf("web_search") else emptyList())
+        recordCall(tierName, tier, response, rawResponse, requestJson, if (webSearch) listOf("web_search") else emptyList(), emptyList())
         if (webSearch) {
             LOGGER.info {
                 val outcome = if (citationUrls.isEmpty()) "offered, no citations"
@@ -127,19 +128,32 @@ class LlmClient(
             val message = choice?.message
             val toolCalls = message?.toolCalls.orEmpty()
             totalTokens += response?.usage?.totalTokens ?: 0
-            recordCall(tierName, tier, response, rawResponse, requestJson, toolCalls.mapNotNull { it.function?.name })
 
+            // Execute each tool call the model asked for and capture a structured entry (name, args,
+            // result) so the console can render the full tool-call exchange without raw-payload digging.
+            val toolCallEntries = mutableListOf<ToolCallEntry>()
             if (offerTools && toolCalls.isNotEmpty()) {
                 // Echo the assistant's tool-call turn (without response-only annotations), then append
                 // each tool result so the model can read them on the next round.
                 conversation += ChatMessage(role = "assistant", content = message?.content, toolCalls = message?.toolCalls)
                 toolCalls.forEach { call ->
                     val name = call.function?.name.orEmpty()
-                    val result = runCatching { toolExecutor(name, call.function?.arguments.orEmpty()) }
-                        .getOrElse { "ERROR: tool '$name' failed: ${it.message}" }
+                    val args = call.function?.arguments.orEmpty()
+                    val (result, isError) = runCatching { toolExecutor(name, args) }
+                        .map { it to false }
+                        .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
+                    toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
                     LOGGER.info { "Repo tool '$name' executed -> ${result.length} chars" }
                 }
+            }
+            recordCall(
+                tierName, tier, response, rawResponse, requestJson,
+                toolCalls.mapNotNull { it.function?.name },
+                toolCallEntries,
+            )
+
+            if (offerTools && toolCalls.isNotEmpty()) {
                 continue
             }
 
@@ -201,6 +215,7 @@ class LlmClient(
         rawResponse: String?,
         requestJson: String,
         toolNames: List<String>,
+        toolCallEntries: List<ToolCallEntry>,
     ) {
         val usage = response?.usage
         LOGGER.info {
@@ -215,6 +230,7 @@ class LlmClient(
                 tools = toolNames,
                 requestPayload = requestJson,
                 responsePayload = rawResponse.orEmpty(),
+                toolCalls = toolCallEntries,
             ),
         )
     }

@@ -108,8 +108,17 @@ export interface LlmCallUsage {
   model: string
   tokens: number
   tools: string[]
+  toolCalls: ToolCallEntry[]
   hasRequestPayload: boolean
   hasResponsePayload: boolean
+}
+
+/** One client-tool call executed during an agentic LLM round (e.g. search_code, get_file). */
+export interface ToolCallEntry {
+  name: string
+  arguments: string
+  result: string
+  error: boolean
 }
 
 export interface JsonParseFailure {

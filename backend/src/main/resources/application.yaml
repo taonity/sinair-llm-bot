@@ -38,7 +38,7 @@ app:
       # LLM tier (see app.llm.tiers) used for repo-grounded replies — needs strong tool-use.
       tier: repo
       # Max tool-call rounds before the model must answer; caps latency and per-message cost.
-      max-rounds: 4
+      max-rounds: 16
       # Max code-search results returned to the model per search.
       max-search-results: 8
       # Max characters of a fetched file passed to the model (longer files are truncated).

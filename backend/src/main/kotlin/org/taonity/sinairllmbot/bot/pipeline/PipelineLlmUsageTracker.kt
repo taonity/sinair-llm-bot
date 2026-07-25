@@ -7,6 +7,11 @@ import java.util.Collections
  * One LLM call made during a pipeline run: which tier/model answered, its token cost, the
  * server-tool set it was offered (e.g. web_search), and the raw provider request/response payloads
  * (stored for later inspection in the console).
+ *
+ * [toolCalls] holds the structured client-tool invocations executed during an agentic
+ * ([org.taonity.sinairllmbot.bot.client.LlmClient.completeWithTools]) round: the tool name, the
+ * model's arguments JSON, and the result string we fed back. Empty for non-tool calls and for
+ * server-side tools (e.g. web_search) whose execution is opaque to us.
  */
 data class LlmCallUsage(
     val tier: String,
@@ -15,6 +20,20 @@ data class LlmCallUsage(
     val tools: List<String> = emptyList(),
     val requestPayload: String = "",
     val responsePayload: String = "",
+    val toolCalls: List<ToolCallEntry> = emptyList(),
+)
+
+/**
+ * One client-tool call executed during an agentic LLM round: the tool [name] the model asked for,
+ * its [arguments] JSON string, and the [result] string we returned to the model. [error] is set when
+ * the tool threw (the result then carries the `ERROR: ...` message). Compact and self-contained so
+ * the console can render the full tool-call exchange without opening the raw payloads.
+ */
+data class ToolCallEntry(
+    val name: String,
+    val arguments: String,
+    val result: String,
+    val error: Boolean = false,
 )
 
 /**

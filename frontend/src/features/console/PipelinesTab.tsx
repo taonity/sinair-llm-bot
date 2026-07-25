@@ -1,14 +1,21 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
-import type { JsonParseFailure, LlmCallUsage, PipelineRun, PipelineStage, PipelineStageStatus } from './types'
+import type {
+  JsonParseFailure,
+  LlmCallUsage,
+  PipelineRun,
+  PipelineStage,
+  PipelineStageStatus,
+  ToolCallEntry,
+} from './types'
 
 /** Dot colour per stage status, kept semantic so the flow strip reads at a glance. */
 const STATUS_DOT: Record<PipelineStageStatus, string> = {
@@ -193,19 +200,100 @@ function CallLinks({ runId, index, call }: { runId: string; index: number; call:
   )
 }
 
-/** Compact chip for a single-call tier (gate, triage, reply, critic…). */
+/** Pretty-prints a tool-call arguments JSON string, degrading to the raw string if not valid JSON. */
+function prettyArgs(args: string): string {
+  if (!args) return ''
+  try {
+    return JSON.stringify(JSON.parse(args), null, 2)
+  } catch {
+    return args
+  }
+}
+
+/** One tool-call entry: name header, arguments (pretty JSON), and the result we fed back. Compact,
+ *  scrollable, monospace — keeps even large file reads in a fixed-height box. */
+function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
+  return (
+    <div
+      className={cn(
+        'rounded border px-1.5 py-1',
+        entry.error ? 'border-red-500/40 bg-red-500/5' : 'border-border bg-background',
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        <Wrench className="size-3 text-sky-600" />
+        <span className="font-medium text-foreground/80">{entry.name}</span>
+        {entry.error && (
+          <span className="rounded bg-red-500/10 px-1 text-[10px] font-normal text-red-600">error</span>
+        )}
+      </div>
+      {entry.arguments && (
+        <div className="mt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">args</div>
+          <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-foreground/80">
+            {prettyArgs(entry.arguments)}
+          </pre>
+        </div>
+      )}
+      {entry.result && (
+        <div className="mt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">result</div>
+          <pre className="mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
+            {entry.result}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Renders the structured client-tool calls of an LLM round as a compact expandable list. The tool
+ *  names double as the toggle (click to reveal each call's arguments and result). Server-side tools
+ *  (web_search) have no `toolCalls` and render as a flat, non-interactive badge instead. */
+function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
+  const [open, setOpen] = useState(false)
+  if (calls.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-fit items-center gap-1 rounded bg-sky-500/10 px-1 py-0.5 text-[11px] text-sky-600 hover:bg-sky-500/20"
+      >
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        <Wrench className="size-3" />
+        {calls.length} tool call{calls.length === 1 ? '' : 's'}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1">
+          {calls.map((c, i) => (
+            <ToolCallRow key={i} entry={c} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Compact chip for a single-call tier (gate, triage, reply, critic…). When the call ran client
+ *  tools, the tool-call list expands below the chip so the full exchange stays inline. */
 function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
   const { call, index } = entry
+  const hasToolCalls = call.toolCalls.length > 0
   return (
-    <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-      <span className="font-medium text-foreground/80">{call.tier}</span>
-      <span>{call.model}</span>
-      <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
-      {call.tools.length > 0 && (
-        <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
-      )}
-      <CallLinks runId={runId} index={index} call={call} />
-    </span>
+    <div className="flex flex-col gap-1">
+      <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground/80">{call.tier}</span>
+        <span>{call.model}</span>
+        <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
+        {call.tools.length > 0 && (
+          <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+        )}
+        <CallLinks runId={runId} index={index} call={call} />
+      </span>
+      {hasToolCalls && <ToolCalls calls={call.toolCalls} />}
+    </div>
   )
 }
 
@@ -235,16 +323,19 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
         )}
       </button>
       {open && (
-        <ol className="ml-4 flex flex-col gap-1 border-l pl-2">
+        <ol className="ml-4 flex flex-col gap-1.5 border-l pl-2">
           {entries.map((e, i) => (
-            <li key={e.index} className="flex flex-wrap items-center gap-1.5">
-              <span className="tabular-nums text-foreground/50">#{i + 1}</span>
-              {models.length > 1 && <span>{e.call.model}</span>}
-              <span className="tabular-nums">{e.call.tokens.toLocaleString()} tok</span>
-              {e.call.tools.length > 0 && (
-                <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
-              )}
-              <CallLinks runId={runId} index={e.index} call={e.call} />
+            <li key={e.index} className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="tabular-nums text-foreground/50">#{i + 1}</span>
+                {models.length > 1 && <span>{e.call.model}</span>}
+                <span className="tabular-nums">{e.call.tokens.toLocaleString()} tok</span>
+                {e.call.tools.length > 0 && (
+                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
+                )}
+                <CallLinks runId={runId} index={e.index} call={e.call} />
+              </div>
+              {e.call.toolCalls.length > 0 && <ToolCalls calls={e.call.toolCalls} />}
             </li>
           ))}
         </ol>

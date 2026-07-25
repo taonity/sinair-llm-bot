@@ -4,6 +4,7 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.console.entity.AuditLogEntity
@@ -166,6 +167,7 @@ data class LlmCallUsageDto(
     val model: String = "",
     val tokens: Int = 0,
     val tools: List<String> = emptyList(),
+    val toolCalls: List<ToolCallEntryDto> = emptyList(),
     val hasRequestPayload: Boolean = false,
     val hasResponsePayload: Boolean = false,
 ) {
@@ -175,8 +177,26 @@ data class LlmCallUsageDto(
             model = u.model,
             tokens = u.tokens,
             tools = u.tools,
+            toolCalls = u.toolCalls.map(ToolCallEntryDto::from),
             hasRequestPayload = u.requestPayload.isNotBlank(),
             hasResponsePayload = u.responsePayload.isNotBlank(),
+        )
+    }
+}
+
+/** One client-tool call executed during an agentic LLM round, for console display. */
+data class ToolCallEntryDto(
+    val name: String = "",
+    val arguments: String = "",
+    val result: String = "",
+    val error: Boolean = false,
+) {
+    companion object {
+        fun from(t: ToolCallEntry) = ToolCallEntryDto(
+            name = t.name,
+            arguments = t.arguments,
+            result = t.result,
+            error = t.error,
         )
     }
 }
