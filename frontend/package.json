@@ -16,7 +16,7 @@
     "@base-ui/react": "^1.6.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@mui/material": "^9.2.0",
+    "@mui/material": "^6",
     "@textea/json-viewer": "^4.0.1",
     "@types/lodash": "^4.17.20",
     "class-variance-authority": "^0.7.1",
@@ -41,5 +41,11 @@
     "tailwindcss": "^4.3.2",
     "typescript": "6.0.3",
     "vitest": "^4.0.0"
+  },
+  "overrides": {
+    "@textea/json-viewer": {
+      "react": ">=17",
+      "react-dom": ">=17"
+    }
   }
 }

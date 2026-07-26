@@ -61,6 +61,19 @@ class DevPipelineSeeder(
         fun next() = minutesAgo++
 
         return listOf(
+            // A deliberately large, repetitive payload for testing the code viewer and caret matching.
+            reply(
+                room, next(), sender = "payload-tester", text = "@segfault payload viewer context test",
+                outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-payload-viewer",
+                triage = triageStage(respond = true, category = "addressed"),
+                decision = decisionStage(reply = true, driver = "triage"),
+                generate = generateStage(
+                    summary = "1 candidate · payload viewer fixture",
+                    candidates = listOf(candidate("The payload viewer fixture repeats context words for testing.", chosen = true)),
+                    extraFields = listOf(PipelineField("fixture", "large-payload")),
+                ),
+                usage = listOf(payloadViewerTestCall()),
+            ),
             // A plain reply: triage said respond, one candidate, critic disabled.
             reply(
                 room, next(), sender = "alice", text = "@segfault какая последняя версия node?",
@@ -326,6 +339,99 @@ class DevPipelineSeeder(
     private fun criticCall() = LlmCallUsage(
         tier = "critic", model = "stub/critic", tokens = 90, promptTokens = 70, completionTokens = 20,
         requestPayload = requestJson("critic"), responsePayload = responseJson("{\"scores\":[]}"),
+    )
+
+    private fun payloadViewerTestCall() = LlmCallUsage(
+        tier = "payload-test", model = "stub/payload-test", tokens = 1_240, promptTokens = 920, completionTokens = 320,
+        requestPayload = """
+            {
+              "model": "stub/payload-test",
+              "metadata": {
+                "fixture": "payload-viewer-context-fixture",
+                "context": "context context context",
+                "contextual": "contextual contextually recontextualized",
+                "subcontext": "subcontext context subcontext",
+                "labels": ["context", "contextual", "subcontext", "context"]
+              },
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "Use the supplied context. Keep context, contextual detail, and subcontext distinct."
+                },
+                {
+                  "role": "user",
+                  "content": "Summarize the context. Repeat context only when the contextual subcontext requires context.",
+                  "contextBlocks": [
+                    {
+                      "id": "context-001",
+                      "title": "Primary context",
+                      "text": "Context establishes the shared context for every contextual decision.",
+                      "tags": ["context", "shared-context", "contextual"]
+                    },
+                    {
+                      "id": "context-002",
+                      "title": "Nested subcontext",
+                      "text": "This subcontext repeats context context context and adds contextual metadata.",
+                      "tags": ["subcontext", "context", "recontextualized"]
+                    },
+                    {
+                      "id": "context-003",
+                      "title": "Context comparison",
+                      "text": "Compare context with contextual and noncontextual values in this context fixture.",
+                      "tags": ["context", "contextual", "noncontextual", "context"]
+                    }
+                  ]
+                }
+              ],
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "store_context",
+                    "description": "Stores context and subcontext for contextual follow-up.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "context": { "type": "string" },
+                        "subcontext": { "type": "string" },
+                        "contextual": { "type": "boolean" }
+                      },
+                      "required": ["context", "subcontext"]
+                    }
+                  }
+                }
+              ]
+            }
+        """.trimIndent(),
+        responsePayload = """
+            {
+              "id": "payload-viewer-response-001",
+              "choices": [
+                {
+                  "message": {
+                    "role": "assistant",
+                    "content": "The context is repeated in each subcontext so contextual comparisons can be tested.",
+                    "tool_calls": [
+                      {
+                        "id": "call_context_001",
+                        "type": "function",
+                        "function": {
+                          "name": "store_context",
+                          "arguments": "{\\"context\\":\\"context context context\\",\\"subcontext\\":\\"nested contextual subcontext\\",\\"contextual\\":true}"
+                        }
+                      }
+                    ]
+                  },
+                  "finish_reason": "tool_calls"
+                }
+              ],
+              "usage": {
+                "prompt_tokens": 920,
+                "completion_tokens": 320,
+                "total_tokens": 1240
+              }
+            }
+        """.trimIndent(),
     )
 
     private fun requestJson(kind: String) = "{\"model\":\"stub\",\"messages\":[{\"role\":\"user\",\"content\":\"$kind prompt\"}]}"
