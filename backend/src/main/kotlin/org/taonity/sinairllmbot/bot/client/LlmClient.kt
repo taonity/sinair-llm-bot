@@ -231,6 +231,8 @@ class LlmClient(
                 requestPayload = requestJson,
                 responsePayload = rawResponse.orEmpty(),
                 toolCalls = toolCallEntries,
+                promptTokens = usage?.promptTokens ?: 0,
+                completionTokens = usage?.completionTokens ?: 0,
             ),
         )
     }

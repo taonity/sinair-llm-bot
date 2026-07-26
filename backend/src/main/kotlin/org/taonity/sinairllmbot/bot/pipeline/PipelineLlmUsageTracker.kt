@@ -21,6 +21,10 @@ data class LlmCallUsage(
     val requestPayload: String = "",
     val responsePayload: String = "",
     val toolCalls: List<ToolCallEntry> = emptyList(),
+    /** Prompt (input) tokens billed for this call, from the provider's usage. */
+    val promptTokens: Int = 0,
+    /** Completion (output) tokens billed for this call, from the provider's usage. */
+    val completionTokens: Int = 0,
 )
 
 /**

@@ -131,17 +131,21 @@ cd frontend; npm install; npm run dev
 
 Frontend runs on port **3000**.
 
-### Chat collector + stubs
+### Chat stab
 
 ```bash
 cd chat-stubs; npm install; npm run dev
 ```
 
+### Chat collector
+
 ```bash
 cd chat-collector; npm install; npm run dev:local
 ```
 
-Point the collector at the real sinair.net server with `npm run dev:prod` (edit `.env.prod` first).
+```bash
+cd chat-collector; npm install; npm run dev:prod
+```
 
 ### Profiles
 
@@ -356,6 +360,7 @@ Create the shared networks required for the production environment:
 ```bash
 docker network create prodenv-shared-internal
 docker network create sinair-llm-bot-shared
+
 ```
 
 Run with images from Docker Hub:
@@ -365,6 +370,7 @@ Run with images from Docker Hub:
 mvn clean -P build-automation-docker-compose-project compile -DskipTests=true
 # Run the template. Make sure all required env vars are set.
 docker compose -f backend/target/docker/test/docker-compose.yml up -d
+
 ```
 
 Or build the images yourself:
@@ -377,6 +383,7 @@ npm install --prefix frontend/
 docker build -t sinair-llm-bot-frontend frontend/
 # Run the template
 docker compose -f templates/docker/docker-compose.yml up -d
+
 ```
 
 For Docker-based local development, use the override file:
@@ -384,6 +391,7 @@ For Docker-based local development, use the override file:
 ```bash
 cd templates/docker
 docker compose -f docker-compose.yml -f docker-compose.local.yml up
+
 ```
 
 ### Production environment
@@ -400,4 +408,3 @@ The release workflow gates production deployments with a manual approval on the 
 
 Without this, the `approve-prod` job passes automatically with no manual intervention.
 
-force repo lookup more

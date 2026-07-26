@@ -280,13 +280,15 @@ class DevPipelineSeeder(
     // --- LLM call builders ---
 
     private fun gateCall(respond: Boolean) = LlmCallUsage(
-        tier = "gate", model = "stub/gate", tokens = 18,
+        tier = "gate", model = "stub/gate", tokens = 18, promptTokens = 14, completionTokens = 4,
         requestPayload = requestJson("triage"),
         responsePayload = responseJson("{\"respond\": $respond}"),
     )
 
     private fun replyCall(tier: String = "cheap", tokens: Int = 320, tools: List<String> = emptyList()) = LlmCallUsage(
-        tier = tier, model = "stub/cheap", tokens = tokens, tools = tools,
+        tier = tier, model = "stub/cheap", tokens = tokens,
+        promptTokens = (tokens * 0.75).toInt(), completionTokens = tokens - (tokens * 0.75).toInt(),
+        tools = tools,
         requestPayload = requestJson("reply"), responsePayload = responseJson("…"),
     )
 
@@ -295,6 +297,7 @@ class DevPipelineSeeder(
      *  console can render the full tool-call exchange inline. */
     private fun repoReplyCall(tokens: Int = 880) = LlmCallUsage(
         tier = "repo", model = "anthropic/claude-3.5-sonnet", tokens = tokens,
+        promptTokens = 720, completionTokens = 160,
         tools = listOf("search_code", "get_file"),
         toolCalls = listOf(
             ToolCallEntry(
@@ -321,7 +324,7 @@ class DevPipelineSeeder(
     )
 
     private fun criticCall() = LlmCallUsage(
-        tier = "critic", model = "stub/critic", tokens = 90,
+        tier = "critic", model = "stub/critic", tokens = 90, promptTokens = 70, completionTokens = 20,
         requestPayload = requestJson("critic"), responsePayload = responseJson("{\"scores\":[]}"),
     )
 

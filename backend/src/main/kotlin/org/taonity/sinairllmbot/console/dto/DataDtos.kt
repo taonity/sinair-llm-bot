@@ -170,6 +170,8 @@ data class LlmCallUsageDto(
     val toolCalls: List<ToolCallEntryDto> = emptyList(),
     val hasRequestPayload: Boolean = false,
     val hasResponsePayload: Boolean = false,
+    val promptTokens: Int = 0,
+    val completionTokens: Int = 0,
 ) {
     companion object {
         fun from(u: LlmCallUsage) = LlmCallUsageDto(
@@ -180,6 +182,8 @@ data class LlmCallUsageDto(
             toolCalls = u.toolCalls.map(ToolCallEntryDto::from),
             hasRequestPayload = u.requestPayload.isNotBlank(),
             hasResponsePayload = u.responsePayload.isNotBlank(),
+            promptTokens = u.promptTokens,
+            completionTokens = u.completionTokens,
         )
     }
 }

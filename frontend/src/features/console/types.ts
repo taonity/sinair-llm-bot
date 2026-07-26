@@ -111,6 +111,10 @@ export interface LlmCallUsage {
   toolCalls: ToolCallEntry[]
   hasRequestPayload: boolean
   hasResponsePayload: boolean
+  /** Prompt (input) tokens billed for this call, from the provider's usage. */
+  promptTokens: number
+  /** Completion (output) tokens billed for this call, from the provider's usage. */
+  completionTokens: number
 }
 
 /** One client-tool call executed during an agentic LLM round (e.g. search_code, get_file). */

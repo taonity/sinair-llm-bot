@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
-import { formatTime } from './format'
+import { formatTime, formatTokens } from './format'
 import type {
   JsonParseFailure,
   LlmCallUsage,
@@ -69,6 +69,41 @@ function fieldsSummary(stages: PipelineStage[]): string {
 function shortModel(model: string): string {
   const slash = model.lastIndexOf('/')
   return slash >= 0 ? model.slice(slash + 1) : model
+}
+
+/**
+ * Compact in/out token split: `↓in ↑out` with `k`-abbreviation. Falls back to the legacy single
+ * `N tok` total when the provider didn't report a split (both fields zero but total non-zero).
+ * `↓` = prompt/input, `↑` = completion/output — the direction the tokens flow.
+ */
+function TokenSplit({
+  prompt,
+  completion,
+  total,
+  prefix,
+}: {
+  prompt: number
+  completion: number
+  total: number
+  /** Optional prefix shown before the split (e.g. "Σ" for group sums). */
+  prefix?: string
+}) {
+  const hasSplit = prompt > 0 || completion > 0
+  if (!hasSplit) {
+    return (
+      <span className="tabular-nums">
+        {prefix ? `${prefix} ` : ''}
+        {formatTokens(total)} tok
+      </span>
+    )
+  }
+  return (
+    <span className="tabular-nums" title={`${prompt.toLocaleString()} in · ${completion.toLocaleString()} out`}>
+      {prefix ? <span className="text-foreground/50">{prefix} </span> : null}
+      <span className="text-sky-600/80">↓{formatTokens(prompt)}</span>{' '}
+      <span className="text-emerald-600/80">↑{formatTokens(completion)}</span>
+    </span>
+  )
 }
 
 const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
@@ -286,7 +321,7 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
       <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
         <span className="font-medium text-foreground/80">{call.tier}</span>
         <span>{call.model}</span>
-        <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
+        <TokenSplit prompt={call.promptTokens} completion={call.completionTokens} total={call.tokens} />
         {call.tools.length > 0 && (
           <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
         )}
@@ -302,6 +337,8 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
 function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; entries: UsageEntry[] }) {
   const [open, setOpen] = useState(false)
   const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
+  const promptTokens = entries.reduce((sum, e) => sum + e.call.promptTokens, 0)
+  const completionTokens = entries.reduce((sum, e) => sum + e.call.completionTokens, 0)
   const models = Array.from(new Set(entries.map((e) => e.call.model)))
   const tools = Array.from(new Set(entries.flatMap((e) => e.call.tools)))
   return (
@@ -317,7 +354,7 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
           {tier} × {entries.length}
         </span>
         <span>{models.length === 1 ? models[0] : `${models.length} models`}</span>
-        <span className="tabular-nums">Σ {tokens.toLocaleString()} tok</span>
+        <TokenSplit prompt={promptTokens} completion={completionTokens} total={tokens} prefix="Σ" />
         {tools.length > 0 && (
           <span className="rounded bg-sky-500/10 px-1 text-sky-600">{tools.join(', ')}</span>
         )}
@@ -329,7 +366,11 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="tabular-nums text-foreground/50">#{i + 1}</span>
                 {models.length > 1 && <span>{e.call.model}</span>}
-                <span className="tabular-nums">{e.call.tokens.toLocaleString()} tok</span>
+                <TokenSplit
+                  prompt={e.call.promptTokens}
+                  completion={e.call.completionTokens}
+                  total={e.call.tokens}
+                />
                 {e.call.tools.length > 0 && (
                   <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
                 )}
@@ -346,6 +387,8 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
 
 /** Full detail shown when a pipeline row is expanded: every stage, its flags, and any alternatives. */
 function PipelineDetail({ run }: { run: PipelineRun }) {
+  const totalPrompt = run.llmUsage.reduce((s, u) => s + u.promptTokens, 0)
+  const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
     <div className="flex flex-col gap-3">
       {run.outcomeDetail && (
@@ -356,8 +399,14 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
       {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <div className="text-xs font-medium">
-            LLM usage · {run.totalTokens.toLocaleString()} tokens total
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+            <span>LLM usage</span>
+            <TokenSplit
+              prompt={totalPrompt}
+              completion={totalCompletion}
+              total={run.totalTokens}
+              prefix="Σ"
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {groupUsage(run.llmUsage).map((group, gi) =>
