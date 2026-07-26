@@ -7,8 +7,25 @@
 /* Legacy global reset removed: an unlayered `* { margin:0; padding:0 }`
    overrode Tailwind's layered utilities (px-*, mx-auto, etc.). */
 html {
-  scrollbar-gutter: stable;
   scroll-behavior: smooth;
+}
+
+.payload-active-line {
+  background-color: rgb(241 245 249);
+}
+
+.dark .payload-active-line {
+  background-color: rgb(32 34 36);
+}
+
+.payload-token-highlight {
+  background-color: rgb(191 219 254);
+  box-shadow: 0 -4px 0 rgb(147 197 253 / 0.65), 0 4px 0 rgb(147 197 253 / 0.65);
+}
+
+.dark .payload-token-highlight {
+  background-color: rgb(38 79 120 / 0.45);
+  box-shadow: 0 -4px 0 rgb(38 79 120 / 0.45), 0 4px 0 rgb(38 79 120 / 0.45);
 }
 
 /* Page layout */

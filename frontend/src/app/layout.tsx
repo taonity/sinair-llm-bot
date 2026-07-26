@@ -23,7 +23,7 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
-          <ThemeToggle className="fixed right-3 top-3 z-50" />
+          <ThemeToggle className="fixed right-3 top-3 z-50" hideOnPayload />
           <main>{children}</main>
         </ThemeProvider>
       </body>

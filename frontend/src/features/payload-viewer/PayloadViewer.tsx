@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode, SyntheticEvent } from 'react'
 import { AlertTriangle, Check, ChevronLeft, Copy, Eye, EyeOff, Maximize2, Minimize2, WrapText } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 interface PayloadViewerProps {
   runId: string
@@ -41,10 +42,6 @@ async function fetchPayload(path: string): Promise<Payload | null> {
 interface BracketPair {
   opening: number
   closing: number
-}
-
-const FULL_LINE_HIGHLIGHT_STYLE = {
-  boxShadow: '0 -4px 0 rgb(38 79 120 / 0.45), 0 4px 0 rgb(38 79 120 / 0.45)',
 }
 
 /** Finds matching structural brackets while ignoring all brackets inside JSON strings. */
@@ -120,7 +117,7 @@ function highlightWordOccurrences(text: string, activeWord: string | null, keyPr
 
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
-    nodes.push(<mark className="bg-[#264f78]/45 text-inherit" key={`${keyPrefix}-${match.index}`} style={FULL_LINE_HIGHLIGHT_STYLE}>{match[0]}</mark>)
+        nodes.push(<mark className="payload-token-highlight text-inherit" key={`${keyPrefix}-${match.index}`}>{match[0]}</mark>)
     lastIndex = match.index + match[0].length
   }
 
@@ -147,7 +144,7 @@ function highlightJsonLine(
       if ('{}[]()'.includes(part)) {
         const isActive = position === activePair?.opening || position === activePair?.closing
         tokens.push(
-          <span className={`text-[#e3b341] ${isActive ? 'bg-[#264f78]/45' : ''}`} key={`bracket-${position}`} style={isActive ? FULL_LINE_HIGHLIGHT_STYLE : undefined}>
+          <span className={`text-amber-700 dark:text-[#e3b341] ${isActive ? 'payload-token-highlight' : ''}`} key={`bracket-${position}`}>
             {part}
           </span>,
         )
@@ -163,8 +160,8 @@ function highlightJsonLine(
 
     const [token, stringValue, colon] = match
     const className = stringValue
-      ? colon ? 'text-[#7ee787]' : 'text-[#a5d6ff]'
-      : match[3] ? 'text-[#79c0ff]' : 'text-[#d2a8ff]'
+      ? colon ? 'text-emerald-700 dark:text-[#7ee787]' : 'text-sky-700 dark:text-[#a5d6ff]'
+      : match[3] ? 'text-blue-700 dark:text-[#79c0ff]' : 'text-violet-700 dark:text-[#d2a8ff]'
     tokens.push(
       <span className={className} key={`${match.index}-${token}`}>
         {highlightWordOccurrences(token, activeWord, `token-${lineOffset + match.index}`)}
@@ -238,10 +235,10 @@ function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: b
         const guideCount = indentationLevel(line)
         lineOffset += line.length + 1
         return (
-          <div className={`grid min-h-[22px] ${wrapLines ? 'grid-cols-[2.75rem_minmax(0,1fr)]' : 'grid-cols-[2.75rem_auto]'} ${activeLineStart === currentLineOffset ? 'bg-[#202224]' : ''}`} key={`${index}-${line}`}>
-            <span className="select-none pr-2 text-right text-[#6e7681]" contentEditable={false}>{index + 1}</span>
+          <div className={`grid min-h-[22px] ${wrapLines ? 'grid-cols-[2.75rem_minmax(0,1fr)]' : 'grid-cols-[2.75rem_auto]'} ${activeLineStart === currentLineOffset ? 'payload-active-line' : ''}`} key={`${index}-${line}`}>
+            <span className="select-none pr-2 text-right text-slate-400 dark:text-[#6e7681]" contentEditable={false}>{index + 1}</span>
             <code
-              className={`relative block pl-3 text-[#c9d1d9] ${wrapLines ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}
+              className={`relative block pl-3 text-slate-800 dark:text-[#c9d1d9] ${wrapLines ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}
               data-line-start={currentLineOffset}
               style={wrapLines ? { paddingLeft: `calc(0.75rem + ${indentation}ch)`, textIndent: `-${indentation}ch` } : undefined}
             >
@@ -250,8 +247,8 @@ function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: b
                   aria-hidden="true"
                   className={`pointer-events-none absolute inset-y-0 w-px ${
                     activePair && guide === activeGuide && currentLineOffset > activePair.opening && currentLineOffset <= activePair.closing
-                      ? 'bg-[#8b949e]/80'
-                      : 'bg-[#30363d]/75'
+                      ? 'bg-slate-400/80 dark:bg-[#8b949e]/80'
+                      : 'bg-slate-200 dark:bg-[#30363d]/75'
                   }`}
                   contentEditable={false}
                   key={`guide-${guide}`}
@@ -293,24 +290,24 @@ function PayloadPanel({ copied, label, onCopy, payload, wrapLines }: PayloadPane
 
   return (
     <div className="flex min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-[#3f3f46] bg-[#27272a] px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-[#a1a1aa]">
-        <span className={`size-2 rounded-full ${isRequest ? 'bg-[#58a6ff]' : 'bg-[#3fb950]'}`} />
+      <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className={`size-2 rounded-full ${isRequest ? 'bg-sky-500' : 'bg-emerald-500'}`} />
         <span>{label}</span>
-        {!payload && <span className="text-[#6e7681]">— not available</span>}
+        {!payload && <span className="text-muted-foreground">— not available</span>}
         {payload && (
           <button
             type="button"
             onClick={onCopy}
-            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 normal-case tracking-normal text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-[#e4e4e7]"
+            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 normal-case tracking-normal text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             title={`Copy ${label.toLowerCase()} payload`}
           >
-            {copied ? <Check className="size-3 text-[#3fb950]" /> : <Copy className="size-3" />}
+            {copied ? <Check className="size-3 text-emerald-600 dark:text-[#3fb950]" /> : <Copy className="size-3" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-auto bg-[#18181b] font-mono text-[13px] leading-[22px]">
-        {payload ? <JsonCodeViewer payload={payload} wrapLines={wrapLines} /> : <div className="p-3 italic text-[#6e7681]">No {label.toLowerCase()} data</div>}
+      <div className="flex-1 overflow-auto bg-background font-mono text-[13px] leading-[22px]">
+        {payload ? <JsonCodeViewer payload={payload} wrapLines={wrapLines} /> : <div className="p-3 italic text-muted-foreground">No {label.toLowerCase()} data</div>}
       </div>
     </div>
   )
@@ -333,7 +330,7 @@ function ResizeHandle({ isResizing, onKeyDown, onPointerDown, onPointerMove, onP
       aria-valuemax={80}
       aria-valuemin={20}
       aria-valuenow={Math.round(splitPercent)}
-      className={`group relative cursor-col-resize touch-none outline-none ${isResizing ? 'bg-[#58a6ff]/20' : 'hover:bg-[#58a6ff]/10 focus-visible:bg-[#58a6ff]/10'}`}
+      className={`group relative cursor-col-resize touch-none outline-none ${isResizing ? 'bg-sky-500/20' : 'hover:bg-sky-500/10 focus-visible:bg-sky-500/10'}`}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -341,7 +338,7 @@ function ResizeHandle({ isResizing, onKeyDown, onPointerDown, onPointerMove, onP
       role="separator"
       tabIndex={0}
     >
-      <span className={`pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${isResizing ? 'bg-[#58a6ff]' : 'bg-[#30363d] group-hover:bg-[#58a6ff] group-focus-visible:bg-[#58a6ff]'}`} />
+      <span className={`pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${isResizing ? 'bg-sky-500' : 'bg-border group-hover:bg-sky-500 group-focus-visible:bg-sky-500'}`} />
     </div>
   )
 }
@@ -415,22 +412,23 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
   const bothPanelsVisible = showReq && showRes
 
   return (
-    <div className={fullscreen ? 'fixed inset-0 z-50 flex flex-col bg-[#18181b]' : 'fixed inset-0 flex flex-col bg-[#18181b]'}>
-      <header className="flex shrink-0 items-center gap-3 border-b border-[#3f3f46] bg-[#27272a] px-3 py-1.5 text-[13px]">
-        <a href="/" className="flex items-center gap-1 text-[#8b949e] hover:text-[#c9d1d9]"><ChevronLeft className="size-3.5" />Back</a>
-        <span className="h-3 w-px bg-[#30363d]" />
-        <span className="font-medium text-[#c9d1d9]">LLM Payloads</span>
-        <span className="text-[#8b949e]">run {runId.slice(0, 8)}… / #{index}</span>
+    <div className={fullscreen ? 'fixed inset-0 z-50 flex flex-col bg-background text-foreground' : 'fixed inset-0 flex flex-col bg-background text-foreground'}>
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted/50 px-3 py-1.5 text-[13px]">
+        <a href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" />Back</a>
+        <span className="h-3 w-px bg-border" />
+        <span className="font-medium">LLM Payloads</span>
+        <span className="text-muted-foreground">run {runId.slice(0, 8)}… / #{index}</span>
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setShowReq((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-[#e4e4e7]" title={showReq ? 'Hide request' : 'Show request'}>{showReq ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Req</button>
-          <button type="button" onClick={() => setShowRes((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-[#e4e4e7]" title={showRes ? 'Hide response' : 'Show response'}>{showRes ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Res</button>
-          <button type="button" onClick={() => setWrapLines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-[#3f3f46] ${wrapLines ? 'text-[#e4e4e7]' : 'text-[#a1a1aa]'}`} title={wrapLines ? 'Disable line wrapping' : 'Wrap long lines'}><WrapText className="size-3" />Wrap</button>
-          <span className="h-3 w-px bg-[#30363d]" />
-          <button type="button" onClick={() => setFullscreen((value) => !value)} className="rounded px-1.5 py-0.5 text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-[#e4e4e7]" title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>{fullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}</button>
+          <button type="button" onClick={() => setShowReq((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showReq ? 'Hide request' : 'Show request'}>{showReq ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Req</button>
+          <button type="button" onClick={() => setShowRes((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showRes ? 'Hide response' : 'Show response'}>{showRes ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Res</button>
+          <button type="button" onClick={() => setWrapLines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${wrapLines ? 'text-foreground' : 'text-muted-foreground'}`} title={wrapLines ? 'Disable line wrapping' : 'Wrap long lines'}><WrapText className="size-3" />Wrap</button>
+          <span className="h-3 w-px bg-border" />
+          <ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-accent-foreground" />
+          <button type="button" onClick={() => setFullscreen((value) => !value)} className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>{fullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}</button>
         </div>
       </header>
 
-      {state.error && <div className="flex items-center gap-2 border-b border-[#da3633]/40 bg-[#da3633]/10 px-3 py-1.5 text-sm text-[#ff7b72]"><AlertTriangle className="size-4" />{state.error}</div>}
+      {state.error && <div className="flex items-center gap-2 border-b border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm text-destructive"><AlertTriangle className="size-4" />{state.error}</div>}
 
       {state.loading ? (
         <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-2"><JsonViewSkeleton /><JsonViewSkeleton /></div>
