@@ -207,31 +207,19 @@ function groupUsage(usage: LlmCallUsage[]): { tier: string; entries: UsageEntry[
   return groups
 }
 
-/** The "request"/"response" raw-payload links for a single call, keyed by its original index. */
+/** Link to the full-screen payload viewer for a single call, keyed by its original index. */
 function CallLinks({ runId, index, call }: { runId: string; index: number; call: LlmCallUsage }) {
+  const hasAny = call.hasRequestPayload || call.hasResponsePayload
+  if (!hasAny) return null
   return (
-    <>
-      {call.hasRequestPayload && (
-        <a
-          href={`/api/console/pipeline-runs/${encodeURIComponent(runId)}/llm-usage/${index}/request`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-        >
-          request
-        </a>
-      )}
-      {call.hasResponsePayload && (
-        <a
-          href={`/api/console/pipeline-runs/${encodeURIComponent(runId)}/llm-usage/${index}/response`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-        >
-          response
-        </a>
-      )}
-    </>
+    <a
+      href={`/view/payload/${encodeURIComponent(runId)}/${index}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+    >
+      view payloads
+    </a>
   )
 }
 

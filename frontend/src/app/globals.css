@@ -60,6 +60,36 @@ html {
   background: #3367d6;
 }
 
+/* ── Payload Viewer ─────────────────────────────────────── */
+
+/* Line numbers via CSS counter on root-level JSON viewer items */
+.json-viewer-lines ul.json-viewer {
+  counter-reset: json-line;
+}
+.json-viewer-lines ul.json-viewer > li {
+  counter-increment: json-line;
+  padding-left: 0 !important;
+}
+.json-viewer-lines ul.json-viewer > li::before {
+  content: counter(json-line);
+  display: inline-block;
+  width: 2.8em;
+  min-width: 2.8em;
+  text-align: right;
+  padding-right: 1em;
+  color: #6e7681;
+  user-select: none;
+  white-space: pre;
+}
+
+/* Remove padding on the JSON viewer container inside the viewer */
+.json-viewer-lines .json-viewer {
+  padding: 0 !important;
+}
+.json-viewer-lines .json-viewer li ul {
+  padding-left: 1.5em !important;
+}
+
 .login-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
