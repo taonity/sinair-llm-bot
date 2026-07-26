@@ -75,6 +75,10 @@ class ReplyPromptBuilder(
             append("a statement, not a trailing question — only ask a clarifying question when you ")
             append("genuinely can't proceed without a missing detail. ")
             append("To address someone, mention them with @nick.")
+            append(" Never delegate a task to another user, and never ask the user to perform a ")
+            append("step, run a command, check something, or finish the task because you failed to ")
+            append("do it or cannot do it. Make the best effort yourself and report limitations plainly ")
+            append("without turning them into instructions for the user.")
             if (emojiCatalog.promptList.isNotBlank()) {
                 append("\n\nEMOJI: You mostly write plain text. If a smiley genuinely adds something, ")
                 append("you may use ONLY these codes, exactly as written: ").append(emojiCatalog.promptList)

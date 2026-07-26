@@ -113,6 +113,17 @@ class LlmClient(
 
         for (round in 0..maxRounds) {
             val offerTools = round < maxRounds
+            if (!offerTools) {
+                conversation += ChatMessage.user(
+                    "The repository investigation has reached its tool-call limit. Now wrap up " +
+                        "the answer for the user in plain text suitable for chat. Be concise: say " +
+                        "what repositories, files, paths or search terms you checked; what you found; " +
+                        "and, when relevant, what was close or inconclusive. Never claim that a file, " +
+                        "feature or behavior does not exist merely because you did not find it. Say " +
+                        "that you did not find enough evidence, or that the search was inconclusive, " +
+                        "and state where you looked.",
+                )
+            }
             val request = ChatCompletionRequest(
                 model = tier.model,
                 messages = conversation.toList(),
