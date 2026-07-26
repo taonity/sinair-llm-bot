@@ -16,9 +16,8 @@ import java.time.Duration
 import java.util.Base64
 
 /**
- * Read-only GitHub REST client scoped to one organization. It only issues GET requests and the
- * organization is fixed from [GithubProperties.org] (never taken from the model), so a lookup can
- * never reach a repository outside it. Backs the agentic repo-lookup tools (search_code/get_file).
+ * Read-only GitHub REST client. It only issues GET requests and accepts public repositories, while
+ * retaining the configured organization as the default scope. Backs the agentic repo tools.
  */
 @Component
 class GithubCodeClient(
@@ -44,13 +43,14 @@ class GithubCodeClient(
         .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
         .build()
 
-    /** Searches code across the organization. An optional [repo] narrows it to one repository. */
+    /** Searches code across GitHub. An optional [repo] narrows it to owner/repository. */
     fun searchCode(query: String, repo: String?): List<CodeHit> {
         val scope = buildString {
             append(query.trim())
-            append(" org:").append(properties.org)
-            repo?.takeIf { it.isNotBlank() }
-                ?.let { append(" repo:").append(properties.org).append('/').append(sanitizeRepo(it)) }
+            repo?.takeIf { it.isNotBlank() }?.let {
+                val target = sanitizeRepository(it)
+                append(" repo:").append(target.owner).append('/').append(target.name)
+            } ?: append(" org:").append(properties.org)
         }
         val response = restClient.get()
             .uri { builder ->
@@ -70,13 +70,13 @@ class GithubCodeClient(
 
     /** Reads a file (or lists a directory) on the given [ref] (default branch when null). */
     fun getFile(repo: String, path: String, ref: String?): FileContent {
-        val safeRepo = sanitizeRepo(repo)
+        val safeRepo = sanitizeRepository(repo)
         val safePath = sanitizePath(path)
         val encodedPath = safePath.split('/').filter { it.isNotEmpty() }
             .joinToString("/") { UriUtils.encodePathSegment(it, StandardCharsets.UTF_8) }
         val body = restClient.get()
             .uri { builder ->
-                builder.path("/repos/").path(properties.org).path("/").path(safeRepo)
+                builder.path("/repos/").path(safeRepo.owner).path("/").path(safeRepo.name)
                     .path("/contents/").path(encodedPath)
                 if (!ref.isNullOrBlank()) builder.queryParam("ref", ref)
                 builder.build()
@@ -110,11 +110,14 @@ class GithubCodeClient(
         properties.token?.takeIf { it.isNotBlank() }?.let { headers.setBearerAuth(it) }
     }
 
-    /** Rejects anything that isn't a bare repo name; tolerates a leading "org/" the model may add. */
-    private fun sanitizeRepo(repo: String): String {
-        val name = repo.trim().substringAfterLast('/')
-        require(name.isNotBlank() && REPO_PATTERN.matches(name)) { "invalid repository name: $repo" }
-        return name
+    private fun sanitizeRepository(repo: String): RepositoryRef {
+        val parts = repo.trim().trim('/').split('/')
+        val owner = parts.getOrNull(parts.size - 2)?.takeIf { parts.size >= 2 } ?: properties.org
+        val name = parts.lastOrNull().orEmpty()
+        require(parts.size in 1..2 && REPO_PATTERN.matches(owner) && name.isNotBlank() && REPO_PATTERN.matches(name)) {
+            "invalid repository name: $repo"
+        }
+        return RepositoryRef(owner, name)
     }
 
     /** Normalizes a repo-relative path and blocks traversal segments. */
@@ -125,6 +128,8 @@ class GithubCodeClient(
     }
 
     data class CodeHit(val repo: String, val path: String, val url: String?)
+
+    private data class RepositoryRef(val owner: String, val name: String)
 
     data class FileContent(
         val path: String,

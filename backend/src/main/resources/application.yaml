@@ -22,8 +22,8 @@ app:
     # Upper bound on page size for console list endpoints (requested sizes are clamped to this).
     max-page-size: 100
   github:
-    # GitHub organization whose repositories the bot may read. Code-awareness lookups are scoped to
-    # it server-side, so a lookup can never reach a repository outside this organization.
+    # Default GitHub organization for code-awareness searches. Public repositories outside it may
+    # also be read when the model supplies an owner/repository target.
     org: taonity
     # Read-only GitHub token (fine-grained PAT or App installation token, Contents+Metadata: read).
     # Blank = unauthenticated: still works for public repos but is rate-limited and cannot search code.

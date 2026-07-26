@@ -11,7 +11,7 @@ import tools.jackson.databind.ObjectMapper
  *
  * Two tools back the code-awareness feature: `search_code` finds where something lives and
  * `get_file` reads a specific file (or lists a directory). Results are returned as plain text for
- * the model to ground its reply in; every call is read-only and scoped to the configured org.
+ * the model to ground its reply in; every call is read-only and accepts public repositories.
  */
 @Service
 class GithubToolService(
@@ -32,8 +32,9 @@ class GithubToolService(
     fun toolDefinitions(): List<Tool> = listOf(
         Tool.function(
             name = "search_code",
-            description = "Search source code across the '${properties.org}' GitHub organization's " +
-                "repositories. Returns matching repo/path locations. Use concrete symbols, function " +
+            description = "Search source code across public GitHub repositories. By default searches " +
+                "the '${properties.org}' organization; use owner/repository for another public repo. " +
+                "Returns matching repo/path locations. Use concrete symbols, function " +
                 "or class names, config keys or literal strings for best results.",
             parameters = mapOf(
                 "type" to "object",
@@ -44,7 +45,7 @@ class GithubToolService(
                     ),
                     "repo" to mapOf(
                         "type" to "string",
-                        "description" to "Optional repository name to restrict the search to.",
+                        "description" to "Optional repository name, or owner/repository, to restrict the search to.",
                     ),
                 ),
                 "required" to listOf("query"),
@@ -52,14 +53,15 @@ class GithubToolService(
         ),
         Tool.function(
             name = "get_file",
-            description = "Read a file, or list a directory, from a repository in the " +
-                "'${properties.org}' organization. Read-only; defaults to the repository's default branch.",
+            description = "Read a file, or list a directory, from a public GitHub repository. Use " +
+                "owner/repository for repos outside '${properties.org}'. Read-only; defaults to the " +
+                "repository's default branch.",
             parameters = mapOf(
                 "type" to "object",
                 "properties" to mapOf(
                     "repo" to mapOf(
                         "type" to "string",
-                        "description" to "Repository name within the organization.",
+                        "description" to "Repository name, or owner/repository for a public repo.",
                     ),
                     "path" to mapOf(
                         "type" to "string",

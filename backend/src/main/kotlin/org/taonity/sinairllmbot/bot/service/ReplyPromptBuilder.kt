@@ -117,9 +117,10 @@ class ReplyPromptBuilder(
             }
             if (repoLookup) {
                 append("\n\nREPOSITORY ACCESS:\n")
-                append("You can read the source code, configuration and structure of this project and ")
-                append("the other repositories in the '").append(githubProperties.org)
-                append("' GitHub organization using the provided read-only tools. When the question is ")
+                append("You can read public GitHub repositories, including this project and every ")
+                append("repository in the '").append(githubProperties.org)
+                append("' GitHub organization, using the provided read-only tools. The bot's project ")
+                append("is taonity/sinair-llm-bot. When the question is ")
                 append("about the code or configs, first search for the relevant code, then open the ")
                 append("specific files you need, and answer from what you actually read — cite the repo ")
                 append("and file path when it matters. Keep tool use minimal and only when the question ")
