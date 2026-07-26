@@ -174,7 +174,7 @@ app:
         - webp
         - bmp
   bot:
-    enabled: ${BOT_ENABLED}
+    enabled: ${BOT_ENABLED:true}
     rooms: '${BOT_ROOMS}'
     persona:
       name: segfault
