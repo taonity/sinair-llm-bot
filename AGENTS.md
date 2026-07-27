@@ -25,7 +25,7 @@ mvn clean install
 mvn -pl backend spring-boot:run '-Dspring-boot.run.jvmArguments="-Dspring.profiles.active=h2,stub-google,local"'
 
 # Run frontend
-cd frontend && npm install && npm run dev
+cd frontend; npm install; npm run dev
 ```
 
 Backend runs on port **8080**, frontend on **3000**.

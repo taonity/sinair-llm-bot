@@ -1,6 +1,7 @@
 'use client'
 
 import { Monitor, Moon, Sun } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useTheme, type Theme } from './ThemeProvider'
 
@@ -16,8 +17,11 @@ const NEXT_LABEL: Record<Theme, string> = {
  * A single button that cycles the theme selection: system → light → dark → system.
  * The icon reflects the current selection (monitor for system, sun for light, moon for dark).
  */
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className, hideOnPayload = false }: { className?: string; hideOnPayload?: boolean }) {
   const { theme, setTheme } = useTheme()
+  const pathname = usePathname()
+
+  if (hideOnPayload && pathname.startsWith('/view/payload/')) return null
 
   const cycle = () => {
     const currentIndex = ORDER.indexOf(theme)

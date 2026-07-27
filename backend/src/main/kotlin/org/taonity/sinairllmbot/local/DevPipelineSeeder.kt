@@ -14,6 +14,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
@@ -60,6 +61,19 @@ class DevPipelineSeeder(
         fun next() = minutesAgo++
 
         return listOf(
+            // A deliberately large, repetitive payload for testing the code viewer and caret matching.
+            reply(
+                room, next(), sender = "payload-tester", text = "@segfault payload viewer context test",
+                outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-payload-viewer",
+                triage = triageStage(respond = true, category = "addressed"),
+                decision = decisionStage(reply = true, driver = "triage"),
+                generate = generateStage(
+                    summary = "1 candidate · payload viewer fixture",
+                    candidates = listOf(candidate("The payload viewer fixture repeats context words for testing.", chosen = true)),
+                    extraFields = listOf(PipelineField("fixture", "large-payload")),
+                ),
+                usage = listOf(payloadViewerTestCall()),
+            ),
             // A plain reply: triage said respond, one candidate, critic disabled.
             reply(
                 room, next(), sender = "alice", text = "@segfault какая последняя версия node?",
@@ -120,6 +134,21 @@ class DevPipelineSeeder(
                     extraFields = listOf(PipelineField("candidates", "1")),
                 ),
                 usage = listOf(gateCall(respond = true), replyCall(tokens = 620, tools = listOf("web_search"))),
+            ),
+            // A reply that needed the project's own code, so the reply model ran the agentic repo
+            // tool loop (search_code → get_file) before answering. The tool calls are captured
+            // structurally and shown inline in the console's LLM-usage chip.
+            reply(
+                room, next(), sender = "frank", text = "@segfault где у нас описан ChatCompletionRequest?",
+                outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-6",
+                triage = triageStage(respond = true, category = "addressed", needsRepoLookup = true),
+                decision = decisionStage(reply = true, driver = "triage"),
+                generate = generateStage(
+                    summary = "1 candidate · repo-grounded",
+                    candidates = listOf(candidate("В backend/src/main/kotlin/.../client/ChatCompletionDtos.kt — data class ChatCompletionRequest.", chosen = true)),
+                    extraFields = listOf(PipelineField("candidates", "1"), PipelineField("repoLookup", "used")),
+                ),
+                usage = listOf(gateCall(respond = true), repoReplyCall()),
             ),
             // A reply where the model's JSON was malformed and the prompt was retried (new resilience feature).
             reply(
@@ -215,6 +244,7 @@ class DevPipelineSeeder(
         category: String,
         needsFreshInfo: Boolean = false,
         needsSearch: Boolean = false,
+        needsRepoLookup: Boolean = false,
     ) = PipelineStage(
         key = "triage", label = "Triage", status = PipelineStageStatus.OK,
         summary = "respond=$respond · $category",
@@ -223,6 +253,7 @@ class DevPipelineSeeder(
             PipelineField("category", category),
             PipelineField("needsFreshInfo", needsFreshInfo.toString()),
             PipelineField("needsSearch", needsSearch.toString()),
+            PipelineField("needsRepoLookup", needsRepoLookup.toString()),
         ),
     )
 
@@ -262,19 +293,145 @@ class DevPipelineSeeder(
     // --- LLM call builders ---
 
     private fun gateCall(respond: Boolean) = LlmCallUsage(
-        tier = "gate", model = "stub/gate", tokens = 18,
+        tier = "gate", model = "stub/gate", tokens = 18, promptTokens = 14, completionTokens = 4,
         requestPayload = requestJson("triage"),
         responsePayload = responseJson("{\"respond\": $respond}"),
     )
 
     private fun replyCall(tier: String = "cheap", tokens: Int = 320, tools: List<String> = emptyList()) = LlmCallUsage(
-        tier = tier, model = "stub/cheap", tokens = tokens, tools = tools,
+        tier = tier, model = "stub/cheap", tokens = tokens,
+        promptTokens = (tokens * 0.75).toInt(), completionTokens = tokens - (tokens * 0.75).toInt(),
+        tools = tools,
         requestPayload = requestJson("reply"), responsePayload = responseJson("…"),
     )
 
+    /** A repo-lookup reply call: the model ran two client-tool rounds (search_code, then get_file)
+     *  before answering. The [toolCalls] capture each invocation's arguments and result so the
+     *  console can render the full tool-call exchange inline. */
+    private fun repoReplyCall(tokens: Int = 880) = LlmCallUsage(
+        tier = "repo", model = "anthropic/claude-3.5-sonnet", tokens = tokens,
+        promptTokens = 720, completionTokens = 160,
+        tools = listOf("search_code", "get_file"),
+        toolCalls = listOf(
+            ToolCallEntry(
+                name = "search_code",
+                arguments = """{"query":"ChatCompletionRequest","repo":"sinair-llm-bot"}""",
+                result = "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt\n" +
+                    "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/LlmClient.kt",
+            ),
+            ToolCallEntry(
+                name = "get_file",
+                arguments = """{"repo":"sinair-llm-bot","path":"backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt"}""",
+                result = "sinair-llm-bot/backend/src/main/kotlin/org/taonity/sinairllmbot/bot/client/ChatCompletionDtos.kt:\n" +
+                    "data class ChatCompletionRequest(\n" +
+                    "    val model: String,\n" +
+                    "    val messages: List<ChatMessage>,\n" +
+                    "    val temperature: Double? = null,\n" +
+                    "    @JsonProperty(\"max_tokens\") val maxTokens: Int? = null,\n" +
+                    "    val tools: List<Tool>? = null,\n" +
+                    ")\n... [truncated]",
+            ),
+        ),
+        requestPayload = requestJson("reply with repo tools"),
+        responsePayload = responseJson("…"),
+    )
+
     private fun criticCall() = LlmCallUsage(
-        tier = "critic", model = "stub/critic", tokens = 90,
+        tier = "critic", model = "stub/critic", tokens = 90, promptTokens = 70, completionTokens = 20,
         requestPayload = requestJson("critic"), responsePayload = responseJson("{\"scores\":[]}"),
+    )
+
+    private fun payloadViewerTestCall() = LlmCallUsage(
+        tier = "payload-test", model = "stub/payload-test", tokens = 1_240, promptTokens = 920, completionTokens = 320,
+        requestPayload = """
+            {
+              "model": "stub/payload-test",
+              "metadata": {
+                "fixture": "payload-viewer-context-fixture",
+                "context": "context context context",
+                "contextual": "contextual contextually recontextualized",
+                "subcontext": "subcontext context subcontext",
+                "labels": ["context", "contextual", "subcontext", "context"]
+              },
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "Use the supplied context. Keep context, contextual detail, and subcontext distinct."
+                },
+                {
+                  "role": "user",
+                  "content": "Summarize the context. Repeat context only when the contextual subcontext requires context.",
+                  "contextBlocks": [
+                    {
+                      "id": "context-001",
+                      "title": "Primary context",
+                      "text": "Context establishes the shared context for every contextual decision.",
+                      "tags": ["context", "shared-context", "contextual"]
+                    },
+                    {
+                      "id": "context-002",
+                      "title": "Nested subcontext",
+                      "text": "This subcontext repeats context context context and adds contextual metadata.",
+                      "tags": ["subcontext", "context", "recontextualized"]
+                    },
+                    {
+                      "id": "context-003",
+                      "title": "Context comparison",
+                      "text": "Compare context with contextual and noncontextual values in this context fixture.",
+                      "tags": ["context", "contextual", "noncontextual", "context"]
+                    }
+                  ]
+                }
+              ],
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "store_context",
+                    "description": "Stores context and subcontext for contextual follow-up.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "context": { "type": "string" },
+                        "subcontext": { "type": "string" },
+                        "contextual": { "type": "boolean" }
+                      },
+                      "required": ["context", "subcontext"]
+                    }
+                  }
+                }
+              ]
+            }
+        """.trimIndent(),
+        responsePayload = """
+            {
+              "id": "payload-viewer-response-001",
+              "choices": [
+                {
+                  "message": {
+                    "role": "assistant",
+                    "content": "The context is repeated in each subcontext so contextual comparisons can be tested.",
+                    "tool_calls": [
+                      {
+                        "id": "call_context_001",
+                        "type": "function",
+                        "function": {
+                          "name": "store_context",
+                          "arguments": "{\\"context\\":\\"context context context\\",\\"subcontext\\":\\"nested contextual subcontext\\",\\"contextual\\":true}"
+                        }
+                      }
+                    ]
+                  },
+                  "finish_reason": "tool_calls"
+                }
+              ],
+              "usage": {
+                "prompt_tokens": 920,
+                "completion_tokens": 320,
+                "total_tokens": 1240
+              }
+            }
+        """.trimIndent(),
     )
 
     private fun requestJson(kind: String) = "{\"model\":\"stub\",\"messages\":[{\"role\":\"user\",\"content\":\"$kind prompt\"}]}"

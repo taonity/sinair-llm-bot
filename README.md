@@ -7,40 +7,46 @@ regular chat participant — witty, opinionated, broadly knowledgeable, and deli
 The project also ships a **data console**: a web dashboard (Google login) for operators to inspect
 collected chat data, edit room summaries, and manage who has access.
 
+[Jump to Running locally](#backend)
+
 ## Using the bot in chat
 
 The bot joins as a normal member (persona nick **`segfault`**). Here is what a chat user should know.
 
 ### When it replies
+
 - It does **not** answer every message. A free heuristic filter drops obvious noise, a cheap LLM
-  "gate" call judges ambiguous cases, and only then does it generate a reply.
+   "gate" call judges ambiguous cases, and only then does it generate a reply.
 - **Address it directly** by nick or an alias — `segfault`, `сега`, `сегвульт` (whole-word; `@nick`
-  works too) — and it will almost always answer.
+   works too) — and it will almost always answer.
 - It also reacts to **indirect** prompts: direct follow-ups or replies to its own last message, and
-  questions it is clearly and specifically expected to answer.
+   questions it is clearly and specifically expected to answer.
 - It will speak up to **correct genuine misinformation** — a clear, checkable factual falsehood that
-  could mislead people (facts only, not opinions, jokes or debatable takes).
+   could mislead people (facts only, not opinions, jokes or debatable takes).
 - It does **not** chime into threads spontaneously — it stays quiet unless it is actually addressed.
-  (A `spontaneous-probability` knob exists but is set to `0`.)
+   (A `spontaneous-probability` knob exists but is set to `0`.)
 - It writes in **Russian**, matching the chat's casual, lowercase, slang-heavy style — usually one
-  or two short sentences, longer only when genuinely explaining something.
+   or two short sentences, longer only when genuinely explaining something.
 
 ### Link & image awareness
+
 - If your message contains a **URL**, the bot fetches and cleans that source before answering and
-  grounds its reply in it — GitHub repo READMEs, readable web-page text, or a directly linked image
-  (which it can actually look at). Private/internal addresses are blocked and downloads are size-capped.
+   grounds its reply in it — GitHub repo READMEs, readable web-page text, or a directly linked image
+   (which it can actually look at). Private/internal addresses are blocked and downloads are size-capped.
 - For **time-sensitive questions** (latest versions, current events, prices, "newest" anything) it
-  can run a live web search so its answer isn't stale.
+   can run a live web search so its answer isn't stale.
 
 ### Pace & anti-spam
+
 - **Debounce** — after a burst of messages it waits for the conversation to settle (~6s) and then
-  judges the whole burst once, instead of replying line by line.
+   judges the whole burst once, instead of replying line by line.
 - **Cooldown** — at least **30s** between replies in a room.
 - **Rate limit** — at most **8 replies per 20-minute window** per room.
 - **Presence** — the bot shows itself as *back* only when it's actually ready to reply (enabled,
-  awake, not muted, off cooldown); otherwise it appears *away*.
+   awake, not muted, off cooldown); otherwise it appears *away*.
 
 ### Commands
+
 All commands are per-room and can be used by anyone in that room.
 
 | Command  | Effect                                                                                          |
@@ -51,8 +57,9 @@ All commands are per-room and can be used by anyone in that room.
 | `!wake`  | **Wake** the bot back up in this room.                                                          |
 
 ### Data retention
+
 - Collected chat messages, events, outbound messages and ignored-message tombstones are **kept for 7
-  days**, then automatically purged by a nightly job. Room summaries are refreshed as data ages out.
+   days**, then automatically purged by a nightly job. Room summaries are refreshed as data ages out.
 
 ## Data console (operator UI)
 
@@ -60,15 +67,17 @@ A Next.js dashboard for operators. Sign in with **Google**; the login page still
 the backend is temporarily unreachable.
 
 ### Tabs
+
 - **Messages** — collected chat messages (time, sender, text) with search, filtering, sorting and
-  pagination.
+   pagination.
 - **Events** — chat events (joins, leaves, status changes) with the same controls.
 - **Outbound** — messages the bot queued/sent, with status and timestamps.
 - **Summaries** — per-room conversation summaries, editable in place (with message count and last
-  update time).
+   update time).
 - **Admin** — access requests, user management, and the audit log (admins/owners only).
 
 ### Roles & access
+
 Access is role-based. A newly logged-in user has **no access** and must request it; an admin approves.
 
 | Role     | Can do                                                                                          |
@@ -80,54 +89,66 @@ Access is role-based. A newly logged-in user has **no access** and must request 
 | `OWNER`  | Everything an admin can, plus promote/demote admins.                                             |
 
 - Initial owners/admins are bootstrapped from the `CONSOLE_OWNER_EMAILS` / `CONSOLE_ADMIN_EMAILS`
-  env vars on first login.
+   env vars on first login.
 - Every mutating action is recorded in the **audit log** (who, what, when), retained for **14 days**.
 
 ## Project structure
+
 - **`backend/`** — Kotlin Spring Boot 4 application (Maven). The bot pipeline, chat ingestion, data
-  console API, security and observability.
+   console API, security and observability.
 - **`frontend/`** — TypeScript Next.js app: login page + data console. All backend calls are proxied
-  through Next.js API routes.
+   through Next.js API routes.
 - **`chat-collector/`** — Node service that connects to the sinair.net chat, collects messages and
-  events, feeds them to the backend, and delivers the bot's queued replies. See
-  [chat-collector/README.md](chat-collector/README.md).
+   events, feeds them to the backend, and delivers the bot's queued replies. See
+   [chat-collector/README.md](chat-collector/README.md).
 - **`chat-stubs/`** — WebSocket mock chat server for local development (fake traffic). Not deployed.
 - **`google-stubs/`** — WireMock stubs for Google OAuth2 (local dev without real credentials).
 - **`llm-stubs/`** — WireMock stub for the OpenAI-compatible LLM endpoint (local dev without an API key).
 - **`templates/docker/`** — Docker Compose templates with Postgres and Flyway migrations.
 
 ## Running locally
+
 The project has all external resources stubbed for comfortable local development.
 
 ### Backend
+
 Use IntelliJ with a Run/Debug configuration — Main class `org.taonity.sinairllmbot.MainKt`, VM options
 `-Dspring.profiles.active=h2,stub-google,local,stub-llm`.
 
 From PowerShell:
+
 ```bash
 mvn -pl backend spring-boot:run '-Dspring-boot.run.jvmArguments="-Dspring.profiles.active=h2,stub-google,local,stub-llm"'
 ```
+
 Backend runs on port **8080**.
 
 ### Frontend
+
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend; npm install; npm run dev
 ```
+
 Frontend runs on port **3000**.
 
-### Chat collector + stubs
-```bash
-# Terminal 1 — fake chat server
-cd chat-stubs && npm install && npm start
+### Chat stab
 
-# Terminal 2 — collector pointed at the stub server
-cd chat-collector && npm install && npm run dev:local
+```bash
+cd chat-stubs; npm install; npm run dev
 ```
-Point the collector at the real sinair.net server with `npm run dev:prod` (edit `.env.prod` first).
+
+### Chat collector
+
+```bash
+cd chat-collector; npm install; npm run dev:local
+```
+
+```bash
+cd chat-collector; npm install; npm run dev:prod
+```
 
 ### Profiles
+
 Each resource group has exactly one active profile; pick one per group.
 
 | Profile       | Resource | Description                                                              |
@@ -141,9 +162,10 @@ Each resource group has exactly one active profile; pick one per group.
 | `plain-log`   | Logging  | Plain-text logging (included by `local`)                                 |
 
 - **Local set:** `h2,stub-google,local,stub-llm`
-- **Production set:** `postgres,prod-google` (omit `stub-llm` and set `LLM_API_KEY` for a real provider)
+- __Production set:__ `postgres,prod-google` (omit `stub-llm` and set `LLM_API_KEY` for a real provider)
 
 ## Environment variables
+
 Configured per the profile set you run.
 
 | Env var                                | Service  | Description                                                          |
@@ -176,6 +198,7 @@ Configured per the profile set you run.
 ### PostgreSQL database ERD diagram
 
 <!-- mermerd-start -->
+
 ```mermaid
 erDiagram
     app_user {
@@ -325,6 +348,7 @@ erDiagram
 
     spring_session_attributes }o--|| spring_session : "session_primary_id"
 ```
+
 <!-- mermerd-end -->
 
 ## Deployment
@@ -332,20 +356,25 @@ erDiagram
 Docker Compose runs the backend and frontend with Postgres and Flyway migrations.
 
 Create the shared networks required for the production environment:
+
 ```bash
 docker network create prodenv-shared-internal
 docker network create sinair-llm-bot-shared
+
 ```
 
 Run with images from Docker Hub:
+
 ```bash
 # Prepare the Docker Compose templates. Make sure you are on the latest released tag in git.
 mvn clean -P build-automation-docker-compose-project compile -DskipTests=true
 # Run the template. Make sure all required env vars are set.
 docker compose -f backend/target/docker/test/docker-compose.yml up -d
+
 ```
 
 Or build the images yourself:
+
 ```bash
 # Build all modules
 mvn clean -P build-docker-image,build-automation-docker-compose-project install -DskipTests=true
@@ -354,15 +383,19 @@ npm install --prefix frontend/
 docker build -t sinair-llm-bot-frontend frontend/
 # Run the template
 docker compose -f templates/docker/docker-compose.yml up -d
+
 ```
 
 For Docker-based local development, use the override file:
+
 ```bash
 cd templates/docker
 docker compose -f docker-compose.yml -f docker-compose.local.yml up
+
 ```
 
 ### Production environment
+
 The service runs on a cheap VPS. [taonity/docker-webhook](https://github.com/taonity/docker-webhook)
 handles deployment into a custom production environment —
 [taonity/prodenv](https://github.com/taonity/prodenv/tree/defr-prodenv).
@@ -374,3 +407,4 @@ The release workflow gates production deployments with a manual approval on the 
 2. Enable **"Required reviewers"** and add the appropriate users or teams.
 
 Without this, the `approve-prod` job passes automatically with no manual intervention.
+

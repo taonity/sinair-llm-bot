@@ -1,14 +1,21 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
-import { formatTime } from './format'
-import type { JsonParseFailure, PipelineRun, PipelineStage, PipelineStageStatus } from './types'
+import { formatTime, formatTokens } from './format'
+import type {
+  JsonParseFailure,
+  LlmCallUsage,
+  PipelineRun,
+  PipelineStage,
+  PipelineStageStatus,
+  ToolCallEntry,
+} from './types'
 
 /** Dot colour per stage status, kept semantic so the flow strip reads at a glance. */
 const STATUS_DOT: Record<PipelineStageStatus, string> = {
@@ -62,6 +69,41 @@ function fieldsSummary(stages: PipelineStage[]): string {
 function shortModel(model: string): string {
   const slash = model.lastIndexOf('/')
   return slash >= 0 ? model.slice(slash + 1) : model
+}
+
+/**
+ * Compact in/out token split: `↓in ↑out` with `k`-abbreviation. Falls back to the legacy single
+ * `N tok` total when the provider didn't report a split (both fields zero but total non-zero).
+ * `↓` = prompt/input, `↑` = completion/output — the direction the tokens flow.
+ */
+function TokenSplit({
+  prompt,
+  completion,
+  total,
+  prefix,
+}: {
+  prompt: number
+  completion: number
+  total: number
+  /** Optional prefix shown before the split (e.g. "Σ" for group sums). */
+  prefix?: string
+}) {
+  const hasSplit = prompt > 0 || completion > 0
+  if (!hasSplit) {
+    return (
+      <span className="tabular-nums">
+        {prefix ? `${prefix} ` : ''}
+        {formatTokens(total)} tok
+      </span>
+    )
+  }
+  return (
+    <span className="tabular-nums" title={`${prompt.toLocaleString()} in · ${completion.toLocaleString()} out`}>
+      {prefix ? <span className="text-foreground/50">{prefix} </span> : null}
+      <span className="text-sky-600/80">↓{formatTokens(prompt)}</span>{' '}
+      <span className="text-emerald-600/80">↑{formatTokens(completion)}</span>
+    </span>
+  )
 }
 
 const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
@@ -150,8 +192,191 @@ function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
   )
 }
 
+/** One LLM call paired with its original index in run.llmUsage (needed for the raw payload links). */
+type UsageEntry = { call: LlmCallUsage; index: number }
+
+/** Groups contiguous calls made on the same tier (e.g. the repo tool loop's rounds) so multi-round
+ * stages collapse into a single compact block instead of a long list of near-identical chips. */
+function groupUsage(usage: LlmCallUsage[]): { tier: string; entries: UsageEntry[] }[] {
+  const groups: { tier: string; entries: UsageEntry[] }[] = []
+  usage.forEach((call, index) => {
+    const last = groups[groups.length - 1]
+    if (last && last.tier === call.tier) last.entries.push({ call, index })
+    else groups.push({ tier: call.tier, entries: [{ call, index }] })
+  })
+  return groups
+}
+
+/** Link to the full-screen payload viewer for a single call, keyed by its original index. */
+function CallLinks({ runId, index, call }: { runId: string; index: number; call: LlmCallUsage }) {
+  const hasAny = call.hasRequestPayload || call.hasResponsePayload
+  if (!hasAny) return null
+  return (
+    <a
+      href={`/view/payload/${encodeURIComponent(runId)}/${index}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
+    >
+      view payloads
+    </a>
+  )
+}
+
+/** Pretty-prints a tool-call arguments JSON string, degrading to the raw string if not valid JSON. */
+function prettyArgs(args: string): string {
+  if (!args) return ''
+  try {
+    return JSON.stringify(JSON.parse(args), null, 2)
+  } catch {
+    return args
+  }
+}
+
+/** One tool-call entry: name header, arguments (pretty JSON), and the result we fed back. Compact,
+ *  scrollable, monospace — keeps even large file reads in a fixed-height box. */
+function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
+  return (
+    <div
+      className={cn(
+        'rounded border px-1.5 py-1',
+        entry.error ? 'border-red-500/40 bg-red-500/5' : 'border-border bg-background',
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        <Wrench className="size-3 text-sky-600" />
+        <span className="font-medium text-foreground/80">{entry.name}</span>
+        {entry.error && (
+          <span className="rounded bg-red-500/10 px-1 text-[10px] font-normal text-red-600">error</span>
+        )}
+      </div>
+      {entry.arguments && (
+        <div className="mt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">args</div>
+          <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-foreground/80">
+            {prettyArgs(entry.arguments)}
+          </pre>
+        </div>
+      )}
+      {entry.result && (
+        <div className="mt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">result</div>
+          <pre className="mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
+            {entry.result}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Renders the structured client-tool calls of an LLM round as a compact expandable list. The tool
+ *  names double as the toggle (click to reveal each call's arguments and result). Server-side tools
+ *  (web_search) have no `toolCalls` and render as a flat, non-interactive badge instead. */
+function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
+  const [open, setOpen] = useState(false)
+  if (calls.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-fit items-center gap-1 rounded bg-sky-500/10 px-1 py-0.5 text-[11px] text-sky-600 hover:bg-sky-500/20"
+      >
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        <Wrench className="size-3" />
+        {calls.length} tool call{calls.length === 1 ? '' : 's'}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1">
+          {calls.map((c, i) => (
+            <ToolCallRow key={i} entry={c} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Compact chip for a single-call tier (gate, triage, reply, critic…). When the call ran client
+ *  tools, the tool-call list expands below the chip so the full exchange stays inline. */
+function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
+  const { call, index } = entry
+  const hasToolCalls = call.toolCalls.length > 0
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground/80">{call.tier}</span>
+        <span>{call.model}</span>
+        <TokenSplit prompt={call.promptTokens} completion={call.completionTokens} total={call.tokens} />
+        {call.tools.length > 0 && (
+          <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+        )}
+        <CallLinks runId={runId} index={index} call={call} />
+      </span>
+      {hasToolCalls && <ToolCalls calls={call.toolCalls} />}
+    </div>
+  )
+}
+
+/** Collapsible block for a multi-round tier: header sums the rounds' tokens; expanding reveals every
+ * round's own tokens, tools and raw-payload links so no detail is lost. */
+function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; entries: UsageEntry[] }) {
+  const [open, setOpen] = useState(false)
+  const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
+  const promptTokens = entries.reduce((sum, e) => sum + e.call.promptTokens, 0)
+  const completionTokens = entries.reduce((sum, e) => sum + e.call.completionTokens, 0)
+  const models = Array.from(new Set(entries.map((e) => e.call.model)))
+  const tools = Array.from(new Set(entries.flatMap((e) => e.call.tools)))
+  return (
+    <div className="flex w-full flex-col gap-1 rounded border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex flex-wrap items-center gap-1.5 text-left"
+      >
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        <span className="font-medium text-foreground/80">
+          {tier} × {entries.length}
+        </span>
+        <span>{models.length === 1 ? models[0] : `${models.length} models`}</span>
+        <TokenSplit prompt={promptTokens} completion={completionTokens} total={tokens} prefix="Σ" />
+        {tools.length > 0 && (
+          <span className="rounded bg-sky-500/10 px-1 text-sky-600">{tools.join(', ')}</span>
+        )}
+      </button>
+      {open && (
+        <ol className="ml-4 flex flex-col gap-1.5 border-l pl-2">
+          {entries.map((e, i) => (
+            <li key={e.index} className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="tabular-nums text-foreground/50">#{i + 1}</span>
+                {models.length > 1 && <span>{e.call.model}</span>}
+                <TokenSplit
+                  prompt={e.call.promptTokens}
+                  completion={e.call.completionTokens}
+                  total={e.call.tokens}
+                />
+                {e.call.tools.length > 0 && (
+                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
+                )}
+                <CallLinks runId={runId} index={e.index} call={e.call} />
+              </div>
+              {e.call.toolCalls.length > 0 && <ToolCalls calls={e.call.toolCalls} />}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 /** Full detail shown when a pipeline row is expanded: every stage, its flags, and any alternatives. */
 function PipelineDetail({ run }: { run: PipelineRun }) {
+  const totalPrompt = run.llmUsage.reduce((s, u) => s + u.promptTokens, 0)
+  const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
     <div className="flex flex-col gap-3">
       {run.outcomeDetail && (
@@ -162,43 +387,23 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
       {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <div className="text-xs font-medium">
-            LLM usage · {run.totalTokens.toLocaleString()} tokens total
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+            <span>LLM usage</span>
+            <TokenSplit
+              prompt={totalPrompt}
+              completion={totalCompletion}
+              total={run.totalTokens}
+              prefix="Σ"
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {run.llmUsage.map((call, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              >
-                <span className="font-medium text-foreground/80">{call.tier}</span>
-                <span>{call.model}</span>
-                <span className="tabular-nums">{call.tokens.toLocaleString()} tok</span>
-                {call.tools.length > 0 && (
-                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
-                )}
-                {call.hasRequestPayload && (
-                  <a
-                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/request`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-                  >
-                    request
-                  </a>
-                )}
-                {call.hasResponsePayload && (
-                  <a
-                    href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/llm-usage/${i}/response`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-600 underline underline-offset-2 hover:text-sky-700"
-                  >
-                    response
-                  </a>
-                )}
-              </span>
-            ))}
+            {groupUsage(run.llmUsage).map((group, gi) =>
+              group.entries.length === 1 ? (
+                <UsageChip key={gi} runId={run.id} entry={group.entries[0]!} />
+              ) : (
+                <UsageGroup key={gi} runId={run.id} tier={group.tier} entries={group.entries} />
+              ),
+            )}
           </div>
         </div>
       )}
