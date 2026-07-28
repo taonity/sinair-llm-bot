@@ -1,0 +1,13 @@
+initial prompt:
+
+I want for the bot to be aware of all the UI provided infromation. payloads, tables, configs - all. figure out how to provide that availability. be it mcp or some kind of tool for llm, or something. figure out the architecture and design for that feaure. for example config related question should not only search in repo, but also look at configs from db. or thq bot must be able to look up for the pipeline of a previoious message if the incoming message or context demands that information. and so on for all the other features
+
+messages during prompt execution:
+
+I’ll implement the in-process tool architecture now, starting with the reusable dispatcher and security boundary, then wiring config, pipelines, messages, events, outbound data, summaries, room state, runtime data, and payload diagnostics into one reply-agent loop. I’ll also add provenance/config revision support where it is needed for historical questions and cover the room-isolation and redaction boundaries with tests.
+I’ve confirmed the chat library does not return a server message ID when sending, so provenance cannot use an exact delivery acknowledgment. I’ll implement a bounded self-echo reconciliation instead and explicitly label the link as a time/text match. Human-trigger pipelines remain exact through the existing trigger_message_id.
+Edited files
+The first compile checkpoint found only the expected incomplete wiring: the orchestrator now passes application-context fields that the reply generator and triage model do not yet define. I’m filling that layer next, then I’ll compile again before touching the collector reconciliation.
+Edited files
+The focused context tests pass: effective DB-overlaid config retrieval, cross-room denial, exact previous-user pipeline resolution, live-stage reporting, and credential redaction. The backend also compiles cleanly. I’m adding the self-echo provenance test and updating the console read model so operators can see the same revision/manifest/provenance metadata that the bot can use.
+Edited files
