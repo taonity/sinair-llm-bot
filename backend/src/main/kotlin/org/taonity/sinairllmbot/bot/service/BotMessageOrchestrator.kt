@@ -9,8 +9,6 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
-import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
-import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
@@ -42,8 +40,6 @@ class BotMessageOrchestrator(
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val pipelineTraceService: PipelineTraceService,
-    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
-    private val jsonParseFailureTracker: JsonParseFailureTracker,
 ) {
     private val botProperties get() = settings.bot()
 
@@ -81,10 +77,7 @@ class BotMessageOrchestrator(
 
             // Collect the token cost / model / tool-set of every LLM call the reply pipeline makes
             // below, so the persisted reply trace can show what this evaluation actually spent.
-            pipelineLlmUsageTracker.begin()
-            // Also collect any JSON-deserialization failures the triage/critic prompts hit while
-            // retrying, so the trace shows how resilient this run's JSON prompts had to be.
-            jsonParseFailureTracker.begin()
+            pipelineTraceService.begin()
 
             // Every decision point below is appended as a pipeline stage so the console can show
             // exactly why the bot did (or did not) reply to this message. The trace is persisted on
@@ -145,6 +138,7 @@ class BotMessageOrchestrator(
                     PipelineField("needsFreshInfo", triage.needsFreshInfo.toString()),
                     PipelineField("needsSearch", triage.needsSearch.toString()),
                     PipelineField("needsRepoLookup", triage.needsRepoLookup.toString()),
+                    PipelineField("needsAppContext", triage.needsAppContext.toString()),
                 ),
             )
 
@@ -169,7 +163,8 @@ class BotMessageOrchestrator(
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
                     "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
-                    "needsSearch=${triage.needsSearch}, needsRepoLookup=${triage.needsRepoLookup}, category=${triage.loggableCategory})"
+                    "needsSearch=${triage.needsSearch}, needsRepoLookup=${triage.needsRepoLookup}, " +
+                    "needsAppContext=${triage.needsAppContext}, category=${triage.loggableCategory})"
             }
             if (!shouldReply) {
                 pipelineTraceService.record(
@@ -183,7 +178,15 @@ class BotMessageOrchestrator(
             // indicator up (via BotTypingService) until the collector delivers it.
             botTypingService.markTyping(roomTarget)
             val generation = try {
-                replyGenerator.generateTraced(roomTarget, trigger, triage.needsFreshInfo || triage.needsSearch, triage.needsRepoLookup)
+                replyGenerator.generateTraced(
+                    roomTarget = roomTarget,
+                    trigger = trigger,
+                    needsWebSearch = triage.needsFreshInfo || triage.needsSearch,
+                    needsRepoLookup = triage.needsRepoLookup,
+                    needsAppContext = triage.needsAppContext,
+                    completedStages = stages.toList(),
+                    configRevisionId = pipelineTraceService.currentConfigRevisionId(),
+                )
             } finally {
                 botTypingService.clearTyping(roomTarget)
             }
@@ -211,7 +214,10 @@ class BotMessageOrchestrator(
             pipelineTraceService.record(
                 PipelineKeys.REPLY, trigger, PipelineOutcome.REPLIED, stages, outboundMessageId = saved.id,
             )
-        }.onFailure { LOGGER.warn(it) { "Bot pipeline failed for room $roomTarget" } }
+        }.onFailure {
+            pipelineTraceService.discard()
+            LOGGER.warn(it) { "Bot pipeline failed for room $roomTarget" }
+        }
     }
 
     private fun generationStage(generation: ReplyGeneration): PipelineStage {

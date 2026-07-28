@@ -57,6 +57,8 @@ export interface ChatMessage {
   messageStyle: string
   sentAt: string
   receivedAt: string
+  sourceOutboundMessageId: string | null
+  sourceOutboundMatch: string | null
 }
 
 export interface ChatEvent {
@@ -145,6 +147,8 @@ export interface PipelineRun {
   totalTokens: number
   llmUsage: LlmCallUsage[]
   jsonParseFailures: JsonParseFailure[]
+  configRevisionId: string | null
+  contextSources: string[]
   createdAt: string
 }
 

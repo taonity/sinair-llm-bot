@@ -5,6 +5,10 @@ import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.github.GithubToolService
+import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
+import org.taonity.sinairllmbot.bot.tools.LlmToolDispatcher
+import org.taonity.sinairllmbot.bot.tools.ToolCapability
+import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
@@ -23,6 +27,7 @@ class ReplyGenerator(
     private val candidateGenerator: CandidateGenerator,
     private val replyCritic: ReplyCritic,
     private val githubToolService: GithubToolService,
+    private val toolDispatcher: LlmToolDispatcher,
     private val settings: BotSettings,
 ) {
     private val botProperties get() = settings.bot()
@@ -30,6 +35,7 @@ class ReplyGenerator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private const val APP_CONTEXT_MAX_ROUNDS = 4
     }
 
     /**
@@ -37,19 +43,50 @@ class ReplyGenerator(
      *   lookup — either the answer is time-sensitive or the user explicitly asked the bot to look
      *   something specific up; enables live web search (see [ReplyPromptBuilder]).
      */
-    fun generate(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false, needsRepoLookup: Boolean = false): String? =
-        generateTraced(roomTarget, trigger, needsWebSearch, needsRepoLookup).reply
+    fun generate(
+        roomTarget: String,
+        trigger: ChatMessageEntity,
+        needsWebSearch: Boolean = false,
+        needsRepoLookup: Boolean = false,
+        needsAppContext: Boolean = false,
+    ): String? = generateTraced(
+        roomTarget = roomTarget,
+        trigger = trigger,
+        needsWebSearch = needsWebSearch,
+        needsRepoLookup = needsRepoLookup,
+        needsAppContext = needsAppContext,
+    ).reply
 
     /**
      * Like [generate] but also returns the intermediate candidates, critic scores and repair state
      * so the pipeline trace can show what alternatives were considered. The `reply` field carries
      * the final sanitized reply (null when none could be produced).
      */
-    fun generateTraced(roomTarget: String, trigger: ChatMessageEntity, needsWebSearch: Boolean = false, needsRepoLookup: Boolean = false): ReplyGeneration {
-        val prompt = promptBuilder.build(roomTarget, trigger, needsWebSearch, needsRepoLookup)
+    fun generateTraced(
+        roomTarget: String,
+        trigger: ChatMessageEntity,
+        needsWebSearch: Boolean = false,
+        needsRepoLookup: Boolean = false,
+        needsAppContext: Boolean = false,
+        completedStages: List<PipelineStage> = emptyList(),
+        configRevisionId: String? = null,
+    ): ReplyGeneration {
+        val prompt = promptBuilder.build(
+            roomTarget,
+            trigger,
+            needsWebSearch,
+            needsRepoLookup,
+            needsAppContext,
+        )
 
         val raw = when {
-            prompt.repoLookup -> generateWithRepoTools(roomTarget, prompt)
+            prompt.repoLookup || prompt.appContext -> generateWithTools(
+                roomTarget,
+                trigger,
+                prompt,
+                completedStages,
+                configRevisionId,
+            )
             llmProperties.critic.enabled -> generateWithCritic(roomTarget, prompt)
             else -> generateSingle(prompt)
         }
@@ -67,17 +104,40 @@ class ReplyGenerator(
      * Agentic repo-grounded generation: the model is offered read-only GitHub tools and answers from
      * the code it actually reads. Runs a single tool loop (no critic candidates) to keep cost bounded.
      */
-    private fun generateWithRepoTools(roomTarget: String, prompt: ReplyPrompt): ReplyGeneration {
+    private fun generateWithTools(
+        roomTarget: String,
+        trigger: ChatMessageEntity,
+        prompt: ReplyPrompt,
+        completedStages: List<PipelineStage>,
+        configRevisionId: String?,
+    ): ReplyGeneration {
+        val executionContext = ToolExecutionContext(
+            roomTarget = roomTarget,
+            triggerMessageId = trigger.id!!,
+            botName = botProperties.persona.name,
+            completedStages = completedStages,
+            configRevisionId = configRevisionId,
+        )
+        val capabilities = buildSet {
+            if (prompt.repoLookup) add(ToolCapability.REPOSITORY)
+            if (prompt.appContext) add(ToolCapability.APPLICATION)
+        }
+        val offeredTools = buildList {
+            addAll(toolDispatcher.definitions(executionContext, capabilities))
+            if (prompt.webSearch) add(org.taonity.sinairllmbot.bot.client.Tool.webSearch())
+        }
         val content = llmClient.completeWithTools(
-            tierName = githubToolService.repoTier,
+            tierName = if (prompt.repoLookup) githubToolService.repoTier else prompt.tierName,
             messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
-            tools = githubToolService.toolDefinitions(),
-            maxRounds = githubToolService.maxRounds,
-            toolExecutor = githubToolService::execute,
+            tools = offeredTools,
+            maxRounds = if (prompt.repoLookup) githubToolService.maxRounds else APP_CONTEXT_MAX_ROUNDS,
+            toolExecutor = { name, arguments ->
+                toolDispatcher.execute(executionContext, name, arguments)
+            },
         )?.content?.trim()?.takeIf { it.isNotBlank() }
 
         if (content == null) {
-            LOGGER.warn { "Repo-lookup reply produced no content for $roomTarget" }
+            LOGGER.warn { "Tool-grounded reply produced no content for $roomTarget" }
             return ReplyGeneration(reply = null)
         }
         return ReplyGeneration(

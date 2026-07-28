@@ -17,6 +17,8 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
 
     fun findByRoomTargetOrderBySentAtDesc(roomTarget: String, pageable: Pageable): List<ChatMessageEntity>
 
+    fun existsBySourceOutboundMessageId(sourceOutboundMessageId: String): Boolean
+
     fun countByRoomTarget(roomTarget: String): Long
 
     @Query(

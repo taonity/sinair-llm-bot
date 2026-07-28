@@ -4,6 +4,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.Tool
 import org.taonity.sinairllmbot.bot.config.GithubSettings
+import org.taonity.sinairllmbot.bot.tools.LlmToolContributor
+import org.taonity.sinairllmbot.bot.tools.ToolCapability
+import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
+import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -18,7 +22,8 @@ class GithubToolService(
     private val githubCodeClient: GithubCodeClient,
     private val settings: GithubSettings,
     private val objectMapper: ObjectMapper,
-) {
+    private val pipelineContextTracker: PipelineContextTracker,
+) : LlmToolContributor {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
@@ -28,6 +33,7 @@ class GithubToolService(
     val repoLookupEnabled: Boolean get() = properties.repoLookup.enabled
     val repoTier: String get() = properties.repoLookup.tier
     val maxRounds: Int get() = properties.repoLookup.maxRounds
+    override val capability: ToolCapability = ToolCapability.REPOSITORY
 
     fun toolDefinitions(): List<Tool> = listOf(
         Tool.function(
@@ -77,6 +83,10 @@ class GithubToolService(
         ),
     )
 
+    override fun definitions(context: ToolExecutionContext): List<Tool> = toolDefinitions()
+
+    override fun supports(name: String): Boolean = name == "search_code" || name == "get_file"
+
     /** Dispatches a single tool call. Never throws: failures come back as an `ERROR: ...` string. */
     fun execute(name: String, argumentsJson: String): String {
         val args: Map<*, *> = runCatching { objectMapper.readValue(argumentsJson, Map::class.java) }
@@ -87,6 +97,25 @@ class GithubToolService(
             "get_file" -> getFile(arg("repo"), arg("path"), arg("ref"))
             else -> "ERROR: unknown tool '$name'"
         }
+    }
+
+    override fun execute(
+        context: ToolExecutionContext,
+        name: String,
+        argumentsJson: String,
+    ): String {
+        val args: Map<*, *> = runCatching { objectMapper.readValue(argumentsJson, Map::class.java) }
+            .getOrDefault(emptyMap<String, Any?>())
+        if (name == "get_file") {
+            val repo = (args["repo"] as? String).orEmpty()
+            val path = (args["path"] as? String).orEmpty()
+            if (repo.isNotBlank() && path.isNotBlank()) {
+                pipelineContextTracker.recordSource("github://$repo/$path")
+            }
+        } else if (name == "search_code") {
+            pipelineContextTracker.recordSource("github://code-search")
+        }
+        return execute(name, argumentsJson)
     }
 
     private fun searchCode(query: String?, repo: String?): String {

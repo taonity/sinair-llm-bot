@@ -56,6 +56,7 @@ class MessageTriageService(
         private val FRESH_REGEX = Regex("\"needs?FreshInfo\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
         private val SEARCH_REGEX = Regex("\"needs?Search\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
         private val REPO_REGEX = Regex("\"needs?RepoLookup\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
+        private val APP_CONTEXT_REGEX = Regex("\"needs?AppContext\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
     }
 
     fun assess(roomTarget: String): TriageVerdict {
@@ -106,6 +107,15 @@ class MessageTriageService(
             append("setting or config value does, why a part of the codebase ")
             append("behaves a certain way, or what changed recently in the code. Say FALSE only for ")
             append("general programming questions unrelated to a specific repository or this bot.\n")
+            append("5) needsAppContext (boolean): would answering well require live application data ")
+            append("that the operator UI can display, rather than source code alone? Say TRUE for ")
+            append("questions about the bot's current/effective configuration, database overrides, ")
+            append("messages or events in this room, prior bot replies, pipeline runs/stages/outcomes, ")
+            append("LLM request/response payloads or tool calls, summaries, mute/sleep state, delivery ")
+            append("status, build/runtime version, or why/how a previous message was processed. This ")
+            append("access is read-only and room-scoped. Config questions about this bot usually need ")
+            append("BOTH needsRepoLookup=true (defaults/implementation) and needsAppContext=true ")
+            append("(live DB-overlaid values). Say FALSE for unrelated facts and ordinary chat.\n")
             append("Also classify the decision with category (string) = exactly one of: ")
             append("direct_address (the message names, @mentions or uses an alias of the bot), ")
             append("indirect_address (an unmistakable direct follow-up or reply to the bot's OWN last ")
@@ -117,7 +127,8 @@ class MessageTriageService(
             append("conversation or restate its topic.\n")
             append("Respond with ONLY a JSON object, booleans first: ")
             append("{\"respond\": boolean, \"needsFreshInfo\": boolean, \"needsSearch\": boolean, ")
-            append("\"needsRepoLookup\": boolean, \"category\": string}. Default respond=false.")
+            append("\"needsRepoLookup\": boolean, \"needsAppContext\": boolean, \"category\": string}. ")
+            append("Default respond=false.")
         }
         val messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript"))
         // Retries the whole prompt when the model returns unparseable JSON; the salvage fallback
@@ -151,8 +162,19 @@ class MessageTriageService(
         val needsFresh = FRESH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
         val needsSearch = SEARCH_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
         val needsRepo = REPO_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true) ?: false
-        LOGGER.info { "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh needsSearch=$needsSearch needsRepoLookup=$needsRepo" }
-        return TriageVerdict(respond = respond, needsFreshInfo = needsFresh, needsSearch = needsSearch, needsRepoLookup = needsRepo)
+        val needsAppContext = APP_CONTEXT_REGEX.find(text)?.groupValues?.get(1)
+            ?.equals("true", ignoreCase = true) ?: false
+        LOGGER.info {
+            "Salvaged truncated triage verdict: respond=$respond needsFreshInfo=$needsFresh " +
+                "needsSearch=$needsSearch needsRepoLookup=$needsRepo needsAppContext=$needsAppContext"
+        }
+        return TriageVerdict(
+            respond = respond,
+            needsFreshInfo = needsFresh,
+            needsSearch = needsSearch,
+            needsRepoLookup = needsRepo,
+            needsAppContext = needsAppContext,
+        )
     }
 }
 
@@ -165,6 +187,8 @@ data class TriageVerdict(
     val needsSearch: Boolean = false,
     @JsonAlias("needRepoLookup", "repoLookup", "needs_repo_lookup", "need_repo_lookup")
     val needsRepoLookup: Boolean = false,
+    @JsonAlias("needAppContext", "appContext", "needs_app_context", "need_app_context")
+    val needsAppContext: Boolean = false,
     val category: String = "",
 ) {
     /**

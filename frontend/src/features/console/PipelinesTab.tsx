@@ -384,6 +384,20 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
         </div>
       )}
+      {(run.configRevisionId || run.contextSources.length > 0) && (
+        <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+          {run.configRevisionId && (
+            <span className="rounded border bg-background px-1.5 py-0.5" title={run.configRevisionId}>
+              config revision {run.configRevisionId.slice(0, 8)}
+            </span>
+          )}
+          {run.contextSources.map((source) => (
+            <span className="max-w-full truncate rounded border bg-background px-1.5 py-0.5" key={source} title={source}>
+              {source}
+            </span>
+          ))}
+        </div>
+      )}
       {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">

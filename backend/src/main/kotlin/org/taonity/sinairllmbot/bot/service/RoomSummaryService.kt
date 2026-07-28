@@ -9,8 +9,6 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
-import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
-import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
@@ -32,8 +30,6 @@ class RoomSummaryService(
     private val contextBuilder: ConversationContextBuilder,
     private val llmClient: LlmClient,
     private val settings: BotSettings,
-    private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
-    private val jsonParseFailureTracker: JsonParseFailureTracker,
     private val pipelineTraceService: PipelineTraceService,
 ) {
     private val botProperties get() = settings.bot()
@@ -73,8 +69,7 @@ class RoomSummaryService(
         // Trace the refresh as its own "summary" pipeline run so the console shows the same detail as
         // a reply run (its LLM call, with request/response payloads). begin()/record run on this
         // thread; the reply pipeline (BotMessageOrchestrator) starts its own tracking afterwards.
-        pipelineLlmUsageTracker.begin()
-        jsonParseFailureTracker.begin()
+        pipelineTraceService.begin()
         val newSummary = generateSummary(previousSummary, transcript)
         if (newSummary == null) {
             pipelineTraceService.recordSummary(

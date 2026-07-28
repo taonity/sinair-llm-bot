@@ -226,6 +226,7 @@ class ConsoleDataService(
                 parseStages(it.stagesJson),
                 parseLlmUsage(it.llmUsageJson).map(LlmCallUsageDto::from),
                 parseJsonFailures(it.jsonParseFailuresJson).map(JsonParseFailureDto::from),
+                parseContextSources(it.contextManifestJson),
             )
         }
     }
@@ -286,6 +287,11 @@ class ConsoleDataService(
         val type = objectMapper.typeFactory.constructCollectionType(List::class.java, JsonParseFailure::class.java)
         val failures: List<JsonParseFailure> = objectMapper.readValue(json, type)
         failures
+    }.getOrElse { emptyList() }
+
+    private fun parseContextSources(json: String): List<String> = runCatching {
+        val tree = objectMapper.readTree(json)
+        tree.get("sources")?.mapNotNull { it.asText()?.takeIf(String::isNotBlank) }.orEmpty()
     }.getOrElse { emptyList() }
 
     /** Re-indents a stored JSON payload for readable display; returns it unchanged if not valid JSON. */
