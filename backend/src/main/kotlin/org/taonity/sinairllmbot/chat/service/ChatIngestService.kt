@@ -154,7 +154,7 @@ class ChatIngestService(
      */
     private fun reconcileOutboundEcho(msg: ChatMessageDto, sentAt: Instant): String? {
         if (!msg.senderLogin.equals(settings.bot().persona.name, ignoreCase = true)) return null
-        return outboundMessageRepository.findByRoomTargetAndMessageTextAndStatusInOrderByCreatedAtDesc(
+        val matched = outboundMessageRepository.findByRoomTargetAndMessageTextAndStatusInOrderByCreatedAtDesc(
             roomTarget = msg.roomTarget,
             messageText = msg.messageText,
             statuses = listOf(OutboundStatus.CLAIMED, OutboundStatus.SENT),
@@ -166,6 +166,13 @@ class ChatIngestService(
             .minByOrNull { (_, seconds) -> seconds }
             ?.first
             ?.id
+        if (matched != null) {
+            LOGGER.debug {
+                "ECHO_TIME_TEXT matched outbound $matched to room ${msg.roomTarget} " +
+                    "sender=${msg.senderLogin} text=\"${msg.messageText.take(80)}\""
+            }
+        }
+        return matched
     }
 
     private fun computeEventDedupKey(event: ChatEventDto): String {
