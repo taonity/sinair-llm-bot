@@ -46,5 +46,10 @@ class PipelineRunEntity(
     val jsonParseFailureCount: Int = 0,
     @Column(columnDefinition = "text")
     val jsonParseFailuresJson: String = "[]",
+    /** Secret-free effective configuration captured when the pipeline began. */
+    val configRevisionId: String? = null,
+    /** References to application/repository context actually consulted by this run. */
+    @Column(columnDefinition = "text")
+    val contextManifestJson: String = "{}",
     val createdAt: Instant = Instant.now(),
 )

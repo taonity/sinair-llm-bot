@@ -61,7 +61,7 @@ const MESSAGE_COLUMNS: Column<ChatMessage>[] = [
     label: 'Sender',
     value: (m) => m.senderLogin,
     cellClassName: 'truncate font-medium',
-    headClassName: 'w-[150px]',
+    headClassName: 'w-[120px]',
     searchKey: 'senderLogin',
   },
   {

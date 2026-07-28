@@ -13,6 +13,12 @@ import java.time.Instant
 interface PipelineRunRepository : JpaRepository<PipelineRunEntity, String> {
     fun findByRoomTarget(roomTarget: String, pageable: Pageable): Page<PipelineRunEntity>
 
+    fun findByTriggerMessageIdOrderByCreatedAtAsc(triggerMessageId: String): List<PipelineRunEntity>
+
+    fun findFirstByOutboundMessageId(outboundMessageId: String): PipelineRunEntity?
+
+    fun findByRoomTargetOrderByCreatedAtDesc(roomTarget: String, pageable: Pageable): List<PipelineRunEntity>
+
     @Query(
         """
         SELECT r FROM PipelineRunEntity r

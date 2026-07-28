@@ -115,11 +115,12 @@ class LlmClient(
             val offerTools = round < maxRounds
             if (!offerTools) {
                 conversation += ChatMessage.user(
-                    "The repository investigation has reached its tool-call limit. Now wrap up " +
+                    "The investigation has reached its tool-call limit. Now wrap up " +
                         "the answer for the user in plain text suitable for chat. Be concise: say " +
-                        "what repositories, files, paths or search terms you checked; what you found; " +
+                        "which tools, application records, repositories, files or search terms you " +
+                        "checked; what you found; distinguish current state from historical snapshots; " +
                         "and, when relevant, what was close or inconclusive. Never claim that a file, " +
-                        "feature or behavior does not exist merely because you did not find it. Say " +
+                        "record, feature or behavior does not exist merely because you did not find it. Say " +
                         "that you did not find enough evidence, or that the search was inconclusive, " +
                         "and state where you looked.",
                 )
@@ -155,7 +156,7 @@ class LlmClient(
                         .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
                     toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
-                    LOGGER.info { "Repo tool '$name' executed -> ${result.length} chars" }
+                    LOGGER.info { "LLM tool '$name' executed -> ${result.length} chars" }
                 }
             }
             recordCall(

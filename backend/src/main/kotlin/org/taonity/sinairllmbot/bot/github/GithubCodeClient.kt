@@ -68,6 +68,23 @@ class GithubCodeClient(
         }.orEmpty()
     }
 
+    /** Lists public repositories in the configured organization. */
+    fun listRepos(): List<OrgRepo> {
+        val response = restClient.get()
+            .uri { builder ->
+                builder.path("/orgs/").path(properties.org).path("/repos")
+                    .queryParam("per_page", 100)
+                    .queryParam("sort", "full_name")
+                    .queryParam("type", "public")
+                    .build()
+            }
+            .headers { authorize(it) }
+            .accept(MediaType.APPLICATION_JSON)
+            .retrieve()
+            .body(Array<OrgRepoResponse>::class.java)
+        return response?.map { OrgRepo(name = it.name ?: "?", description = it.description) }.orEmpty()
+    }
+
     /** Reads a file (or lists a directory) on the given [ref] (default branch when null). */
     fun getFile(repo: String, path: String, ref: String?): FileContent {
         val safeRepo = sanitizeRepository(repo)
@@ -165,5 +182,13 @@ class GithubCodeClient(
     data class DirEntry(
         val name: String? = "?",
         val type: String? = "?",
+    )
+
+    data class OrgRepo(val name: String, val description: String?)
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private data class OrgRepoResponse(
+        val name: String? = null,
+        val description: String? = null,
     )
 }

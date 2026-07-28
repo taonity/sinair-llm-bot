@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Wrench } from 'lucide-react'
+import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -182,7 +182,7 @@ function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
               <span className="font-medium text-foreground/80">{f.label}</span>
               <span>attempt {f.attempt}</span>
             </summary>
-            <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-background px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+            <pre className="mt-1 whitespace-pre-wrap break-words rounded border bg-background px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
               {f.payload || '<empty>'}
             </pre>
           </details>
@@ -233,6 +233,17 @@ function prettyArgs(args: string): string {
   }
 }
 
+/** If the value is valid JSON, pretty-prints it; otherwise returns the raw string. */
+function prettyJson(value: string): string {
+  if (!value) return ''
+  try {
+    const parsed = JSON.parse(value)
+    return JSON.stringify(parsed, null, 2)
+  } catch {
+    return value
+  }
+}
+
 /** One tool-call entry: name header, arguments (pretty JSON), and the result we fed back. Compact,
  *  scrollable, monospace — keeps even large file reads in a fixed-height box. */
 function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
@@ -253,7 +264,7 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
       {entry.arguments && (
         <div className="mt-1">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">args</div>
-          <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-foreground/80">
+          <pre className="mt-0.5 whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-foreground/80">
             {prettyArgs(entry.arguments)}
           </pre>
         </div>
@@ -261,8 +272,8 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
       {entry.result && (
         <div className="mt-1">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">result</div>
-          <pre className="mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
-            {entry.result}
+          <pre className="mt-0.5 whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
+            {prettyJson(entry.result)}
           </pre>
         </div>
       )}
@@ -382,6 +393,40 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
       {run.outcomeDetail && (
         <div className="text-xs text-muted-foreground">
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
+        </div>
+      )}
+      {(run.configRevisionId || run.contextSources.length > 0) && (
+        <div className="flex flex-col gap-1.5">
+          {run.configRevisionId && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Cpu className="size-3 text-sky-500/70" />
+              <span className="font-medium text-foreground/70">config</span>
+              <span className="font-mono tabular-nums" title={run.configRevisionId}>
+                {run.configRevisionId.slice(0, 8)}
+              </span>
+            </div>
+          )}
+          {run.contextSources.length > 0 && (
+            <details className="group text-[11px]">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground marker:hidden hover:text-foreground">
+                <ChevronRight className="size-3 transition-transform group-open:rotate-90" />
+                <BookOpen className="size-3 text-emerald-500/70" />
+                <span className="font-medium text-foreground/70">context</span>
+                <span className="tabular-nums">{run.contextSources.length} source{run.contextSources.length === 1 ? '' : 's'}</span>
+              </summary>
+              <div className="ml-5 mt-1 rounded border bg-background/50">
+                {run.contextSources.map((source) => (
+                  <div
+                    key={source}
+                    className="truncate border-b border-border/40 px-2 py-1 font-mono text-[10px] leading-normal text-muted-foreground/80 last:border-b-0 hover:text-foreground"
+                    title={source}
+                  >
+                    {source}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
       {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}

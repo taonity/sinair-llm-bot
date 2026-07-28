@@ -4,6 +4,10 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.Tool
 import org.taonity.sinairllmbot.bot.config.GithubSettings
+import org.taonity.sinairllmbot.bot.tools.LlmToolContributor
+import org.taonity.sinairllmbot.bot.tools.ToolCapability
+import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
+import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -18,7 +22,8 @@ class GithubToolService(
     private val githubCodeClient: GithubCodeClient,
     private val settings: GithubSettings,
     private val objectMapper: ObjectMapper,
-) {
+    private val pipelineContextTracker: PipelineContextTracker,
+) : LlmToolContributor {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
     }
@@ -26,8 +31,7 @@ class GithubToolService(
     private val properties get() = settings.github()
 
     val repoLookupEnabled: Boolean get() = properties.repoLookup.enabled
-    val repoTier: String get() = properties.repoLookup.tier
-    val maxRounds: Int get() = properties.repoLookup.maxRounds
+    override val capability: ToolCapability = ToolCapability.REPOSITORY
 
     fun toolDefinitions(): List<Tool> = listOf(
         Tool.function(
@@ -75,7 +79,22 @@ class GithubToolService(
                 "required" to listOf("repo", "path"),
             ),
         ),
+        Tool.function(
+            name = "list_repos",
+            description = "List all public repositories in the '${properties.org}' GitHub organization. " +
+                "Returns repository names with descriptions. Use this to discover which repos exist " +
+                "before searching code or reading files.",
+            parameters = mapOf(
+                "type" to "object",
+                "properties" to emptyMap<String, Any>(),
+            ),
+        ),
     )
+
+    override fun definitions(context: ToolExecutionContext): List<Tool> = toolDefinitions()
+
+    override fun supports(name: String): Boolean =
+        name == "search_code" || name == "get_file" || name == "list_repos"
 
     /** Dispatches a single tool call. Never throws: failures come back as an `ERROR: ...` string. */
     fun execute(name: String, argumentsJson: String): String {
@@ -85,8 +104,30 @@ class GithubToolService(
         return when (name) {
             "search_code" -> searchCode(arg("query"), arg("repo"))
             "get_file" -> getFile(arg("repo"), arg("path"), arg("ref"))
+            "list_repos" -> listRepos()
             else -> "ERROR: unknown tool '$name'"
         }
+    }
+
+    override fun execute(
+        context: ToolExecutionContext,
+        name: String,
+        argumentsJson: String,
+    ): String {
+        val args: Map<*, *> = runCatching { objectMapper.readValue(argumentsJson, Map::class.java) }
+            .getOrDefault(emptyMap<String, Any?>())
+        if (name == "get_file") {
+            val repo = (args["repo"] as? String).orEmpty()
+            val path = (args["path"] as? String).orEmpty()
+            if (repo.isNotBlank() && path.isNotBlank()) {
+                pipelineContextTracker.recordSource("github://$repo/$path")
+            }
+        } else if (name == "search_code") {
+            pipelineContextTracker.recordSource("github://code-search")
+        } else if (name == "list_repos") {
+            pipelineContextTracker.recordSource("github://org-repos")
+        }
+        return execute(name, argumentsJson)
     }
 
     private fun searchCode(query: String?, repo: String?): String {
@@ -115,6 +156,19 @@ class GithubToolService(
         }.getOrElse {
             LOGGER.warn(it) { "get_file failed" }
             "ERROR: could not read $repo/$path: ${it.message}"
+        }
+    }
+
+    private fun listRepos(): String {
+        return runCatching {
+            val repos = githubCodeClient.listRepos()
+            if (repos.isEmpty()) "No public repositories found in '${properties.org}'."
+            else repos.joinToString("\n") { r ->
+                buildString { append(r.name); r.description?.let { append(" — $it") } }
+            }
+        }.getOrElse {
+            LOGGER.warn(it) { "list_repos failed" }
+            "ERROR: failed to list repositories: ${it.message}"
         }
     }
 }

@@ -5,11 +5,13 @@ import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
+import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.config.BotSettings
+import org.taonity.sinairllmbot.config.service.ConfigRevisionService
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -22,12 +24,39 @@ class PipelineTraceService(
     private val pipelineRunRepository: PipelineRunRepository,
     private val pipelineLlmUsageTracker: PipelineLlmUsageTracker,
     private val jsonParseFailureTracker: JsonParseFailureTracker,
+    private val pipelineContextTracker: PipelineContextTracker,
+    private val configRevisionService: ConfigRevisionService,
     private val objectMapper: ObjectMapper,
     private val settings: BotSettings,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private const val SYSTEM_ACTOR = "system"
+    }
+
+    /**
+     * Starts all observational trackers for one pipeline and captures the safe effective config
+     * revision before any decision or tool call is made.
+     */
+    fun begin(): String? {
+        pipelineLlmUsageTracker.begin()
+        jsonParseFailureTracker.begin()
+        val revisionId = runCatching { configRevisionService.currentRevisionId() }
+            .onFailure { LOGGER.warn(it) { "Failed to capture configuration revision" } }
+            .getOrNull()
+        pipelineContextTracker.begin(revisionId)
+        return revisionId
+    }
+
+    fun currentConfigRevisionId(): String? = pipelineContextTracker.configRevisionId()
+
+    fun recordContextSource(uri: String) = pipelineContextTracker.recordSource(uri)
+
+    /** Clears trackers after an unexpected failure before a trace could be recorded. */
+    fun discard() {
+        pipelineLlmUsageTracker.drain()
+        jsonParseFailureTracker.drain()
+        pipelineContextTracker.discard()
     }
 
     fun record(
@@ -41,6 +70,7 @@ class PipelineTraceService(
         runCatching {
             val llmUsage = pipelineLlmUsageTracker.drain()
             val jsonFailures = jsonParseFailureTracker.drain()
+            val contextManifest = pipelineContextTracker.drain()
             pipelineRunRepository.save(
                 PipelineRunEntity(
                     pipelineKey = pipelineKey,
@@ -56,6 +86,8 @@ class PipelineTraceService(
                     llmUsageJson = objectMapper.writeValueAsString(llmUsage),
                     jsonParseFailureCount = jsonFailures.size,
                     jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
+                    configRevisionId = contextManifest.configRevisionId,
+                    contextManifestJson = pipelineContextTracker.serialize(contextManifest),
                 ),
             )
         }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
@@ -76,6 +108,7 @@ class PipelineTraceService(
     ): String? = runCatching {
         val llmUsage = pipelineLlmUsageTracker.drain()
         val jsonFailures = jsonParseFailureTracker.drain()
+        val contextManifest = pipelineContextTracker.drain()
         val triggerMessage = (trigger as? SummaryRefreshTrigger.Message)?.message
         val saved = pipelineRunRepository.save(
             PipelineRunEntity(
@@ -93,6 +126,8 @@ class PipelineTraceService(
                 llmUsageJson = objectMapper.writeValueAsString(llmUsage),
                 jsonParseFailureCount = jsonFailures.size,
                 jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
+                configRevisionId = contextManifest.configRevisionId,
+                contextManifestJson = pipelineContextTracker.serialize(contextManifest),
             ),
         )
         saved.id

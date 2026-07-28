@@ -35,10 +35,6 @@ app:
     # offered read-only GitHub tools (search_code / get_file) and answers from what it actually reads.
     repo-lookup:
       enabled: ${GITHUB_REPO_LOOKUP_ENABLED:true}
-      # LLM tier (see app.llm.tiers) used for repo-grounded replies — needs strong tool-use.
-      tier: repo
-      # Max tool-call rounds before the model must answer; caps latency and per-message cost.
-      max-rounds: 16
       # Max code-search results returned to the model per search.
       max-search-results: 8
       # Max characters of a fetched file passed to the model (longer files are truncated).
@@ -57,6 +53,14 @@ app:
     # current facts); within those, the model decides whether to actually search. Each performed
     # search adds cost and latency.
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
+    # Global tool-loop settings for reply generation. When any tool is available (web search, repo
+    # lookup, app context) the reply model runs in an agentic tool loop instead of a single-shot
+    # generation, so it can decide for itself whether to reach for a tool while composing the answer.
+    tool-loop:
+      # Tier to use for tool-loop replies. When blank, falls back to active-reply-tier.
+      tier: ""
+      # Max tool-call rounds before the model must answer; caps latency and per-message cost.
+      max-rounds: 35
     # How many times a JSON-only prompt (the triage classifier and the critic) may re-ask the model
     # when its response can't be deserialized into the expected object. Guards against occasional
     # malformed/truncated JSON. 1 disables retries; each extra attempt costs another call.

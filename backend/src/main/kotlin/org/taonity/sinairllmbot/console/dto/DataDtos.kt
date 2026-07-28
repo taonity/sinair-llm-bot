@@ -19,6 +19,8 @@ data class ChatMessageDto(
     val messageStyle: String,
     val sentAt: Instant,
     val receivedAt: Instant,
+    val sourceOutboundMessageId: String?,
+    val sourceOutboundMatch: String?,
 ) {
     companion object {
         fun from(e: ChatMessageEntity) = ChatMessageDto(
@@ -30,6 +32,8 @@ data class ChatMessageDto(
             messageStyle = e.messageStyle,
             sentAt = e.sentAt,
             receivedAt = e.receivedAt,
+            sourceOutboundMessageId = e.sourceOutboundMessageId,
+            sourceOutboundMatch = e.sourceOutboundMatch,
         )
     }
 }
@@ -123,6 +127,8 @@ data class PipelineRunDto(
     val totalTokens: Int,
     val llmUsage: List<LlmCallUsageDto>,
     val jsonParseFailures: List<JsonParseFailureDto>,
+    val configRevisionId: String?,
+    val contextSources: List<String>,
     val createdAt: Instant,
 ) {
     companion object {
@@ -131,6 +137,7 @@ data class PipelineRunDto(
             stages: List<PipelineStageDto>,
             llmUsage: List<LlmCallUsageDto>,
             jsonParseFailures: List<JsonParseFailureDto>,
+            contextSources: List<String>,
         ) =
             PipelineRunDto(
                 id = e.id,
@@ -146,6 +153,8 @@ data class PipelineRunDto(
                 totalTokens = e.totalTokens,
                 llmUsage = llmUsage,
                 jsonParseFailures = jsonParseFailures,
+                configRevisionId = e.configRevisionId,
+                contextSources = contextSources,
                 createdAt = e.createdAt,
             )
     }
