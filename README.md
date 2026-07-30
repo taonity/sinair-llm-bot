@@ -198,7 +198,6 @@ Configured per the profile set you run.
 ### PostgreSQL database ERD diagram
 
 <!-- mermerd-start -->
-
 ```mermaid
 erDiagram
     app_user {
@@ -226,6 +225,13 @@ erDiagram
         timestamp_without_time_zone updated_at "{NOT_NULL}"
         character_varying updated_by "{NOT_NULL}"
         character_varying value_json "{NOT_NULL}"
+    }
+
+    bot_config_revision {
+        character_varying content_hash UK "{NOT_NULL}"
+        timestamp_without_time_zone created_at "{NOT_NULL}"
+        text effective_config_json "{NOT_NULL}"
+        character_varying id PK "{NOT_NULL}"
     }
 
     bot_config_tier {
@@ -267,6 +273,8 @@ erDiagram
         integer sender_member_id "{NOT_NULL}"
         integer sender_user_id "{NOT_NULL}"
         timestamp_without_time_zone sent_at "{NOT_NULL}"
+        character_varying source_outbound_match 
+        character_varying source_outbound_message_id 
     }
 
     ignored_message {
@@ -288,6 +296,8 @@ erDiagram
     }
 
     pipeline_run {
+        character_varying config_revision_id 
+        text context_manifest_json "{NOT_NULL}"
         timestamp_without_time_zone created_at "{NOT_NULL}"
         character_varying id PK "{NOT_NULL}"
         integer json_parse_failure_count "{NOT_NULL}"
@@ -348,7 +358,6 @@ erDiagram
 
     spring_session_attributes }o--|| spring_session : "session_primary_id"
 ```
-
 <!-- mermerd-end -->
 
 ## Deployment
