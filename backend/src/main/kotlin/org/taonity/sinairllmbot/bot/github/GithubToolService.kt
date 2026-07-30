@@ -81,11 +81,22 @@ class GithubToolService(
                 "required" to listOf("repo", "path"),
             ),
         ),
+        Tool.function(
+            name = "list_repos",
+            description = "List all public repositories in the '${properties.org}' GitHub organization. " +
+                "Returns repository names with descriptions. Use this to discover which repos exist " +
+                "before searching code or reading files.",
+            parameters = mapOf(
+                "type" to "object",
+                "properties" to emptyMap<String, Any>(),
+            ),
+        ),
     )
 
     override fun definitions(context: ToolExecutionContext): List<Tool> = toolDefinitions()
 
-    override fun supports(name: String): Boolean = name == "search_code" || name == "get_file"
+    override fun supports(name: String): Boolean =
+        name == "search_code" || name == "get_file" || name == "list_repos"
 
     /** Dispatches a single tool call. Never throws: failures come back as an `ERROR: ...` string. */
     fun execute(name: String, argumentsJson: String): String {
@@ -95,6 +106,7 @@ class GithubToolService(
         return when (name) {
             "search_code" -> searchCode(arg("query"), arg("repo"))
             "get_file" -> getFile(arg("repo"), arg("path"), arg("ref"))
+            "list_repos" -> listRepos()
             else -> "ERROR: unknown tool '$name'"
         }
     }
@@ -114,6 +126,8 @@ class GithubToolService(
             }
         } else if (name == "search_code") {
             pipelineContextTracker.recordSource("github://code-search")
+        } else if (name == "list_repos") {
+            pipelineContextTracker.recordSource("github://org-repos")
         }
         return execute(name, argumentsJson)
     }
@@ -144,6 +158,19 @@ class GithubToolService(
         }.getOrElse {
             LOGGER.warn(it) { "get_file failed" }
             "ERROR: could not read $repo/$path: ${it.message}"
+        }
+    }
+
+    private fun listRepos(): String {
+        return runCatching {
+            val repos = githubCodeClient.listRepos()
+            if (repos.isEmpty()) "No public repositories found in '${properties.org}'."
+            else repos.joinToString("\n") { r ->
+                buildString { append(r.name); r.description?.let { append(" — $it") } }
+            }
+        }.getOrElse {
+            LOGGER.warn(it) { "list_repos failed" }
+            "ERROR: failed to list repositories: ${it.message}"
         }
     }
 }
