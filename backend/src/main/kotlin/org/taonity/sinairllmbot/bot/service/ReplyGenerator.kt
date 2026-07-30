@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
-import org.taonity.sinairllmbot.bot.github.GithubToolService
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.tools.LlmToolDispatcher
 import org.taonity.sinairllmbot.bot.tools.ToolCapability
@@ -15,10 +14,13 @@ import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 /**
  * Final stage: produces the actual chat reply.
  *
- * When the critic layer is enabled (app.llm.critic.enabled) it draws several candidates, has a cheap
- * judge rate them against the same brief, keeps the best and repairs it once if it scores too low.
- * Otherwise it falls back to a single direct generation. Prompt assembly (persona + context + any
- * grounded link/image content, plus vision-tier routing) lives in [ReplyPromptBuilder].
+ * When any tool is available (web search, repo lookup, app context) the reply model runs in an
+ * agentic tool loop with global round settings from [LlmProperties.ToolLoop], so it can decide
+ * for itself whether to reach for a tool while composing the answer. When no tool is available
+ * and the critic layer is enabled it draws several candidates, has a cheap judge rate them against
+ * the same brief, keeps the best and repairs it once if it scores too low. Otherwise it falls back
+ * to a single direct generation. Prompt assembly (persona + context + any grounded link/image
+ * content, plus vision-tier routing) lives in [ReplyPromptBuilder].
  */
 @Service
 class ReplyGenerator(
@@ -26,7 +28,6 @@ class ReplyGenerator(
     private val promptBuilder: ReplyPromptBuilder,
     private val candidateGenerator: CandidateGenerator,
     private val replyCritic: ReplyCritic,
-    private val githubToolService: GithubToolService,
     private val toolDispatcher: LlmToolDispatcher,
     private val settings: BotSettings,
 ) {
@@ -35,26 +36,18 @@ class ReplyGenerator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private const val APP_CONTEXT_MAX_ROUNDS = 4
     }
 
     /**
-     * @param needsWebSearch the cheap triage stage's judgment that answering warrants a live web
-     *   lookup — either the answer is time-sensitive or the user explicitly asked the bot to look
-     *   something specific up; enables live web search (see [ReplyPromptBuilder]).
+     * @param roomTarget the room the trigger message belongs to.
+     * @param trigger the message the bot is replying to.
      */
     fun generate(
         roomTarget: String,
         trigger: ChatMessageEntity,
-        needsWebSearch: Boolean = false,
-        needsRepoLookup: Boolean = false,
-        needsAppContext: Boolean = false,
     ): String? = generateTraced(
         roomTarget = roomTarget,
         trigger = trigger,
-        needsWebSearch = needsWebSearch,
-        needsRepoLookup = needsRepoLookup,
-        needsAppContext = needsAppContext,
     ).reply
 
     /**
@@ -65,22 +58,17 @@ class ReplyGenerator(
     fun generateTraced(
         roomTarget: String,
         trigger: ChatMessageEntity,
-        needsWebSearch: Boolean = false,
-        needsRepoLookup: Boolean = false,
-        needsAppContext: Boolean = false,
         completedStages: List<PipelineStage> = emptyList(),
         configRevisionId: String? = null,
     ): ReplyGeneration {
         val prompt = promptBuilder.build(
             roomTarget,
             trigger,
-            needsWebSearch,
-            needsRepoLookup,
-            needsAppContext,
         )
 
+        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext
         val raw = when {
-            prompt.repoLookup || prompt.appContext -> generateWithTools(
+            hasTools -> generateWithTools(
                 roomTarget,
                 trigger,
                 prompt,
@@ -101,8 +89,10 @@ class ReplyGenerator(
     }
 
     /**
-     * Agentic repo-grounded generation: the model is offered read-only GitHub tools and answers from
-     * the code it actually reads. Runs a single tool loop (no critic candidates) to keep cost bounded.
+     * Agentic tool-loop generation: the model is offered all available tools (web search, repo
+     * lookup, app context) and runs in a tool loop with global round settings from
+     * [LlmProperties.ToolLoop]. The model decides for itself whether to reach for a tool while
+     * composing the answer — no critic candidates are drawn, keeping cost bounded.
      */
     private fun generateWithTools(
         roomTarget: String,
@@ -126,11 +116,12 @@ class ReplyGenerator(
             addAll(toolDispatcher.definitions(executionContext, capabilities))
             if (prompt.webSearch) add(org.taonity.sinairllmbot.bot.client.Tool.webSearch())
         }
+        val toolLoop = llmProperties.toolLoop
         val content = llmClient.completeWithTools(
-            tierName = if (prompt.repoLookup) githubToolService.repoTier else prompt.tierName,
+            tierName = toolLoop.tier.ifBlank { prompt.tierName },
             messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
             tools = offeredTools,
-            maxRounds = if (prompt.repoLookup) githubToolService.maxRounds else APP_CONTEXT_MAX_ROUNDS,
+            maxRounds = toolLoop.maxRounds,
             toolExecutor = { name, arguments ->
                 toolDispatcher.execute(executionContext, name, arguments)
             },

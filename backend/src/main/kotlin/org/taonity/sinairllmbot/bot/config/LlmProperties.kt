@@ -30,6 +30,10 @@ data class LlmProperties(
      */
     val jsonRetryAttempts: Int,
     val critic: Critic,
+    /** Global tool-loop settings for reply generation. When any tool is available (web search, repo
+     * lookup, app context) the reply model runs in an agentic tool loop instead of a single-shot
+     * generation, so it can decide for itself whether to reach for a tool while composing the answer. */
+    val toolLoop: ToolLoop = ToolLoop(),
 ) {
     data class Tier(
         val model: String,
@@ -43,6 +47,13 @@ data class LlmProperties(
         val candidateTemperature: Double,
         val repairThreshold: Int,
         val prompt: String,
+    )
+
+    data class ToolLoop(
+        /** Tier name to use for tool-loop replies. When blank, falls back to [activeReplyTier]. */
+        val tier: String = "",
+        /** Max tool-call rounds before the model must answer; caps latency and per-message cost. */
+        val maxRounds: Int = 8,
     )
 
     fun tier(name: String): Tier =

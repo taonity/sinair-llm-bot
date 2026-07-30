@@ -127,7 +127,7 @@ class DevPipelineSeeder(
             reply(
                 room, next(), sender = "diana", text = "@segfault что там с погодой на выходных?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-4",
-                triage = triageStage(respond = true, category = "addressed", needsFreshInfo = true, needsSearch = true),
+                triage = triageStage(respond = true, category = "addressed"),
                 decision = decisionStage(reply = true, driver = "triage"),
                 generate = generateStage(
                     summary = "1 candidate", candidates = listOf(candidate("Обещают дождь в субботу, воскресенье ясно.", chosen = true)),
@@ -141,7 +141,7 @@ class DevPipelineSeeder(
             reply(
                 room, next(), sender = "frank", text = "@segfault где у нас описан ChatCompletionRequest?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-6",
-                triage = triageStage(respond = true, category = "addressed", needsRepoLookup = true),
+                triage = triageStage(respond = true, category = "addressed"),
                 decision = decisionStage(reply = true, driver = "triage"),
                 generate = generateStage(
                     summary = "1 candidate · repo-grounded",
@@ -242,18 +242,12 @@ class DevPipelineSeeder(
     private fun triageStage(
         respond: Boolean,
         category: String,
-        needsFreshInfo: Boolean = false,
-        needsSearch: Boolean = false,
-        needsRepoLookup: Boolean = false,
     ) = PipelineStage(
         key = "triage", label = "Triage", status = PipelineStageStatus.OK,
         summary = "respond=$respond · $category",
         fields = listOf(
             PipelineField("respond", respond.toString()),
             PipelineField("category", category),
-            PipelineField("needsFreshInfo", needsFreshInfo.toString()),
-            PipelineField("needsSearch", needsSearch.toString()),
-            PipelineField("needsRepoLookup", needsRepoLookup.toString()),
         ),
     )
 

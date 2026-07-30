@@ -21,8 +21,6 @@ data class GithubProperties(
 ) {
     data class RepoLookup(
         val enabled: Boolean,
-        val tier: String,
-        val maxRounds: Int,
         val maxSearchResults: Int,
         val maxFileChars: Int,
     )

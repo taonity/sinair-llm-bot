@@ -31,8 +31,6 @@ class GithubToolService(
     private val properties get() = settings.github()
 
     val repoLookupEnabled: Boolean get() = properties.repoLookup.enabled
-    val repoTier: String get() = properties.repoLookup.tier
-    val maxRounds: Int get() = properties.repoLookup.maxRounds
     override val capability: ToolCapability = ToolCapability.REPOSITORY
 
     fun toolDefinitions(): List<Tool> = listOf(

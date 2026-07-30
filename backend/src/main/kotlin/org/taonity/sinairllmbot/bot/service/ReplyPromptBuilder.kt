@@ -39,9 +39,6 @@ class ReplyPromptBuilder(
     fun build(
         roomTarget: String,
         trigger: ChatMessageEntity,
-        needsWebSearch: Boolean,
-        needsRepoLookup: Boolean,
-        needsAppContext: Boolean,
     ): ReplyPrompt {
         val persona = botProperties.persona
         val presence = contextBuilder.presenceLine(roomTarget)
@@ -56,17 +53,19 @@ class ReplyPromptBuilder(
         }
 
         val hasImages = grounded?.hasImages == true
-        val webSearch = llmProperties.replyWebSearch && !hasImages && needsWebSearch
-        if (webSearch) {
-            LOGGER.info { "Web search offered for reply in $roomTarget" }
+        // Every capability is offered on every reply (subject only to its own settings toggle and
+        // the image exception below) — the model decides for itself whether a tool is worth using
+        // while composing the answer, instead of a cheap gate pre-judging which ones a reply needs.
+        val webSearch = llmProperties.replyWebSearch && !hasImages
+        val repoLookup = githubProperties.repoLookup.enabled && !hasImages
+        val appContext = !hasImages
+        val offeredTools = buildList {
+            if (webSearch) add("web search")
+            if (repoLookup) add("repo lookup")
+            if (appContext) add("app context")
         }
-        val repoLookup = githubProperties.repoLookup.enabled && !hasImages && needsRepoLookup
-        if (repoLookup) {
-            LOGGER.info { "Repo lookup offered for reply in $roomTarget" }
-        }
-        val appContext = !hasImages && needsAppContext
-        if (appContext) {
-            LOGGER.info { "Application context offered for reply in $roomTarget" }
+        if (offeredTools.isNotEmpty()) {
+            LOGGER.info { "Tools offered for reply in $roomTarget: ${offeredTools.joinToString(", ")}" }
         }
 
         val system = buildString {
@@ -123,11 +122,12 @@ class ReplyPromptBuilder(
                 append("source-code analysis — say so if it matters. Keep your normal casual voice.")
             }
             if (webSearch) {
-                append("\n\nLIVE SEARCH REQUIRED:\n")
-                append("The gate classified this reply as needing a web lookup. Use live search ")
-                append("before answering and ground the concrete facts in what you find, not in ")
-                append("your memory. If live search finds no solid result, say that plainly ")
-                append("instead of guessing.")
+                append("\n\nLIVE SEARCH AVAILABLE:\n")
+                append("You have live web search available. Use it when answering needs up-to-date ")
+                append("information or a specific named thing you can't answer accurately from memory ")
+                append("— ground the concrete facts in what you find, not in your memory. Skip it for ")
+                append("ordinary chit-chat you can answer well yourself. If live search finds no solid ")
+                append("result, say that plainly instead of guessing.")
             }
             if (repoLookup) {
                 append("\n\nREPOSITORY ACCESS:\n")

@@ -22,7 +22,7 @@ import kotlin.random.Random
  *
  * Bursts are debounced per room, so a fast human back-and-forth is judged once after it settles.
  * After the quiet period the latest room state is re-read from the DB and run through:
- *   command gate -> LLM triage (should respond? fresh info?) -> reply generator -> persist outbound.
+ *   command gate -> LLM triage (should respond?) -> reply generator -> persist outbound.
  * The collector later picks up PENDING outbound messages and sends them to the chat.
  */
 @Service
@@ -124,8 +124,9 @@ class BotMessageOrchestrator(
             stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.PASS, "ready")
 
             // The cheap gate-tier LLM is the sole judge of intent: whether the bot is addressed
-            // (directly or indirectly) or should correct misinformation, and whether the answer
-            // needs fresh info. No keyword/noise heuristics.
+            // (directly or indirectly) or should correct misinformation. No keyword/noise heuristics.
+            // Once it decides to reply, the reply generator itself is offered every tool (web search,
+            // repo lookup, app context) and decides what to actually use.
             val triage = messageTriageService.assess(roomTarget)
             stages += PipelineStage(
                 key = "triage",
@@ -135,10 +136,6 @@ class BotMessageOrchestrator(
                 fields = listOf(
                     PipelineField("respond", triage.respond.toString()),
                     PipelineField("category", triage.loggableCategory),
-                    PipelineField("needsFreshInfo", triage.needsFreshInfo.toString()),
-                    PipelineField("needsSearch", triage.needsSearch.toString()),
-                    PipelineField("needsRepoLookup", triage.needsRepoLookup.toString()),
-                    PipelineField("needsAppContext", triage.needsAppContext.toString()),
                 ),
             )
 
@@ -162,9 +159,7 @@ class BotMessageOrchestrator(
             )
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
-                    "driver=$driver (respond=${triage.respond}, needsFreshInfo=${triage.needsFreshInfo}, " +
-                    "needsSearch=${triage.needsSearch}, needsRepoLookup=${triage.needsRepoLookup}, " +
-                    "needsAppContext=${triage.needsAppContext}, category=${triage.loggableCategory})"
+                    "driver=$driver (respond=${triage.respond}, category=${triage.loggableCategory})"
             }
             if (!shouldReply) {
                 pipelineTraceService.record(
@@ -181,9 +176,6 @@ class BotMessageOrchestrator(
                 replyGenerator.generateTraced(
                     roomTarget = roomTarget,
                     trigger = trigger,
-                    needsWebSearch = triage.needsFreshInfo || triage.needsSearch,
-                    needsRepoLookup = triage.needsRepoLookup,
-                    needsAppContext = triage.needsAppContext,
                     completedStages = stages.toList(),
                     configRevisionId = pipelineTraceService.currentConfigRevisionId(),
                 )
