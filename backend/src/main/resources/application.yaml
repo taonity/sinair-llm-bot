@@ -305,7 +305,7 @@ app:
       # How long a room keeps showing the bot's typing indicator while it composes a reply before
       # it auto-clears. A safety cap so a stalled/failed reply generation can't leave the indicator
       # stuck on; under normal flow it clears as soon as the reply is generated and sent.
-      ttl-seconds: 15
+      ttl-seconds: 120
     limits:
       # Hard cap on the length of a generated reply; anything longer is truncated with an ellipsis.
       max-reply-chars: 800

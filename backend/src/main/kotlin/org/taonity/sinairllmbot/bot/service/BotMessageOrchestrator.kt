@@ -169,22 +169,25 @@ class BotMessageOrchestrator(
             }
 
             // Decided to reply: show a typing indicator while the LLM composes the answer. The
-            // marker is cleared once generation returns; the queued PENDING reply then keeps the
-            // indicator up (via BotTypingService) until the collector delivers it.
+            // marker is kept alive until the PENDING outbound message is saved — the typing
+            // service then picks up the DB entry and keeps the indicator live until the
+            // collector delivers the message.
             botTypingService.markTyping(roomTarget)
-            val generation = try {
+            val generation = runCatching {
                 replyGenerator.generateTraced(
                     roomTarget = roomTarget,
                     trigger = trigger,
                     completedStages = stages.toList(),
                     configRevisionId = pipelineTraceService.currentConfigRevisionId(),
                 )
-            } finally {
+            }.onFailure {
                 botTypingService.clearTyping(roomTarget)
-            }
+                throw it
+            }.getOrThrow()
             stages += generationStage(generation)
 
             val reply = generation.reply ?: run {
+                botTypingService.clearTyping(roomTarget)
                 pipelineTraceService.record(
                     PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages,
                     outcomeDetail = "generation produced no reply",
@@ -201,6 +204,9 @@ class BotMessageOrchestrator(
                         ?.removePrefix("ext:"),
                 ),
             )
+            // PENDING entry now exists in the DB — the typing service will keep the indicator
+            // alive via the queued-message lookup. Safe to remove the in-memory marker.
+            botTypingService.clearTyping(roomTarget)
             cooldownTracker.recordReply(roomTarget)
             LOGGER.info { "Bot queued reply in $roomTarget to @${trigger.senderLogin}" }
             pipelineTraceService.record(
