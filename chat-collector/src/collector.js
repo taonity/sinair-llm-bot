@@ -253,6 +253,26 @@ export async function startCollector() {
         bufferMessage(dto);
     });
 
+    chat.on(WsChatEvents.sysMessage, (room, text) => {
+        markAlive();
+        logger.debug(`[collector] sysMessage — room=${room?.target}, text=${text}`);
+        if (!room) return;
+        const dto = {
+            roomTarget: room.target,
+            memberId: 0,
+            userId: 0,
+            memberName: '',
+            memberColor: null,
+            status: 'system',
+            eventData: text || null,
+            isGirl: false,
+            isModer: false,
+            isOwner: false,
+            eventTime: Math.floor(Date.now() / 1000),
+        };
+        bufferEvent(dto);
+    });
+
     chat.on(WsChatEvents.userStatusChange, (room, userobj) => {
         markAlive();
         logger.debug(`[collector] userStatusChange — room=${room?.target}, member=${userobj?.name}, status=${userobj?.status} (raw=${JSON.stringify(userobj)})`);

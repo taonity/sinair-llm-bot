@@ -66,7 +66,7 @@ class ReplyGenerator(
             trigger,
         )
 
-        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext
+        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext || prompt.chatCommands
         val raw = when {
             hasTools -> generateWithTools(
                 roomTarget,
@@ -111,6 +111,7 @@ class ReplyGenerator(
         val capabilities = buildSet {
             if (prompt.repoLookup) add(ToolCapability.REPOSITORY)
             if (prompt.appContext) add(ToolCapability.APPLICATION)
+            if (prompt.chatCommands) add(ToolCapability.CHAT_COMMAND)
         }
         val offeredTools = buildList {
             addAll(toolDispatcher.definitions(executionContext, capabilities))

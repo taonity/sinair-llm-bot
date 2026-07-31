@@ -19,6 +19,8 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
 
     fun existsBySourceOutboundMessageId(sourceOutboundMessageId: String): Boolean
 
+    fun findBySourceOutboundMessageId(sourceOutboundMessageId: String): ChatMessageEntity?
+
     fun countByRoomTarget(roomTarget: String): Long
 
     @Query(

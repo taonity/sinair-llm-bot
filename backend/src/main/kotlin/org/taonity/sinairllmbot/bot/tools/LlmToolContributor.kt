@@ -6,6 +6,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 enum class ToolCapability {
     REPOSITORY,
     APPLICATION,
+    CHAT_COMMAND,
 }
 
 data class ToolExecutionContext(

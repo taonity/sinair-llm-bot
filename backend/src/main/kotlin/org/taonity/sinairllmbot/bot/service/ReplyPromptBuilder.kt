@@ -59,10 +59,12 @@ class ReplyPromptBuilder(
         val webSearch = llmProperties.replyWebSearch && !hasImages
         val repoLookup = githubProperties.repoLookup.enabled && !hasImages
         val appContext = !hasImages
+        val chatCommands = true
         val offeredTools = buildList {
             if (webSearch) add("web search")
             if (repoLookup) add("repo lookup")
             if (appContext) add("app context")
+            if (chatCommands) add("chat commands")
         }
         if (offeredTools.isNotEmpty()) {
             LOGGER.info { "Tools offered for reply in $roomTarget: ${offeredTools.joinToString(", ")}" }
@@ -159,6 +161,13 @@ class ReplyPromptBuilder(
                 append("If a bounded search is inconclusive, say what you checked instead of claiming ")
                 append("the data does not exist.")
             }
+            if (chatCommands) {
+                append("\n\nCHAT COMMANDS:\n")
+                append("You have a chat command tool available. Use it when someone asks you to ")
+                append("change your nick, color, send a /me action, or run any other chat command. ")
+                append("After the tool executes, report the outcome conversationally. ")
+                append("You can also use /help to discover what commands exist. Make sure your nick is not empty before you reply")
+            }
             if (summary.isNotBlank()) {
                 append("\n\nBACKGROUND (longer-term memory of this chat — recurring themes and who's ")
                 append("who). It may be out of date and some threads are long finished. Use it only ")
@@ -202,6 +211,7 @@ class ReplyPromptBuilder(
             webSearch = webSearch,
             repoLookup = repoLookup,
             appContext = appContext,
+            chatCommands = chatCommands,
             triggerText = trigger.messageText,
             senderLogin = trigger.senderLogin,
         )
@@ -233,6 +243,7 @@ data class ReplyPrompt(
     val webSearch: Boolean,
     val repoLookup: Boolean = false,
     val appContext: Boolean = false,
+    val chatCommands: Boolean = false,
     val triggerText: String,
     val senderLogin: String,
 )

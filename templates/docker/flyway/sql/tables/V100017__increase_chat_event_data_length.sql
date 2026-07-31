@@ -1,0 +1,1 @@
+ALTER TABLE chat_event ALTER COLUMN event_data TYPE TEXT;

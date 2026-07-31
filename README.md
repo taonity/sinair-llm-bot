@@ -119,6 +119,7 @@ From PowerShell:
 
 ```bash
 mvn -pl backend spring-boot:run '-Dspring-boot.run.jvmArguments="-Dspring.profiles.active=h2,stub-google,local,stub-llm"'
+
 ```
 
 Backend runs on port **8080**.
@@ -127,6 +128,7 @@ Backend runs on port **8080**.
 
 ```bash
 cd frontend; npm install; npm run dev
+
 ```
 
 Frontend runs on port **3000**.
@@ -135,16 +137,19 @@ Frontend runs on port **3000**.
 
 ```bash
 cd chat-stubs; npm install; npm run dev
+
 ```
 
 ### Chat collector
 
 ```bash
 cd chat-collector; npm install; npm run dev:local
+
 ```
 
 ```bash
-cd chat-collector; npm install; npm run dev:prod
+cd chat-collector; npm install; $env:LOG_LEVEL='debug'; npm run dev:prod
+
 ```
 
 ### Profiles
@@ -198,6 +203,7 @@ Configured per the profile set you run.
 ### PostgreSQL database ERD diagram
 
 <!-- mermerd-start -->
+
 ```mermaid
 erDiagram
     app_user {
@@ -358,6 +364,7 @@ erDiagram
 
     spring_session_attributes }o--|| spring_session : "session_primary_id"
 ```
+
 <!-- mermerd-end -->
 
 ## Deployment
@@ -370,6 +377,7 @@ Create the shared networks required for the production environment:
 docker network create prodenv-shared-internal
 docker network create sinair-llm-bot-shared
 
+
 ```
 
 Run with images from Docker Hub:
@@ -379,6 +387,7 @@ Run with images from Docker Hub:
 mvn clean -P build-automation-docker-compose-project compile -DskipTests=true
 # Run the template. Make sure all required env vars are set.
 docker compose -f backend/target/docker/test/docker-compose.yml up -d
+
 
 ```
 
@@ -393,6 +402,7 @@ docker build -t sinair-llm-bot-frontend frontend/
 # Run the template
 docker compose -f templates/docker/docker-compose.yml up -d
 
+
 ```
 
 For Docker-based local development, use the override file:
@@ -400,6 +410,7 @@ For Docker-based local development, use the override file:
 ```bash
 cd templates/docker
 docker compose -f docker-compose.yml -f docker-compose.local.yml up
+
 
 ```
 

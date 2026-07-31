@@ -72,7 +72,7 @@ class HttpServletLoggingService(
         val headersJson = getInterestedHeaders(request)
         val cookiesJson = getInterestedCookies(request)
 
-        LOGGER.debug(
+        LOGGER.trace(
             "[{}] {} with headers {}, cookies {}, body [{}]",
             request.method,
             request.requestURI,

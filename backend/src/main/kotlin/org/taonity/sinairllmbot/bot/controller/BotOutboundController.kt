@@ -30,25 +30,25 @@ class BotOutboundController(
     private val botPresenceService: BotPresenceService,
     private val botTypingService: BotTypingService,
 ) {
-    @EndpointLogLevel(LogLevel.DEBUG)
+    @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping
     fun claim(
         @RequestParam(required = false) room: String?,
         @RequestParam(defaultValue = "10") limit: Int,
     ): List<OutboundMessageDto> = outboundMessageService.claimPending(room, limit)
 
-    @EndpointLogLevel(LogLevel.DEBUG)
+    @EndpointLogLevel(LogLevel.TRACE)
     @PostMapping("/ack")
     fun ack(@RequestBody request: OutboundAckRequest): OutboundAckResponse =
         OutboundAckResponse(outboundMessageService.acknowledge(request.ids))
 
     /** Current online/offline presence per configured room, so the collector can reflect it in chat. */
-    @EndpointLogLevel(LogLevel.DEBUG)
+    @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/presence")
     fun presence(): List<RoomPresenceDto> = botPresenceService.allPresences()
 
     /** Rooms the bot is currently composing a reply in, so the collector can show a typing indicator. */
-    @EndpointLogLevel(LogLevel.DEBUG)
+    @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/typing")
     fun typing(): List<String> = botTypingService.typingRooms()
 }

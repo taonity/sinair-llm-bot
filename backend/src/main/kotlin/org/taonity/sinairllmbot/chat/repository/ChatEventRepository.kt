@@ -17,6 +17,8 @@ interface ChatEventRepository : JpaRepository<ChatEventEntity, String> {
 
     fun findByRoomTargetOrderByEventTimeDesc(roomTarget: String, pageable: Pageable): List<ChatEventEntity>
 
+    fun findByRoomTargetAndReceivedAtAfterOrderByReceivedAtDesc(roomTarget: String, receivedAt: Instant): List<ChatEventEntity>
+
     @Query(
         """
         SELECT e FROM ChatEventEntity e
