@@ -46,7 +46,7 @@ app:
     api-key: ${LLM_API_KEY:local-dummy-key}
     active-reply-tier: cheap
   bot:
-    rooms: '#test1'
+    rooms: '#taonity-room'
     persona:
       name: segfault-local
       creator-user-id: ${BOT_CREATOR_USER_ID:0}

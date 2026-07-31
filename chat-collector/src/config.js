@@ -38,7 +38,7 @@ const defaultTokenFile = resolve(__dirname, '..', `.session-token-${envProfile}`
 export const config = {
     chatWsUrl: requireEnv('CHAT_WS_URL'),
     chatApiKey: requireEnv('CHAT_API_KEY'),
-    chatRooms: requireEnv('CHAT_ROOMS').split(',').map(r => r.trim()),
+    chatRooms: requireEnv('CHAT_ROOMS').split(',').map(r => `#${r.trim()}`),
     backendUrl: requireEnv('BACKEND_URL'),
     batchSize: parseInt(requireEnv('BATCH_SIZE'), 10),
     batchFlushInterval: parseInt(requireEnv('BATCH_FLUSH_INTERVAL'), 10),

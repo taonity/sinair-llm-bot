@@ -42,9 +42,9 @@ app:
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
-    timeout-seconds: 60
+    timeout-seconds: 30
     title: sinair-llm-bot
-    active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:smart}
+    active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:smart-glm}
     gate-tier: gate
     # Tier used by the critic layer to rate/repair candidate replies (cheap, JSON-only judge).
     critic-tier: critic
@@ -132,8 +132,8 @@ app:
         model: deepseek/deepseek-chat
         temperature: 0.2
         max-tokens: 400
-      smart:
-        model: anthropic/claude-sonnet-4
+      smart-glm:
+        model: z-ai/glm-5.2
         temperature: 0.2
         max-tokens: 500
       # Repo-lookup tier: strong tool-use + code reasoning for GitHub code-awareness replies.

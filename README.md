@@ -148,6 +148,11 @@ cd chat-collector; npm install; npm run dev:local
 ```
 
 ```bash
+cd chat-collector; npm install; npm run dev:prod
+
+```
+
+```bash
 cd chat-collector; npm install; $env:LOG_LEVEL='debug'; npm run dev:prod
 
 ```

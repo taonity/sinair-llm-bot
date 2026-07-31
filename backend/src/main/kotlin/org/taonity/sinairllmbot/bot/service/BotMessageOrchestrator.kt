@@ -52,7 +52,7 @@ class BotMessageOrchestrator(
     fun onMessagesStored(storedMessages: List<ChatMessageEntity>) {
         if (!botProperties.enabled || storedMessages.isEmpty()) return
 
-        val allowedRooms = botProperties.rooms.toSet()
+        val allowedRooms = settings.botRooms().toSet()
         storedMessages
             .filter { it.roomTarget in allowedRooms }
             .filterNot { it.senderLogin.equals(botProperties.persona.name, ignoreCase = true) }
@@ -123,11 +123,8 @@ class BotMessageOrchestrator(
             }
             stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.PASS, "ready")
 
-            // The cheap gate-tier LLM is the sole judge of intent: whether the bot is addressed
-            // (directly or indirectly) or should correct misinformation. No keyword/noise heuristics.
-            // Once it decides to reply, the reply generator itself is offered every tool (web search,
-            // repo lookup, app context) and decides what to actually use.
-            val triage = messageTriageService.assess(roomTarget)
+
+            val triage = messageTriageService.assess(roomTarget, trigger.messageText)
             stages += PipelineStage(
                 key = "triage",
                 label = "Triage",

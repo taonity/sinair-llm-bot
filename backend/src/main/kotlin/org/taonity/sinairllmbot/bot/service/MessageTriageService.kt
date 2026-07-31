@@ -49,17 +49,35 @@ class MessageTriageService(
         // Salvage regex: recovers `respond` even from truncated/misspelled JSON, so a response the
         // model meant as respond=true is never silently downgraded to false.
         private val RESPOND_REGEX = Regex("\"respond\"\\s*:\\s*(true|false)", RegexOption.IGNORE_CASE)
+
+        private fun buildAliasPattern(name: String, aliases: List<String>): Regex {
+            val words = (listOf(name) + aliases)
+                .map { Regex.escape(it) }
+                .joinToString("|")
+            return Regex("(?:^|\\s)@?(?:$words)(?:[\\s.,!?;:\"')\\]»]|\$)", RegexOption.IGNORE_CASE)
+        }
     }
 
-    fun assess(roomTarget: String): TriageVerdict {
+    fun assess(roomTarget: String, triggerMessageText: String? = null): TriageVerdict {
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 12)
         if (transcript.isBlank()) return TriageVerdict(respond = false)
 
-        val persona = botProperties.persona
-        val aliases = (listOf(persona.name) + persona.aliases).joinToString(", ")
+        val person = botProperties.persona
+        val aliasPattern = buildAliasPattern(person.name, person.aliases)
+        val mention = triggerMessageText?.let { text ->
+            aliasPattern.find(text)?.value?.trim()
+        }
+
+        val annotatedTranscript = if (mention != null) {
+            "$transcript\n\n⚠️ NOTE: The latest message above literally contains the bot's name or alias (matched: \"$mention\"). The bot should reply IF the message is genuinely aimed at it — but don't force a reply if it's clearly incidental."
+        } else {
+            transcript
+        }
+
+        val aliases = (listOf(person.name) + person.aliases).joinToString(", ")
         val system = buildString {
-            append("You are the gatekeeper for a chat bot in a ").append(persona.language)
-            append(" group chat. The bot's nick is '").append(persona.name)
+            append("You are the gatekeeper for a chat bot in a ").append(person.language)
+            append(" group chat. The bot's nick is '").append(person.name)
             append("' (also called: ").append(aliases).append("). In the transcript the bot's own ")
             append("messages appear under that nick. Judge the LATEST message and decide one thing.\n\n")
             append("1) respond (boolean): should the bot send a message now? Say TRUE ONLY when the ")
@@ -85,12 +103,21 @@ class MessageTriageService(
             append("not_addressed (the message is not aimed at the bot), ")
             append("noise (a bare acknowledgement, filler or noise). Choose the single closest kind; it ")
             append("must be one of those exact tokens and must NOT contain any words from the ")
-            append("conversation or restate its topic.\n")
+            append("conversation or restate its topic.\n\n")
+            append("The bot has these capabilities (use this to judge whether a request is aimed at it):\n")
+            append("- Chat commands: change nick (/nick), change color (/color), send /me actions, ")
+            append("send /do third-person messages, send /n noise messages, private messages (/msg), ")
+            append("kick/ban users (moderator commands), manage room access requests, and more.\n")
+            append("- Live web search (for recent/current facts)\n")
+            append("- GitHub repository lookup (for code questions)\n")
+            append("- Application context tools (for live config/state questions)\n")
+            append("If someone is asking the bot to perform an action it can do, or asking about ")
+            append("something the bot can look up, that is a direct address — say TRUE.\n")
             append("Respond with ONLY a JSON object: ")
             append("{\"respond\": boolean, \"category\": string}. ")
             append("Default respond=false.")
         }
-        val messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$transcript"))
+        val messages = listOf(ChatMessage.system(system), ChatMessage.user("RECENT CHAT:\n$annotatedTranscript"))
         // Retries the whole prompt when the model returns unparseable JSON; the salvage fallback
         // (recovering the booleans from truncated output) counts as success and stops the retries.
         return jsonPromptRunner.run(

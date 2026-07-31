@@ -46,7 +46,7 @@ class DevPipelineSeeder(
             LOGGER.info { "Skipping demo pipeline seeding: $existing run(s) already present" }
             return
         }
-        val room = settings.bot().rooms.firstOrNull() ?: "#test1"
+        val room = settings.botRooms().firstOrNull() ?: "#taonity-room"
         val runs = buildFixtures(room)
         pipelineRunRepository.saveAll(runs)
         LOGGER.info { "Seeded ${runs.size} demo pipeline runs into $room (demo-data profile)" }

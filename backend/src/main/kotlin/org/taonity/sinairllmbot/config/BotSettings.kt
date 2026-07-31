@@ -52,6 +52,15 @@ class BotSettings(
 
     fun bot(): BotProperties = snapshot.get().bot
 
+    /**
+     * Returns the bot's room list with normalized names — ensures every room starts with `#`.
+     * Env files should not contain `#` in values (it can be misinterpreted as a comment), so
+     * the prefix is added here instead.
+     */
+    fun botRooms(): List<String> = snapshot.get().bot.rooms.map { room ->
+        if (room.startsWith('#')) room else "#$room"
+    }
+
     fun llm(): LlmProperties = snapshot.get().llm
 
     override fun ingestion(): IngestionProperties = snapshot.get().ingestion
