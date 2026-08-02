@@ -33,6 +33,7 @@ class ReplyGenerator(
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
+    private val githubProperties get() = settings.github()
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -110,6 +111,7 @@ class ReplyGenerator(
         )
         val capabilities = buildSet {
             if (prompt.repoLookup) add(ToolCapability.REPOSITORY)
+            if (prompt.repoLookup && githubProperties.mcp.writeEnabled) add(ToolCapability.REPOSITORY_WRITE)
             if (prompt.appContext) add(ToolCapability.APPLICATION)
             if (prompt.chatCommands) add(ToolCapability.CHAT_COMMAND)
         }

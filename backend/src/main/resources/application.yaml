@@ -31,6 +31,31 @@ app:
     api-base-url: https://api.github.com
     user-agent: sinair-llm-bot
     fetch-timeout-seconds: 8
+    # Official remote GitHub MCP server. Only the allowlisted tools are exposed to the model.
+    mcp:
+      enabled: ${GITHUB_MCP_ENABLED:true}
+      base-url: https://api.githubcopilot.com
+      endpoint: /mcp/
+      request-timeout-seconds: 20
+      read-tools:
+        - search_code
+        - get_file_contents
+        - get_repository_tree
+        - search_commits
+        - get_commit
+        - get_file_blame
+        - search_issues
+        - issue_read
+        - search_pull_requests
+        - pull_request_read
+      # Write tools use a separate capability and remain unavailable until explicitly enabled.
+      write-enabled: ${GITHUB_MCP_WRITE_ENABLED:false}
+      write-tools:
+        - issue_write
+        - add_issue_comment
+        - create_pull_request
+        - update_pull_request
+        - pull_request_review_write
     # Agentic repo lookup: when the gate classifies a message as needing the code, the reply model is
     # offered read-only GitHub tools (search_code / get_file) and answers from what it actually reads.
     repo-lookup:

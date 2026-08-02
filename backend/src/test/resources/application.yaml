@@ -41,6 +41,29 @@ app:
     api-base-url: https://api.github.com
     user-agent: sinair-llm-bot-test
     fetch-timeout-seconds: 8
+    mcp:
+      enabled: false
+      base-url: https://api.githubcopilot.com
+      endpoint: /mcp/
+      request-timeout-seconds: 2
+      read-tools:
+        - search_code
+        - get_file_contents
+        - get_repository_tree
+        - search_commits
+        - get_commit
+        - get_file_blame
+        - search_issues
+        - issue_read
+        - search_pull_requests
+        - pull_request_read
+      write-enabled: false
+      write-tools:
+        - issue_write
+        - add_issue_comment
+        - create_pull_request
+        - update_pull_request
+        - pull_request_review_write
     repo-lookup:
       enabled: false
       tier: repo

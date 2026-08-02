@@ -5,6 +5,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 
 enum class ToolCapability {
     REPOSITORY,
+    REPOSITORY_WRITE,
     APPLICATION,
     CHAT_COMMAND,
 }

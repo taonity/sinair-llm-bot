@@ -17,8 +17,19 @@ data class GithubProperties(
     val apiBaseUrl: String,
     val userAgent: String,
     val fetchTimeoutSeconds: Long,
+    val mcp: Mcp,
     val repoLookup: RepoLookup,
 ) {
+    data class Mcp(
+        val enabled: Boolean,
+        val baseUrl: String,
+        val endpoint: String,
+        val requestTimeoutSeconds: Long,
+        val readTools: List<String>,
+        val writeEnabled: Boolean,
+        val writeTools: List<String>,
+    )
+
     data class RepoLookup(
         val enabled: Boolean,
         val maxSearchResults: Int,

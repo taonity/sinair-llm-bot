@@ -91,10 +91,11 @@ class GithubToolService(
         ),
     )
 
-    override fun definitions(context: ToolExecutionContext): List<Tool> = toolDefinitions()
+    override fun definitions(context: ToolExecutionContext): List<Tool> =
+        if (properties.mcp.enabled) emptyList() else toolDefinitions()
 
     override fun supports(name: String): Boolean =
-        name == "search_code" || name == "get_file" || name == "list_repos"
+        !properties.mcp.enabled && (name == "search_code" || name == "get_file" || name == "list_repos")
 
     /** Dispatches a single tool call. Never throws: failures come back as an `ERROR: ...` string. */
     fun execute(name: String, argumentsJson: String): String {
