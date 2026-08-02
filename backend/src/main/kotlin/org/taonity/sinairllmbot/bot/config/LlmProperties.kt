@@ -22,6 +22,7 @@ data class LlmProperties(
     val gateTier: String,
     val criticTier: String,
     val tiers: Map<String, Tier>,
+    val retry: Retry,
     /** When true, reply generation offers OpenRouter's `openrouter:web_search` server tool so the model can ground answers in live results. */
     val replyWebSearch: Boolean = false,
     /**
@@ -35,6 +36,11 @@ data class LlmProperties(
      * generation, so it can decide for itself whether to reach for a tool while composing the answer. */
     val toolLoop: ToolLoop = ToolLoop(),
 ) {
+    data class Retry(
+        val maxAttempts: Int,
+        val backoffMillis: Long,
+    )
+
     data class Tier(
         val model: String,
         val temperature: Double,

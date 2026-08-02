@@ -123,6 +123,16 @@ class ConfigRegistry(
             read = { it.llm.jsonRetryAttempts },
             apply = { c, v -> c.copy(llm = c.llm.copy(jsonRetryAttempts = v as Int)) },
         )
+        fields += ConfigField(
+            key = "app.llm.retry.max-attempts", group = "LLM", type = ConfigType.INT, min = 1.0, max = 10.0,
+            read = { it.llm.retry.maxAttempts },
+            apply = { c, v -> c.copy(llm = c.llm.copy(retry = c.llm.retry.copy(maxAttempts = v as Int))) },
+        )
+        fields += ConfigField(
+            key = "app.llm.retry.backoff-millis", group = "LLM", type = ConfigType.INT, min = 0.0, max = 10_000.0,
+            read = { it.llm.retry.backoffMillis },
+            apply = { c, v -> c.copy(llm = c.llm.copy(retry = c.llm.retry.copy(backoffMillis = (v as Int).toLong()))) },
+        )
 
         // ---- LLM · Critic ----
         fields += ConfigField(

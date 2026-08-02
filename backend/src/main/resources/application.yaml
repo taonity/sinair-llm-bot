@@ -73,6 +73,12 @@ app:
     gate-tier: gate
     # Tier used by the critic layer to rate/repair candidate replies (cheap, JSON-only judge).
     critic-tier: critic
+    # Shared retries for transient LLM HTTP failures and failed client-side tool executions.
+    retry:
+      # Total attempts including the initial call. 1 disables retries.
+      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:3}
+      # Fixed delay between attempts; keep bounded because it adds directly to reply latency.
+      backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:500}
     # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
     # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
     # current facts); within those, the model decides whether to actually search. Each performed

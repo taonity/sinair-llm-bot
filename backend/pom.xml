@@ -101,6 +101,13 @@
             <version>2.0.0</version>
         </dependency>
 
+        <!-- Bounded retries for LLM and agent tool calls -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
         <!-- URL-aware context ingestion: HTML parsing / readable-text extraction -->
         <dependency>
             <groupId>org.jsoup</groupId>

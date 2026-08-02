@@ -6,6 +6,8 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
+import org.springframework.web.client.ResourceAccessException
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
@@ -28,11 +30,19 @@ class LlmClient(
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
-
         // Finish reasons that mean the model's turn was cut off (usually max-tokens too small): a
         // plain `length` cap or Gemini's MALFORMED_FUNCTION_CALL (tool JSON truncated). We retry the
         // agentic round on these instead of giving up.
         private val TRUNCATION_FINISH_REASONS = setOf("length", "malformed_function_call")
+        private val RETRYABLE_TOOL_ERROR_MARKERS = setOf(
+            "failed",
+            "timeout",
+            "timed out",
+            "unavailable",
+            "connection",
+            "rate limit",
+            "too many requests",
+        )
     }
 
     private val llmProperties get() = settings.llm()
@@ -151,8 +161,8 @@ class LlmClient(
                 toolCalls.forEach { call ->
                     val name = call.function?.name.orEmpty()
                     val args = call.function?.arguments.orEmpty()
-                    val (result, isError) = runCatching { toolExecutor(name, args) }
-                        .map { it to false }
+                    val (result, isError) = runCatching { executeToolWithRetry(name, args, toolExecutor) }
+                        .map { it to it.startsWith("ERROR:") }
                         .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
                     toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
@@ -193,7 +203,7 @@ class LlmClient(
         return null
     }
 
-    /** POSTs a chat-completion request and returns the raw JSON body, or null on any transport error. */
+    /** POSTs a chat-completion request and retries transient provider or transport failures. */
     private fun postChatCompletion(
         tierName: String,
         tier: LlmProperties.Tier,
@@ -201,22 +211,69 @@ class LlmClient(
     ): String? {
         LOGGER.debug { "OpenRouter request (tier=$tierName):\n${prettyJson(request)}" }
         return try {
-            val rawResponse = restClient.post()
-                .uri("/chat/completions")
-                .headers { headers ->
-                    headers.setBearerAuth(llmProperties.apiKey)
-                    headers.contentType = MediaType.APPLICATION_JSON
-                    llmProperties.title?.let { headers.set("X-Title", it) }
-                }
-                .body(request)
-                .retrieve()
-                .body(String::class.java)
+            val retry = llmProperties.retry
+            val rawResponse = RetryExecutor.execute(
+                name = "llm-$tierName",
+                maxAttempts = retry.maxAttempts,
+                backoffMillis = retry.backoffMillis,
+                shouldRetryException = ::isRetryableLlmFailure,
+                onRetry = { nextAttempt, cause ->
+                    LOGGER.warn {
+                        "LLM call failed for tier '$tierName' (${tier.model}): $cause; " +
+                            "retrying attempt $nextAttempt/${retry.maxAttempts}"
+                    }
+                },
+            ) {
+                restClient.post()
+                    .uri("/chat/completions")
+                    .headers { headers ->
+                        headers.setBearerAuth(llmProperties.apiKey)
+                        headers.contentType = MediaType.APPLICATION_JSON
+                        llmProperties.title?.let { headers.set("X-Title", it) }
+                    }
+                    .body(request)
+                    .retrieve()
+                    .body(String::class.java)
+            }
             LOGGER.debug { "OpenRouter response (tier=$tierName):\n${prettyJson(rawResponse)}" }
             rawResponse
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
             null
         }
+    }
+
+    private fun executeToolWithRetry(
+        name: String,
+        argumentsJson: String,
+        toolExecutor: (name: String, argumentsJson: String) -> String,
+    ): String {
+        val retry = llmProperties.retry
+        return RetryExecutor.execute(
+            name = "tool-$name",
+            maxAttempts = retry.maxAttempts,
+            backoffMillis = retry.backoffMillis,
+            shouldRetryResult = ::isRetryableToolResult,
+            onRetry = { nextAttempt, cause ->
+                LOGGER.warn {
+                    "Tool '$name' failed ($cause); retrying attempt $nextAttempt/${retry.maxAttempts}"
+                }
+            },
+        ) {
+            toolExecutor(name, argumentsJson)
+        }
+    }
+
+    private fun isRetryableToolResult(result: String): Boolean {
+        if (!result.startsWith("ERROR:")) return false
+        val normalized = result.lowercase()
+        return RETRYABLE_TOOL_ERROR_MARKERS.any(normalized::contains)
+    }
+
+    private fun isRetryableLlmFailure(exception: Exception): Boolean = when (exception) {
+        is ResourceAccessException -> true
+        is RestClientResponseException -> exception.statusCode.value() == 429 || exception.statusCode.is5xxServerError
+        else -> false
     }
 
     /** Logs token usage and records the call (tokens, model, tool set, payloads) on the trace. */

@@ -93,7 +93,7 @@ class GithubMcpClient(
             val connected = McpClient.sync(transport)
                 .clientInfo(McpSchema.Implementation.builder("sinair-llm-bot", "1.0").build())
                 .requestTimeout(Duration.ofSeconds(mcp.requestTimeoutSeconds))
-                .enableCallToolSchemaCaching(true)
+                .enableCallToolSchemaCaching(false)
                 .build()
             try {
                 connected.initialize()

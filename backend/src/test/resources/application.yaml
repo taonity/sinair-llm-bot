@@ -77,6 +77,9 @@ app:
     active-reply-tier: cheap
     gate-tier: gate
     critic-tier: critic
+    retry:
+      max-attempts: 3
+      backoff-millis: 0
     json-retry-attempts: 1
     critic:
       enabled: false
