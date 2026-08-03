@@ -132,18 +132,20 @@ class ConfigService(
             throw ConsoleNotFoundException("Custom tier '$name' not found")
         }
 
-        val effective = settings.effective()
-        val references = buildList {
-            if (effective.llm.activeReplyTier == name) add("active reply tier")
-            if (effective.llm.gateTier == name) add("gate tier")
-            if (effective.llm.criticTier == name) add("critic tier")
-            if (effective.ingestion.visionTier == name) add("vision tier")
-        }
-        if (references.isNotEmpty()) {
-            throw ConfigValidationException(
-                "Tier '$name' is still in use as the ${references.joinToString(", ")}. " +
-                    "Point those to another tier before deleting it.",
-            )
+        if (name !in settings.deployedDefaults().llm.tiers) {
+            val effective = settings.effective()
+            val references = buildList {
+                if (effective.llm.activeReplyTier == name) add("active reply tier")
+                if (effective.llm.gateTier == name) add("gate tier")
+                if (effective.llm.criticTier == name) add("critic tier")
+                if (effective.ingestion.visionTier == name) add("vision tier")
+            }
+            if (references.isNotEmpty()) {
+                throw ConfigValidationException(
+                    "Tier '$name' is still in use as the ${references.joinToString(", ")}. " +
+                        "Point those to another tier before deleting it.",
+                )
+            }
         }
 
         // Drop any per-field overrides for this tier so no orphan rows linger.
@@ -159,11 +161,20 @@ class ConfigService(
     }
 
     private fun buildSchema(): ConfigSchemaDto {
+        val deployedDefaults = settings.deployedDefaults()
         val defaults = settings.defaults()
         val effective = settings.effective()
         val overriddenKeys = overrideRepository.findAll().mapTo(HashSet()) { it.configKey }
+        val databaseTierNames = tierRepository.findAll().mapTo(HashSet()) { it.name }
+        val deployedTierNames = deployedDefaults.llm.tiers.keys
         val tierNames = effective.llm.tiers.keys.toList()
         val fields = registry.fields(tierNames).map { field ->
+            val tierName = tierName(field.key)
+            val deployedValue = tierName
+                ?.takeIf { it in deployedTierNames }
+                ?.let { field.read(deployedDefaults) }
+                ?: field.read(defaults)
+            val value = field.read(effective)
             ConfigFieldDto(
                 key = field.key,
                 group = field.group,
@@ -172,17 +183,30 @@ class ConfigService(
                 min = field.min,
                 max = field.max,
                 enumValues = field.enumValues(effective),
-                defaultValue = field.read(defaults),
-                value = field.read(effective),
-                overridden = field.key in overriddenKeys,
+                defaultValue = deployedValue,
+                value = value,
+                overridden = field.key in overriddenKeys || deployedValue != value,
+                resettable = field.key in overriddenKeys,
             )
         }
-        val yamlTiers = settings.yamlTierNames()
-        val tiers = tierNames.map { TierInfoDto(name = it, custom = it !in yamlTiers) }
+        val tiers = tierNames.map { name ->
+            val definedInProperties = name in deployedTierNames
+            val definedInDatabase = name in databaseTierNames
+            TierInfoDto(
+                name = name,
+                custom = definedInDatabase && !definedInProperties,
+                definedInProperties = definedInProperties,
+                definedInDatabase = definedInDatabase,
+                shadowsDeployedTier = definedInProperties && definedInDatabase,
+            )
+        }
         return ConfigSchemaDto(fields, tiers)
     }
 
+    private fun tierName(key: String): String? = TIER_KEY_REGEX.matchEntire(key)?.groupValues?.get(1)
+
     private companion object {
         private val TIER_NAME_REGEX = Regex("^[a-z][a-z0-9-]{1,49}$")
+        private val TIER_KEY_REGEX = Regex("^app\\.llm\\.tiers\\.([^.]+)\\.(?:model|temperature|max-tokens)$")
     }
 }

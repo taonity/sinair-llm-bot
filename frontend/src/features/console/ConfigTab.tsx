@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
-import type { ConfigField, ConfigSchema } from './types'
+import type { ConfigField, ConfigSchema, TierInfo } from './types'
 
 const TIER_GROUP_PREFIX = 'LLM · Tier: '
 
@@ -173,8 +173,8 @@ export function ConfigTab({
 
   const discard = () => schema && setDrafts(draftsFromSchema(schema))
 
-  const customTierNames = useMemo(
-    () => new Set((schema?.tiers ?? []).filter((t) => t.custom).map((t) => t.name)),
+  const tierInfoByName = useMemo(
+    () => new Map((schema?.tiers ?? []).map((tier) => [tier.name, tier])),
     [schema],
   )
 
@@ -314,18 +314,18 @@ export function ConfigTab({
                       {group.name}
                     </div>
                   )}
-                  {!q && tierNameFromGroup(group.name) && customTierNames.has(tierNameFromGroup(group.name)!) && canEdit && (
-                    <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Custom tier
-                      </span>
-                      <DeleteTierButton
-                        name={tierNameFromGroup(group.name)!}
-                        deleting={deletingTier === tierNameFromGroup(group.name)}
-                        onDelete={() => deleteTier(tierNameFromGroup(group.name)!)}
+                  {!q && tierNameFromGroup(group.name) && (() => {
+                    const name = tierNameFromGroup(group.name)!
+                    const tier = tierInfoByName.get(name)
+                    return tier?.definedInDatabase ? (
+                      <TierSourceHeader
+                        tier={tier}
+                        canEdit={canEdit}
+                        deleting={deletingTier === name}
+                        onDelete={() => deleteTier(name)}
                       />
-                    </div>
-                  )}
+                    ) : null
+                  })()}
                   <div className="divide-y">
                     {group.fields.map((field) => (
                       <FieldRow
@@ -420,10 +420,12 @@ function ResetButton({
 
 function DeleteTierButton({
   name,
+  revealsDeployedTier,
   deleting,
   onDelete,
 }: {
   name: string
+  revealsDeployedTier: boolean
   deleting: boolean
   onDelete: () => void
 }) {
@@ -439,24 +441,31 @@ function DeleteTierButton({
             variant="ghost"
             className="size-6 text-muted-foreground hover:text-destructive"
             disabled={deleting}
-            title="Delete tier"
-            aria-label={`Delete tier ${name}`}
+            title={revealsDeployedTier ? 'Reset to deployed tier' : 'Delete tier'}
+            aria-label={revealsDeployedTier ? `Reset tier ${name} to deployed values` : `Delete tier ${name}`}
           >
-            <Trash2 className={cn('size-3.5', deleting && 'animate-pulse')} />
+            {revealsDeployedTier ? (
+              <RotateCcw className={cn('size-3.5', deleting && 'animate-spin')} />
+            ) : (
+              <Trash2 className={cn('size-3.5', deleting && 'animate-pulse')} />
+            )}
           </Button>
         }
       />
       <PopoverContent side="bottom" align="end" className="w-64">
         <div className="flex flex-col gap-2.5">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Delete tier?</p>
+            <p className="text-sm font-medium">
+              {revealsDeployedTier ? 'Reset to deployed tier?' : 'Delete tier?'}
+            </p>
             <p className="text-xs leading-relaxed text-muted-foreground">
               The tier{' '}
               <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
                 {name}
               </code>{' '}
-              and its overrides will be permanently removed. Tiers currently referenced by a role
-              cannot be deleted.
+              {revealsDeployedTier
+                ? ' database definition and its field overrides will be removed. The deployed property values will take effect.'
+                : ' and its overrides will be permanently removed. Tiers currently referenced by a role cannot be deleted.'}
             </p>
           </div>
           <div className="flex justify-end gap-2">
@@ -470,19 +479,54 @@ function DeleteTierButton({
             <Button
               type="button"
               size="sm"
-              variant="destructive"
+              variant={revealsDeployedTier ? 'default' : 'destructive'}
               className="h-7"
               onClick={() => {
                 onDelete()
                 setOpen(false)
               }}
             >
-              Delete
+              {revealsDeployedTier ? 'Reset' : 'Delete'}
             </Button>
           </div>
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+function TierSourceHeader({
+  tier,
+  canEdit,
+  deleting,
+  onDelete,
+}: {
+  tier: TierInfo
+  canEdit: boolean
+  deleting: boolean
+  onDelete: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+      {tier.shadowsDeployedTier ? (
+        <Badge
+          variant="secondary"
+          className="border-amber-500/30 bg-amber-500/10 text-[10px] font-normal text-amber-600 dark:text-amber-400"
+        >
+          Overrides deployed tier
+        </Badge>
+      ) : (
+        <span className="text-xs font-medium text-muted-foreground">Custom tier</span>
+      )}
+      {canEdit && (
+        <DeleteTierButton
+          name={tier.name}
+          revealsDeployedTier={tier.shadowsDeployedTier}
+          deleting={deleting}
+          onDelete={onDelete}
+        />
+      )}
+    </div>
   )
 }
 
@@ -705,7 +749,7 @@ function FieldRow({
     </div>
   )
 
-  const resetBtn = canEdit && field.overridden && (
+  const resetBtn = canEdit && field.resettable && (
     <ResetButton field={field} resetting={resetting} onReset={onReset} />
   )
 

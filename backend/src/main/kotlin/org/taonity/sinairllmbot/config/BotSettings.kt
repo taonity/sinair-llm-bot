@@ -52,6 +52,8 @@ class BotSettings(
 
     fun console(): ConsolePagingProperties = snapshot.get().console
 
+    fun deployedDefaults(): EffectiveConfig = yamlDefaults
+
     fun defaults(): EffectiveConfig = baseline.get()
 
     fun effective(): EffectiveConfig = snapshot.get()

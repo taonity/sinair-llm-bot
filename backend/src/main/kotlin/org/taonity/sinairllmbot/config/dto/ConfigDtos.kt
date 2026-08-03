@@ -13,6 +13,7 @@ data class ConfigFieldDto(
     val defaultValue: Any?,
     val value: Any?,
     val overridden: Boolean,
+    val resettable: Boolean,
 )
 
 data class ConfigSchemaDto(
@@ -23,6 +24,9 @@ data class ConfigSchemaDto(
 data class TierInfoDto(
     val name: String,
     val custom: Boolean,
+    val definedInProperties: Boolean,
+    val definedInDatabase: Boolean,
+    val shadowsDeployedTier: Boolean,
 )
 
 data class UpdateConfigBody(

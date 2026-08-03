@@ -204,11 +204,15 @@ export interface ConfigField {
   defaultValue: unknown
   value: unknown
   overridden: boolean
+  resettable: boolean
 }
 
 export interface TierInfo {
   name: string
   custom: boolean
+  definedInProperties: boolean
+  definedInDatabase: boolean
+  shadowsDeployedTier: boolean
 }
 
 export interface ConfigSchema {
