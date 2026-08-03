@@ -37,6 +37,7 @@ class ReplyGenerator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private const val TRIPLE_BACKTICKS = "```"
     }
 
     /**
@@ -246,10 +247,17 @@ class ReplyGenerator(
         text = text.replace(Regex("\\n[ \\t]*\\n+"), "\n")
         val maxReplyChars = botProperties.limits.maxReplyChars
         if (text.length > maxReplyChars) {
-            text = text.take(maxReplyChars).trimEnd() + "\u2026"
+            val ellipsis = "\u2026"
+            val initial = text.take((maxReplyChars - ellipsis.length).coerceAtLeast(0)).trimEnd()
+            val closesScrollableBlock = initial.windowed(TRIPLE_BACKTICKS.length)
+                .count { it == TRIPLE_BACKTICKS } % 2 != 0
+            val suffix = if (closesScrollableBlock) "\n$TRIPLE_BACKTICKS" else ""
+            val contentLimit = (maxReplyChars - ellipsis.length - suffix.length).coerceAtLeast(0)
+            text = text.take(contentLimit).trimEnd() + ellipsis + suffix
         }
         return text
     }
+
 }
 
 /**

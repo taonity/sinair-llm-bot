@@ -90,6 +90,13 @@ class ReplyPromptBuilder(
             append("step, run a command, check something, or finish the task because you failed to ")
             append("do it or cannot do it. Make the best effort yourself and report limitations plainly ")
             append("without turning them into instructions for the user.")
+            append("\n\nCHAT FORMATTING: The chat supports exactly two markdown forms. ")
+            append("Use single backticks around a short inline fragment when highlighting it helps, ")
+            append("for example `hello`. Use triple backticks around code and around a long response ")
+            append("that would exceed about 800 characters. A triple-backtick block shows roughly ten ")
+            append("lines and scrolls beyond that, keeping large text compact. Always close the same ")
+            append("number of backticks you opened. Do not use any other markdown: no headings, lists, ")
+            append("bold, italics, links, blockquotes or markdown tables.")
             if (emojiCatalog.promptList.isNotBlank()) {
                 append("\n\nEMOJI: You mostly write plain text. If a smiley genuinely adds something, ")
                 append("you may use ONLY these codes, exactly as written: ").append(emojiCatalog.promptList)
