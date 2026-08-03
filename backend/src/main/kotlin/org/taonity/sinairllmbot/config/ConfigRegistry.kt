@@ -245,7 +245,7 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(context = c.bot.context.copy(summaryRefreshEveryMessages = v as Int))) },
         )
         fields += ConfigField(
-            key = "app.bot.context.max-summary-chars", group = "Bot · Context", type = ConfigType.INT, min = 100.0, max = 20000.0,
+            key = "app.bot.context.max-summary-chars", group = "Bot · Context", type = ConfigType.INT, min = 100.0, max = 100000.0,
             read = { it.bot.context.maxSummaryChars },
             apply = { c, v -> c.copy(bot = c.bot.copy(context = c.bot.context.copy(maxSummaryChars = v as Int))) },
         )
@@ -255,7 +255,7 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(context = c.bot.context.copy(summaryMaxTokens = v as Int))) },
         )
         fields += ConfigField(
-            key = "app.bot.context.max-message-chars", group = "Bot · Context", type = ConfigType.INT, min = 100.0, max = 20000.0,
+            key = "app.bot.context.max-message-chars", group = "Bot · Context", type = ConfigType.INT, min = 100.0, max = 100000.0,
             read = { it.bot.context.maxMessageChars },
             apply = { c, v -> c.copy(bot = c.bot.copy(context = c.bot.context.copy(maxMessageChars = v as Int))) },
         )
@@ -329,7 +329,7 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(maxReplyChars = v as Int))) },
         )
         fields += ConfigField(
-            key = "app.bot.limits.trace-trigger-text-max", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 20000.0,
+            key = "app.bot.limits.trace-trigger-text-max", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 100000.0,
             read = { it.bot.limits.traceTriggerTextMax },
             apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(traceTriggerTextMax = v as Int))) },
         )
@@ -413,7 +413,7 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxSearchResults = v as Int))) },
         )
         fields += ConfigField(
-            key = "app.github.repo-lookup.max-file-chars", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 500.0, max = 20000.0,
+            key = "app.github.repo-lookup.max-file-chars", group = "GitHub · Repo lookup", type = ConfigType.INT, min = 500.0, max = 1000000.0,
             read = { it.github.repoLookup.maxFileChars },
             apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxFileChars = v as Int))) },
         )

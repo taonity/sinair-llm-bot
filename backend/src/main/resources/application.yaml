@@ -63,7 +63,7 @@ app:
       # Max code-search results returned to the model per search.
       max-search-results: 8
       # Max characters of a fetched file passed to the model (longer files are truncated).
-      max-file-chars: 4000
+      max-file-chars: 20000
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
@@ -76,9 +76,9 @@ app:
     # Shared retries for transient LLM HTTP failures and failed client-side tool executions.
     retry:
       # Total attempts including the initial call. 1 disables retries.
-      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:3}
+      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:5}
       # Fixed delay between attempts; keep bounded because it adds directly to reply latency.
-      backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:500}
+      backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:1000}
     # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
     # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
     # current facts); within those, the model decides whether to actually search. Each performed
