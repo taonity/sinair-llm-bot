@@ -18,10 +18,6 @@ class ConfigRevisionService(
     private val repository: BotConfigRevisionRepository,
     private val objectMapper: ObjectMapper,
 ) {
-    /**
-     * Returns an immutable revision for the current safe effective config. Concurrent creators
-     * converge through the unique content hash.
-     */
     @Transactional
     fun currentRevisionId(): String {
         val json = currentSnapshotJson()

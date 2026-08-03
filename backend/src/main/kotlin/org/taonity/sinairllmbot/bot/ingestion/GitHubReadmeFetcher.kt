@@ -14,11 +14,6 @@ import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
 import java.time.Duration
 
-/**
- * Fetches a GitHub repository's context via the REST API (not scraping): metadata, latest commit
- * SHA and the rendered README, which is then cleaned into text + links + images. Unauthenticated
- * for the MVP, so it is subject to GitHub's 60 req/hour anonymous rate limit.
- */
 @Component
 class GitHubReadmeFetcher(
     private val contentExtractor: ContentExtractor,

@@ -9,18 +9,6 @@ import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Duration
 import java.time.Instant
 
-/**
- * Builds the compact, token-efficient context fed to the LLM:
- *  - a one-line presence summary derived from [ChatEventEntity] (who is around, who is moder/owner),
- *  - the last N chat messages rendered as a plain transcript.
- *
- * Full history is never sent; the rolling room summary (see RoomSummaryService) carries older context.
- *
- * The transcript is time-aware: when a long quiet gap separates two consecutive messages, a
- * `--- ~Xh later ---` marker is inserted. This stops the model from reading days-old backlog as if
- * it were the live exchange (which made the bot resurrect long-finished topics), and lets triage
- * and reply generation treat the segment after the last gap as "what's happening now".
- */
 @Component
 class ConversationContextBuilder(
     private val chatMessageRepository: ChatMessageRepository,
@@ -59,7 +47,6 @@ class ConversationContextBuilder(
         return builder.toString()
     }
 
-    /** Coarse, human-readable gap size for a session-break marker, e.g. "~40m", "~3h", "~2d". */
     private fun describeGap(gap: Duration): String {
         val minutes = gap.toMinutes()
         return when {
@@ -69,23 +56,16 @@ class ConversationContextBuilder(
         }
     }
 
-    /**
-     * Raw text of the last [limit] messages (chronological). Used to scan the live segment for URLs
-     * to ground on, so a link posted a message or two before the trigger (e.g. "here's the link" →
-     * "try again") is still fetched rather than ignored.
-     */
     fun recentMessageTexts(roomTarget: String, limit: Int): List<String> =
         chatMessageRepository
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
             .asReversed()
             .map { it.messageText }
 
-    /** e.g. "Online now: DJ1, aps, Dr.Admin(moder). " — empty string when unknown. */
     fun presenceLine(roomTarget: String): String {
         val events = chatEventRepository
             .findByRoomTargetOrderByEventTimeDesc(roomTarget, PageRequest.of(0, botProperties.limits.eventScanLimit))
 
-        // Keep only the latest event per member to know their current status.
         val latestByMember = LinkedHashMap<Int, ChatEventEntity>()
         for (event in events) {
             latestByMember.putIfAbsent(event.memberId, event)

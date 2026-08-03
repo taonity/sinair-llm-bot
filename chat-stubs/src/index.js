@@ -31,7 +31,6 @@ if (existsSync(envPath)) {
 const PORT = parseInt(process.env.CHAT_STUBS_PORT || '3001', 10);
 const MESSAGE_INTERVAL = parseInt(process.env.CHAT_STUBS_MESSAGE_INTERVAL || '16000', 10);
 const EVENT_INTERVAL = parseInt(process.env.CHAT_STUBS_EVENT_INTERVAL || '30000', 10);
-// Set CHAT_STUBS_AUTO_TRAFFIC=false for deterministic runs (only client-sent messages flow).
 const AUTO_TRAFFIC = (process.env.CHAT_STUBS_AUTO_TRAFFIC || 'true').toLowerCase() !== 'false';
 
 const wss = new WebSocketServer({ port: PORT, path: '/ws/chat' });
@@ -96,7 +95,6 @@ function handlePacket(ws, packet) {
             break;
 
         case PacketType.status:
-            // Acknowledge status changes silently
             break;
 
         default:
@@ -134,7 +132,6 @@ function handleJoin(ws, packet) {
         login: 'TestBot',
     });
 
-    // Send online list (resolves the join promise in the client)
     send(ws, {
         type: PacketType.online_list,
         sequenceId: packet.sequenceId,
@@ -166,7 +163,6 @@ function handleClientMessage(ws, packet) {
     const identity = clientIdentity.get(ws) || { login: 'anon', memberId: 10 };
     const text = packet.message || '';
 
-    // Treat "/nick X" as a nick change, not a chat message (the bot sets its nick this way).
     const nickMatch = text.match(/^\/nick\s+(.+)$/);
     if (nickMatch) {
         identity.login = nickMatch[1].trim();

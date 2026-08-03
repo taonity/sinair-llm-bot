@@ -10,13 +10,6 @@ import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
 import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Exposes the read-only GitHub capabilities as LLM function tools and executes the model's calls.
- *
- * Two tools back the code-awareness feature: `search_code` finds where something lives and
- * `get_file` reads a specific file (or lists a directory). Results are returned as plain text for
- * the model to ground its reply in; every call is read-only and accepts public repositories.
- */
 @Service
 class GithubToolService(
     private val githubCodeClient: GithubCodeClient,
@@ -97,7 +90,6 @@ class GithubToolService(
     override fun supports(name: String): Boolean =
         !properties.mcp.enabled && (name == "search_code" || name == "get_file" || name == "list_repos")
 
-    /** Dispatches a single tool call. Never throws: failures come back as an `ERROR: ...` string. */
     fun execute(name: String, argumentsJson: String): String {
         val args: Map<*, *> = runCatching { objectMapper.readValue(argumentsJson, Map::class.java) }
             .getOrNull() ?: emptyMap<String, Any?>()

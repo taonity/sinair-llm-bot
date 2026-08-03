@@ -7,12 +7,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * Tombstone for a message that was intentionally ignored (dropped while the room was asleep).
- *
- * Only the [dedupKey] is retained so the same message replayed later (e.g. in the history burst
- * after a reconnect) is recognised and skipped instead of leaking into [ChatMessageEntity].
- */
 @Entity
 @Table(name = "ignored_message")
 class IgnoredMessageEntity(

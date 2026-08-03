@@ -17,7 +17,6 @@ import type {
   ToolCallEntry,
 } from './types'
 
-/** Dot colour per stage status, kept semantic so the flow strip reads at a glance. */
 const STATUS_DOT: Record<PipelineStageStatus, string> = {
   OK: 'bg-emerald-500',
   PASS: 'bg-sky-500',
@@ -43,7 +42,6 @@ function outcomeBadge(outcome: string) {
   )
 }
 
-/** Compact, minimalistic left-to-right strip of the pipeline steps shown inline in the table. */
 function PipelineFlow({ stages }: { stages: PipelineStage[] }) {
   if (stages.length === 0) return <span className="text-muted-foreground">—</span>
   return (
@@ -65,17 +63,11 @@ function fieldsSummary(stages: PipelineStage[]): string {
   return stages.map((s) => s.label).join(' › ')
 }
 
-/** Drops the provider prefix ("openai/gpt-4o-mini" -> "gpt-4o-mini") for a compact model label. */
 function shortModel(model: string): string {
   const slash = model.lastIndexOf('/')
   return slash >= 0 ? model.slice(slash + 1) : model
 }
 
-/**
- * Compact in/out token split: `↓in ↑out` with `k`-abbreviation. Falls back to the legacy single
- * `N tok` total when the provider didn't report a split (both fields zero but total non-zero).
- * `↓` = prompt/input, `↑` = completion/output — the direction the tokens flow.
- */
 function TokenSplit({
   prompt,
   completion,
@@ -85,7 +77,6 @@ function TokenSplit({
   prompt: number
   completion: number
   total: number
-  /** Optional prefix shown before the split (e.g. "Σ" for group sums). */
   prefix?: string
 }) {
   const hasSplit = prompt > 0 || completion > 0
@@ -165,8 +156,6 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
   },
 ]
 
-/** Lists the JSON-parse failures of a run: how many times a JSON prompt returned unparseable
- * output (each one a retry) and the exact offending payload, in a collapsible spoiler. */
 function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1.5">
@@ -192,11 +181,8 @@ function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
   )
 }
 
-/** One LLM call paired with its original index in run.llmUsage (needed for the raw payload links). */
 type UsageEntry = { call: LlmCallUsage; index: number }
 
-/** Groups contiguous calls made on the same tier (e.g. the repo tool loop's rounds) so multi-round
- * stages collapse into a single compact block instead of a long list of near-identical chips. */
 function groupUsage(usage: LlmCallUsage[]): { tier: string; entries: UsageEntry[] }[] {
   const groups: { tier: string; entries: UsageEntry[] }[] = []
   usage.forEach((call, index) => {
@@ -207,7 +193,6 @@ function groupUsage(usage: LlmCallUsage[]): { tier: string; entries: UsageEntry[
   return groups
 }
 
-/** Link to the full-screen payload viewer for a single call, keyed by its original index. */
 function CallLinks({ runId, index, call }: { runId: string; index: number; call: LlmCallUsage }) {
   const hasAny = call.hasRequestPayload || call.hasResponsePayload
   if (!hasAny) return null
@@ -223,7 +208,6 @@ function CallLinks({ runId, index, call }: { runId: string; index: number; call:
   )
 }
 
-/** Transport-attempt metadata kept separate from the agentic iteration that produced the request. */
 function AttemptLabels({ call }: { call: LlmCallUsage }) {
   const failed = call.status === 'FAILED'
   return (
@@ -254,7 +238,6 @@ function AttemptLabels({ call }: { call: LlmCallUsage }) {
   )
 }
 
-/** Pretty-prints a tool-call arguments JSON string, degrading to the raw string if not valid JSON. */
 function prettyArgs(args: string): string {
   if (!args) return ''
   try {
@@ -264,7 +247,6 @@ function prettyArgs(args: string): string {
   }
 }
 
-/** If the value is valid JSON, pretty-prints it; otherwise returns the raw string. */
 function prettyJson(value: string): string {
   if (!value) return ''
   try {
@@ -275,8 +257,6 @@ function prettyJson(value: string): string {
   }
 }
 
-/** One tool-call entry: name header, arguments (pretty JSON), and the result we fed back. Compact,
- *  scrollable, monospace — keeps even large file reads in a fixed-height box. */
 function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
   return (
     <div
@@ -312,9 +292,6 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
   )
 }
 
-/** Renders the structured client-tool calls of an LLM round as a compact expandable list. The tool
- *  names double as the toggle (click to reveal each call's arguments and result). Server-side tools
- *  (web_search) have no `toolCalls` and render as a flat, non-interactive badge instead. */
 function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
   const [open, setOpen] = useState(false)
   if (calls.length === 0) return null
@@ -341,8 +318,6 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
   )
 }
 
-/** Compact chip for a single-call tier (gate, triage, reply, critic…). When the call ran client
- *  tools, the tool-call list expands below the chip so the full exchange stays inline. */
 function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
   const { call, index } = entry
   const hasToolCalls = call.toolCalls.length > 0
@@ -363,8 +338,6 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
   )
 }
 
-/** Collapsible block for a multi-round tier: header sums the rounds' tokens; expanding reveals every
- * round's own tokens, tools and raw-payload links so no detail is lost. */
 function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; entries: UsageEntry[] }) {
   const [open, setOpen] = useState(false)
   const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
@@ -423,7 +396,6 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
   )
 }
 
-/** Full detail shown when a pipeline row is expanded: every stage, its flags, and any alternatives. */
 function PipelineDetail({ run }: { run: PipelineRun }) {
   const totalPrompt = run.llmUsage.reduce((s, u) => s + u.promptTokens, 0)
   const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)

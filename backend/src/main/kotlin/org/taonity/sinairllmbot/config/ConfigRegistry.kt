@@ -3,23 +3,11 @@ package org.taonity.sinairllmbot.config
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.config.LlmProperties
+import org.taonity.sinairllmbot.bot.config.Prompt
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
-/**
- * The single source of truth for every runtime-tunable config field. The same catalog drives:
- *  - the merge (how to overlay a parsed value onto the effective config, via immutable `copy`),
- *  - boundary validation (type + range + enum membership),
- *  - the UI schema (`GET /console/config`).
- *
- * Tier fields (`app.llm.tiers.<name>.*`) are generated on demand for whatever tiers currently
- * exist (built-in yaml tiers plus any custom tiers added through the console), so the catalogue and
- * the merge stay in sync as tiers come and go. The tier-name enums (`active-reply-tier`, ...) read
- * the live tier set, so a new tier immediately becomes a selectable option.
- * Secrets/infra (api-key, base-url, ...) are deliberately absent so they can never be read or set
- * through the console.
- */
 @Component
 class ConfigRegistry(
     private val objectMapper: ObjectMapper,
@@ -30,22 +18,15 @@ class ConfigRegistry(
     private val staticByKey: Map<String, ConfigField> =
         (fieldsBeforeTiers + fieldsAfterTiers).associateBy { it.key }
 
-    /** The full ordered field catalogue for the given tier set (tier groups sit between the LLM
-     * and Bot sections, one group per tier). */
     fun fields(tierNames: List<String>): List<ConfigField> =
         fieldsBeforeTiers + tierNames.flatMap { tierFields(it) } + fieldsAfterTiers
 
-    /** Resolves a single field by key, generating tier fields on the fly for any tier name. */
     fun field(key: String): ConfigField? {
         staticByKey[key]?.let { return it }
         val match = TIER_KEY_REGEX.matchEntire(key) ?: return null
         return tierField(match.groupValues[1], match.groupValues[2])
     }
 
-    /**
-     * Parses a raw JSON value for [field] and validates its type, range and (for enums) membership
-     * against [effective]. Returns the typed value ready for [ConfigField.apply].
-     */
     fun parse(field: ConfigField, node: JsonNode, effective: EffectiveConfig): Any {
         val value: Any = try {
             when (field.type) {
@@ -80,10 +61,8 @@ class ConfigRegistry(
         return value
     }
 
-    /** Serializes a typed value to the JSON text stored in the override row. */
     fun serialize(value: Any): String = objectMapper.writeValueAsString(value)
 
-    /** Reads a stored override row's JSON back into a typed value for [field]. */
     fun parseStored(field: ConfigField, valueJson: String, effective: EffectiveConfig): Any =
         parse(field, objectMapper.readTree(valueJson), effective)
 
@@ -97,7 +76,6 @@ class ConfigRegistry(
     private fun buildFieldsBeforeTiers(): List<ConfigField> {
         val fields = mutableListOf<ConfigField>()
 
-        // ---- LLM ----
         fields += ConfigField(
             key = "app.llm.active-reply-tier", group = "LLM", type = ConfigType.ENUM, enumValues = tierNames,
             read = { it.llm.activeReplyTier },
@@ -139,7 +117,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(llm = c.llm.copy(retry = c.llm.retry.copy(retryProviderErrors = v as Boolean))) },
         )
 
-        // ---- LLM · Critic ----
         fields += ConfigField(
             key = "app.llm.critic.enabled", group = "LLM · Critic", type = ConfigType.BOOL,
             read = { it.llm.critic.enabled },
@@ -162,12 +139,11 @@ class ConfigRegistry(
         )
         fields += ConfigField(
             key = "app.llm.critic.prompt", group = "LLM · Critic", type = ConfigType.TEXT,
-            read = { it.llm.critic.prompt },
-            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(prompt = v as String))) },
+            read = { it.llm.critic.prompt.text },
+            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(prompt = Prompt(v as String)))) },
             validate = { v -> requireCriticPlaceholders(v as String) },
         )
 
-        // ---- LLM · Tool loop ----
         fields += ConfigField(
             key = "app.llm.tool-loop.tier", group = "LLM · Tool loop", type = ConfigType.STRING,
             read = { it.llm.toolLoop.tier },
@@ -182,7 +158,6 @@ class ConfigRegistry(
         return fields
     }
 
-    /** The three tunable fields of a single tier (built-in or custom). */
     private fun tierFields(name: String): List<ConfigField> =
         listOf("model", "temperature", "max-tokens").mapNotNull { tierField(name, it) }
 
@@ -211,7 +186,6 @@ class ConfigRegistry(
     private fun buildFieldsAfterTiers(): List<ConfigField> {
         val fields = mutableListOf<ConfigField>()
 
-        // ---- Bot · Decision ----
         fields += ConfigField(
             key = "app.bot.decision.debounce-seconds", group = "Bot · Decision", type = ConfigType.LONG, min = 0.0, max = 3600.0,
             read = { it.bot.decision.debounceSeconds },
@@ -238,7 +212,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(spontaneousProbability = v as Double))) },
         )
 
-        // ---- Bot · Context ----
         fields += ConfigField(
             key = "app.bot.context.recent-message-count", group = "Bot · Context", type = ConfigType.INT, min = 1.0, max = 200.0,
             read = { it.bot.context.recentMessageCount },
@@ -270,7 +243,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(context = c.bot.context.copy(sessionGapMinutes = v as Long))) },
         )
 
-        // ---- Bot · Persona ----
         fields += ConfigField(
             key = "app.bot.persona.name", group = "Bot · Persona", type = ConfigType.STRING,
             read = { it.bot.persona.name },
@@ -283,8 +255,8 @@ class ConfigRegistry(
         )
         fields += ConfigField(
             key = "app.bot.persona.prompt", group = "Bot · Persona", type = ConfigType.TEXT,
-            read = { it.bot.persona.prompt },
-            apply = { c, v -> c.copy(bot = c.bot.copy(persona = c.bot.persona.copy(prompt = v as String))) },
+            read = { it.bot.persona.prompt.text },
+            apply = { c, v -> c.copy(bot = c.bot.copy(persona = c.bot.persona.copy(prompt = Prompt(v as String)))) },
         )
         fields += ConfigField(
             key = "app.bot.persona.stop-command", group = "Bot · Persona", type = ConfigType.STRING,
@@ -320,14 +292,12 @@ class ConfigRegistry(
             },
         )
 
-        // ---- Bot · Typing ----
         fields += ConfigField(
             key = "app.bot.typing.ttl-seconds", group = "Bot · Typing", type = ConfigType.LONG, min = 1.0, max = 600.0,
             read = { it.bot.typing.ttlSeconds },
             apply = { c, v -> c.copy(bot = c.bot.copy(typing = c.bot.typing.copy(ttlSeconds = v as Long))) },
         )
 
-        // ---- Bot · Limits ----
         fields += ConfigField(
             key = "app.bot.limits.max-reply-chars", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 4000.0,
             read = { it.bot.limits.maxReplyChars },
@@ -354,7 +324,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(linkContextMessages = v as Int))) },
         )
 
-        // ---- Ingestion ----
         fields += ConfigField(
             key = "app.ingestion.enabled", group = "Ingestion", type = ConfigType.BOOL,
             read = { it.ingestion.enabled },
@@ -406,7 +375,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(ingestion = c.ingestion.copy(image = c.ingestion.image.copy(maxBytes = v as Long))) },
         )
 
-        // ---- GitHub · Repo lookup ----
         fields += ConfigField(
             key = "app.github.repo-lookup.enabled", group = "GitHub · Repo lookup", type = ConfigType.BOOL,
             read = { it.github.repoLookup.enabled },
@@ -423,7 +391,6 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(github = c.github.copy(repoLookup = c.github.repoLookup.copy(maxFileChars = v as Int))) },
         )
 
-        // ---- Retention ----
         fields += ConfigField(
             key = "app.retention.chat.retention-days", group = "Retention", type = ConfigType.LONG, min = 1.0, max = 3650.0,
             read = { it.retention.chat.retentionDays },
@@ -447,7 +414,6 @@ class ConfigRegistry(
             validate = { v -> requireValidCron(v as String) },
         )
 
-        // ---- Console ----
         fields += ConfigField(
             key = "app.console.max-page-size", group = "Console", type = ConfigType.INT, min = 10.0, max = 1000.0,
             read = { it.console.maxPageSize },

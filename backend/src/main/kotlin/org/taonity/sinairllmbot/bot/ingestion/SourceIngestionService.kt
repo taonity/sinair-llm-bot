@@ -6,11 +6,6 @@ import org.taonity.sinairllmbot.bot.LogRedact
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 
-/**
- * Entry point of the ingestion layer: given raw chat text, extracts URLs, fetches each one and
- * returns normalized [SourceDocument]s. Failures per-URL are swallowed (logged) so one bad link
- * never blocks a reply. No caching in this MVP — every message re-fetches.
- */
 @Service
 class SourceIngestionService(
     private val urlExtractor: UrlExtractor,

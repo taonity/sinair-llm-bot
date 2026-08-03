@@ -15,19 +15,6 @@ import org.taonity.sinairllmbot.config.repository.BotConfigOverrideRepository
 import org.taonity.sinairllmbot.config.repository.BotConfigTierRepository
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * The live effective-config provider. Holds an atomically swappable snapshot built by overlaying
- * the DB overrides on top of the yaml `@ConfigurationProperties` defaults. Bot services read the
- * snapshot per message, so a saved change takes effect immediately with no restart.
- *
- * The snapshot starts as defaults-only (no DB access during bean init) and is warmed once the app
- * is ready and rebuilt after every write. An invalid/stale override row can never brick startup:
- * it is logged and skipped, falling back to that field's default.
- *
- * Custom tiers (rows in `bot_config_tier`) are folded into a "baseline" on top of the yaml defaults
- * before per-field overrides are applied, so a custom tier behaves exactly like a built-in one: its
- * seeded model/temperature/max-tokens act as the tier's default and per-field edits overlay on top.
- */
 @Component
 class BotSettings(
     private val botDefaults: BotProperties,
@@ -46,17 +33,11 @@ class BotSettings(
 
     private val yamlDefaults = EffectiveConfig(botDefaults, llmDefaults, ingestionDefaults, githubDefaults, retentionDefaults, consoleDefaults)
 
-    /** yaml defaults + custom tiers at their seeded values (the "reset" target for every field). */
     private val baseline = AtomicReference(yamlDefaults)
     private val snapshot = AtomicReference(yamlDefaults)
 
     fun bot(): BotProperties = snapshot.get().bot
 
-    /**
-     * Returns the bot's room list with normalized names — ensures every room starts with `#`.
-     * Env files should not contain `#` in values (it can be misinterpreted as a comment), so
-     * the prefix is added here instead.
-     */
     fun botRooms(): List<String> = snapshot.get().bot.rooms.map { room ->
         if (room.startsWith('#')) room else "#$room"
     }
@@ -71,18 +52,15 @@ class BotSettings(
 
     fun console(): ConsolePagingProperties = snapshot.get().console
 
-    /** The reset target: yaml defaults with custom tiers folded in at their seeded values. */
     fun defaults(): EffectiveConfig = baseline.get()
 
     fun effective(): EffectiveConfig = snapshot.get()
 
-    /** Names of the built-in (yaml) tiers, which — unlike custom tiers — cannot be deleted. */
     fun yamlTierNames(): Set<String> = llmDefaults.tiers.keys
 
     @EventListener(ApplicationReadyEvent::class)
     fun warmUp() = reload()
 
-    /** Rebuilds the baseline (defaults + custom tiers) and the effective snapshot (+ overrides). */
     fun reload() {
         var base = yamlDefaults
         for (tier in tierRepository.findAll()) {

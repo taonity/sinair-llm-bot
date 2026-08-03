@@ -1,10 +1,5 @@
 package org.taonity.sinairllmbot.bot.ingestion
 
-/**
- * Detects an image's real MIME type from its leading magic bytes rather than trusting the
- * server-supplied Content-Type header. Returns null when the bytes are not a recognised image,
- * which lets the fetcher reject disguised/non-image responses.
- */
 object ImageTypeDetector {
 
     fun detect(bytes: ByteArray): String? {

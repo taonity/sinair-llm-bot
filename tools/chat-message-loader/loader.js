@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-// CLI to seed / clear chat_message rows for testing.
-//
-// Commands:
-//   node loader.js clear            Clear chat_message (and dependent pipeline_run rows)
-//   node loader.js load [count]     Insert messages (default: all 500)
-//   node loader.js reload [count]   Clear, then load
-//   node loader.js count            Print current chat_message row count
-//
-// Connection (env vars, with defaults matching templates/docker/.env):
-//   PGHOST=localhost PGPORT=5432 PGUSER=d PGPASSWORD=d PGDATABASE=sinair_llm_bot_db
-//   or a single DATABASE_URL=postgres://d:d@localhost:5432/sinair_llm_bot_db
-//
-// The Postgres port is exposed on the host when the stack runs with
-// docker-compose.local.yml (127.0.0.1:5432), which is the intended target.
 
 import pg from 'pg';
 import { buildMessages, TOTAL_MESSAGES } from './messages.js';
@@ -35,8 +21,7 @@ function makeClient() {
 async function clear(client) {
   await client.query('BEGIN');
   try {
-    // pipeline_run references chat messages by id (trigger/outbound); remove it
-    // first so no traces are left dangling once messages are gone.
+    // pipeline_run references chat_message, so traces must be deleted first.
     const traces = await client.query('DELETE FROM pipeline_run');
     const messages = await client.query('DELETE FROM chat_message');
     await client.query('COMMIT');

@@ -4,16 +4,7 @@ import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.net.URI
 
-/**
- * SSRF guard. A chat message can contain any URL, so before fetching we reject anything that could
- * be used to reach internal/metadata endpoints:
- *  - scheme must be http/https (https-only when [requireHttps]),
- *  - host must resolve, and none of its addresses may be loopback, link-local (incl. cloud
- *    metadata 169.254.169.254), site-local/private, unique-local IPv6, any-local or multicast.
- *
- * Every redirect hop is re-validated by the caller (see [SafeHttpFetcher]). There is a small
- * resolve-then-connect TOCTOU window (DNS rebinding) that is acceptable for this MVP.
- */
+// Redirect hops are revalidated to prevent SSRF into private and cloud-metadata addresses.
 @Component
 class SafeUrlValidator {
 
@@ -58,7 +49,6 @@ class SafeUrlValidator {
             address.isMulticastAddress ||
             isUniqueLocalIpv6(address)
 
-    /** IPv6 unique-local range fc00::/7, which `isSiteLocalAddress` does not cover. */
     private fun isUniqueLocalIpv6(address: InetAddress): Boolean {
         val bytes = address.address
         return bytes.size == 16 && (bytes[0].toInt() and 0xFE) == 0xFC

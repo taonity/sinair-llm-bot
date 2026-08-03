@@ -43,7 +43,6 @@ class AppConfigLogging(
         return annotation.prefix.ifEmpty { annotation.value }
     }
 
-    /** Recursively drops the omitted key and masks secret-looking values. */
     private fun sanitize(key: String, value: Any?): Any? = when (value) {
         is Map<*, *> -> value.entries
             .filterNot { (k, _) -> k.toString().equals(OMITTED_KEY, ignoreCase = true) }
@@ -57,7 +56,6 @@ class AppConfigLogging(
         return SECRET_KEY_MARKERS.any { normalized.contains(it) }
     }
 
-    /** Masks a secret keeping the first 3 and last 2 characters visible (fewer for short values). */
     private fun maskSecret(secret: String): String {
         if (secret.isEmpty()) return ""
         if (secret.length <= 4) return secret.take(1) + "*".repeat(secret.length - 1)

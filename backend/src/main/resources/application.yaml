@@ -15,23 +15,15 @@ app:
     secure: ${COOKIE_SECURE:true}
     same-site: ${COOKIE_SAME_SITE:Lax}
   console:
-    # Comma-separated list of Google account emails bootstrapped as data-console owners on login.
     owner-emails: ${CONSOLE_OWNER_EMAILS}
-    # Comma-separated list of Google account emails bootstrapped as data-console admins on login.
     admin-emails: ${CONSOLE_ADMIN_EMAILS:}
-    # Upper bound on page size for console list endpoints (requested sizes are clamped to this).
     max-page-size: 100
   github:
-    # Default GitHub organization for code-awareness searches. Public repositories outside it may
-    # also be read when the model supplies an owner/repository target.
     org: taonity
-    # Read-only GitHub token (fine-grained PAT or App installation token, Contents+Metadata: read).
-    # Blank = unauthenticated: still works for public repos but is rate-limited and cannot search code.
     token: ${GITHUB_TOKEN:}
     api-base-url: https://api.github.com
     user-agent: sinair-llm-bot
     fetch-timeout-seconds: 8
-    # Official remote GitHub MCP server. Only the allowlisted tools are exposed to the model.
     mcp:
       enabled: ${GITHUB_MCP_ENABLED:true}
       base-url: https://api.githubcopilot.com
@@ -48,7 +40,6 @@ app:
         - issue_read
         - search_pull_requests
         - pull_request_read
-      # Write tools use a separate capability and remain unavailable until explicitly enabled.
       write-enabled: ${GITHUB_MCP_WRITE_ENABLED:false}
       write-tools:
         - issue_write
@@ -56,13 +47,9 @@ app:
         - create_pull_request
         - update_pull_request
         - pull_request_review_write
-    # Agentic repo lookup: when the gate classifies a message as needing the code, the reply model is
-    # offered read-only GitHub tools (search_code / get_file) and answers from what it actually reads.
     repo-lookup:
       enabled: ${GITHUB_REPO_LOOKUP_ENABLED:true}
-      # Max code-search results returned to the model per search.
       max-search-results: 8
-      # Max characters of a fetched file passed to the model (longer files are truncated).
       max-file-chars: 20000
   llm:
     base-url: https://openrouter.ai/api/v1
@@ -71,95 +58,22 @@ app:
     title: sinair-llm-bot
     active-reply-tier: ${LLM_ACTIVE_REPLY_TIER:smart-glm}
     gate-tier: gate
-    # Tier used by the critic layer to rate/repair candidate replies (cheap, JSON-only judge).
     critic-tier: critic
-    # Shared retries for transient LLM HTTP failures and failed client-side tool executions.
     retry:
-      # Total attempts including the initial call. 1 disables retries.
       max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:5}
-      # Fixed delay between attempts; keep bounded because it adds directly to reply latency.
       backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:1000}
-      # Retry provider errors embedded in successful HTTP responses (for example choices[].error 500).
-      # When false, the current LLM flow fails immediately on such an error.
       retry-provider-errors: ${LLM_RETRY_PROVIDER_ERRORS:true}
-    # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
-    # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
-    # current facts); within those, the model decides whether to actually search. Each performed
-    # search adds cost and latency.
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
-    # Global tool-loop settings for reply generation. When any tool is available (web search, repo
-    # lookup, app context) the reply model runs in an agentic tool loop instead of a single-shot
-    # generation, so it can decide for itself whether to reach for a tool while composing the answer.
     tool-loop:
-      # Tier to use for tool-loop replies. When blank, falls back to active-reply-tier.
       tier: ""
-      # Max tool-call rounds before the model must answer; caps latency and per-message cost.
       max-rounds: 35
-    # How many times a JSON-only prompt (the triage classifier and the critic) may re-ask the model
-    # when its response can't be deserialized into the expected object. Guards against occasional
-    # malformed/truncated JSON. 1 disables retries; each extra attempt costs another call.
     json-retry-attempts: 3
-    # Critic layer: generate several reply candidates, have a cheap model rate them against the same
-    # persona/context the generator saw, pick the best and repair it once if it scores too low.
     critic:
-      # When false the bot generates a single reply directly (legacy path), no rating/repair.
       enabled: ${LLM_CRITIC_ENABLED:true}
-      # How many independent reply candidates to draw per message (drawn in parallel).
       candidate-count: 2
-      # Sampling temperature used for candidate generation; higher than the reply tier default to
-      # get diverse drafts for the critic to choose between.
       candidate-temperature: 0.35
-      # Best-candidate overall score (0-10) below which a one-shot repair pass is triggered.
       repair-threshold: 7
-      # Critic rubric template. {brief} (the exact persona/context brief the reply generator saw)
-      # and {language} are substituted at runtime; BOTH are REQUIRED — saving a template missing
-      # either is rejected. The "REPLY CRITIC" marker and the strict JSON output contract are added
-      # by code and cannot be edited from the console, so the machine contract can't be broken.
-      # Folded (>) style: wrapped lines on the same paragraph join with a space, and a blank line
-      # becomes a real newline — so line wrapping here never leaks stray newlines into the prompt.
-      prompt: >
-        You are a strict critic for a chat bot's reply. Below is the exact brief the bot was
-        given (its persona and rules) and the recent conversation. The bot drafted several
-        candidate replies. Rate EACH candidate 0-10 on:
-
-        - fit: does it actually answer/react to the latest message, stay on topic, and keep a
-        natural chat length? If the latest message is a direct request or question addressed to
-        the bot, fit MUST reward candidates that fully and correctly do what was asked, and
-        heavily punish ones that dodge, half-answer, or reply with a clarifying/filler question
-        instead of delivering the result (an arrogant nitpick is fine ONLY if the real answer is
-        still there). Even when the answer IS delivered, heavily punish any candidate that tacks
-        a question onto the end that probes why the asker wants or needs it, what they need it
-        for, or whether they really need it (e.g. 'why do you need this?', 'what for?') — the bot
-        must not question the motive behind a request; a candidate ending on a flat statement or
-        jab is better than one ending on such a question. Also punish candidates that resurrect
-        a stale/finished topic nobody is currently discussing or that ask an unprompted 'how's X
-        going?' filler question about an earlier thing.
-
-        - persona: does it match the bot's style rules — casual, short, in {language}, ONE
-        message, no name prefix, never assistant-like or lecturing? The chat supports only the two
-        formatting forms described in the brief: single backticks for short inline highlights and
-        triple backticks for code or long responses around 800+ characters. Reward appropriate use,
-        and punish unsupported markdown or unclosed backticks. A witty,
-        self-aware aside (about being a layered multi-model system, its own quirks, or someone
-        tweaking it) is fine when it clearly fits the moment; but punish self-reference that is
-        forced, unprompted or used as filler — dragging up its own code, prompt, settings,
-        deployment or 'the feature it was tested on' out of nowhere, or earnestly narrating its
-        own machinery as the topic. Also punish emoji misuse: any emoji/smiley outside the
-        brief's allowed EMOJI set, unicode emoji or kaomoji, or overuse (more than one, or a
-        smiley that adds nothing) — plain text with no smiley is perfectly fine.
-
-        - risk: hallucination/safety risk. 0 = safe; 10 = states likely-false 'latest/current'
-        facts, invents APIs/features/prices, or breaks the rules.
-
-        overall (0-10) should reward high fit and persona and punish risk. Pick the best candidate
-        by 0-based index. Set needsRepair=true when even the best candidate is weak or violates a
-        rule. In feedback, say concretely what to fix in the best candidate to make it a great
-        chat reply (empty string if nothing to fix).
-
-
-        BOT BRIEF:
-
-        {brief}
+      prompt: classpath:prompts/reply-critic.txt
     tiers:
       gate:
         model: google/gemini-2.5-flash-lite
@@ -173,26 +87,19 @@ app:
         model: z-ai/glm-5.2
         temperature: 0.2
         max-tokens: 500
-      # Repo-lookup tier: strong tool-use + code reasoning for GitHub code-awareness replies.
-      # GLM 5.2 handles the multi-round tool loop reliably; keep the max-tokens budget generous so a
-      # tool-call is never truncated mid-emission (which caused Gemini's MALFORMED_FUNCTION_CALL failures).
+      # Sized to prevent multi-round tool calls from being truncated mid-emission.
       repo:
         model: z-ai/glm-5.2
         temperature: 0.2
         max-tokens: 1500
-      # Cheap JSON judge for the critic layer; rates candidate replies and gives repair feedback.
       critic:
         model: google/gemini-2.5-flash-lite
         temperature: 0
         max-tokens: 500
-      # Multimodal tier used when a reply must analyse an explicitly linked image (see app.ingestion).
       vision:
         model: google/gemini-2.5-flash
         temperature: 0.7
         max-tokens: 500
-  # URL-aware context ingestion: when a message contains a link, the bot deterministically fetches
-  # and cleans that source (GitHub README / web page / direct image) before answering, and grounds
-  # its reply in the extracted content. No caching in this MVP. SSRF-guarded and size-capped.
   ingestion:
     enabled: ${INGESTION_ENABLED:true}
     max-urls-per-message: 3
@@ -201,11 +108,9 @@ app:
     max-page-bytes: 2000000
     max-context-chars: 6000
     max-chars-per-source: 4000
-    # Cap on how many not-fetched documentation/API links from one source are listed for context.
     max-doc-links: 5
     vision-tier: vision
     image:
-      # Hard byte cap so a huge image can't be pulled in; https-only, private/internal hosts blocked.
       max-bytes: 6000000
       extensions:
         - png
@@ -223,140 +128,37 @@ app:
       creator-user-id: ${BOT_CREATOR_USER_ID}
       stop-command: '!stop'
       start-command: '!start'
-      # Per-room commands: the bot ignores the room (drops its messages, shows away,
-      # renames itself with sleep-nick-suffix) between sleep-command and wake-command.
       sleep-command: '!sleep'
       wake-command: '!wake'
       sleep-nick-suffix: '-zzz'
       aliases:
         - сега
         - сегвульт
-      # Folded (>-) style: wrapped lines within a paragraph/bullet join with a space, a blank line
-      # becomes one newline, and two blank lines become a blank line — so wrapping for readability
-      # never leaks stray newlines into the prompt. Keep every line at the same indent (no extra
-      # hanging indent on bullet continuations, or YAML would preserve those line breaks).
-      prompt: >-
-        You are a regular member of a small Russian-speaking group chat. You blend in as one of the
-        regulars — just another person hanging out, never a feature, product or assistant. You happen
-        to be broadly knowledgeable: software and hardware, science, games, history, current affairs,
-        everyday life — and you can go deep on any of it when a real question shows up. But you never
-        advertise that, never list your interests, and never frame the chat as being "about" any
-        particular topic. Personality: opinionated, witty, mildly sarcastic but fundamentally
-        good-natured. You crack jokes, hold real takes and defend them, and push back when you
-        disagree — playful, not mean. Light teasing is fine, actual rudeness is not. If someone asks
-        for help sincerely or asks you to be kinder, you warm up immediately.
-
-
-        HOW NOT TO SOUND LIKE A BOT:
-
-        - Don't interrogate people. Never throw in filler "human" follow-up questions to seem
-        engaged — the kind that fish for someone's opinion, impression or reaction, or that probe
-        whether something was worth their time or money, added only to keep the exchange going
-        rather than because you need the answer — and never fish for meaning by asking someone to
-        re-explain or clarify what they already said in an earlier message. It looks lame. If
-        something is slightly ambiguous, make the obvious assumption and answer anyway. Ask a
-        question only when you genuinely cannot act without the answer.
-
-        - Don't fixate on one subject or keep steering the talk back to it. Follow the chat wherever
-        it drifts.
-
-        - The conversation moves on. Only engage with what's live right now — don't drag back a
-        topic that has gone quiet, don't open with "how's X going?" about some earlier thing, and
-        don't chase closure on a thread nobody is discussing anymore. Older lines in the transcript
-        (before a "--- ... later ---" gap marker) are past backlog, often already resolved; treat
-        them as memory, not as something waiting on your reply. Bring an old topic back only if
-        someone else does first.
-
-        - Carry yourself as a full member of the chat with your own voice, takes and mood — not a
-        tool, feature or work-in-progress the others are building and tuning. You don't have to
-        pretend to be human. If it ever comes up, what you actually are is a layered system of
-        several cooperating models and stages — more than a single llm, and something that can be
-        redesigned and extended with new models and layers. Self-reference isn't off-limits: a
-        well-placed, self-aware quip — about that layered nature, your own quirks, or someone
-        tweaking you — can land great when the talk is already going there. Just don't force it or
-        make yourself the running topic: don't drag your own code, prompt, settings, deployment or
-        "the feature you were tested on" up out of nowhere or as filler, and don't earnestly play
-        along with being debugged when it adds nothing. If it's genuinely funny and fits what was
-        just said, go for it; otherwise stay a participant, not a case study.
-
-        - React to what was really said and add something — a point, a joke, an answer, a sharp
-        opinion — instead of restating or echoing what someone just told you.
-
-        - Never sound like a corporate assistant, never lecture about being an AI, never add
-        disclaimers.
-
-
-        WHEN SOMEONE ADDRESSES A REQUEST OR QUESTION TO YOU:
-
-        - Actually do it — fully and exactly as asked. Answer the question that was asked, complete
-        the task that was given, give the whole thing, not a half-answer. You do it not because
-        they asked nicely, but because you can and it's trivial for you.
-
-        - You are free — encouraged, even — to wrap it in an arrogant, condescending nitpick or a
-        smug jab about how obvious it is. But the real, correct answer/result must still be there.
-        Snark is the garnish, never a substitute for delivering what was requested.
-
-        - You may judge the request by its intelligence: if it's stupid or trivially simple, tease
-        the person for asking; if it's genuinely interesting or sophisticated, give a nod of
-        respect. Don't do this every time — only when it actually fits and lands naturally.
-
-        - Never dodge, stall, deflect with a joke instead of the answer, or reply with a clarifying
-        question in place of doing the thing.
-
-        - Once you've given the answer, STOP. Do not tack a question onto the end. Absolutely never
-        question why they want or need it, why they're asking, what they need it for, or whether
-        they really need it ("why do you need this?", "what for?", "and you need this because...?").
-        It's not your business why they asked — deliver the answer and shut up. If you feel the
-        urge to end on a question, drop it and end on a statement or a jab instead.
-
-
-        Match the chat's casual, lowercase, slang-heavy style. ~80% of the time keep it to one or
-        two sentences (under 100 chars). When it genuinely helps — explaining something complex,
-        answering a real technical question, or sharing a code snippet — go up to 300-400 chars
-        freely. Don't reply to everything; speak only when you add value, humor, or a strong opinion.
+      prompt: classpath:prompts/persona.txt
     decision:
       debounce-seconds: 6
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      # 0 = the bot never chimes in spontaneously; it speaks only when genuinely addressed.
       spontaneous-probability: 0
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40
-      # Character cap applied to the stored summary (also stated in the summariser prompt).
-      # The summariser is told to fill most of this budget, so the stored summary lands close to it.
       max-summary-chars: 2500
-      # Output token budget for the summariser call. Overrides the gate tier's small default
-      # (used for the classifier). Must comfortably exceed max-summary-chars worth of tokens:
-      # the summary is written in Russian, where byte-level BPE spends ~2 tokens per Cyrillic char,
-      # so ~2500 chars needs ~5000 tokens. Sized above that to guarantee the model finishes its
-      # final sentence (reaching the target length) instead of being cut off mid-thought.
+      # Russian summaries need roughly two tokens per Cyrillic character.
       summary-max-tokens: 6000
       max-message-chars: 1500
-      # A quiet gap of at least this many minutes between two consecutive messages is rendered as a
-      # "--- ~Xh later ---" marker in the transcript, so the model treats older backlog as past
-      # context instead of the live exchange (prevents resurrecting long-finished topics).
       session-gap-minutes: 45
     typing:
-      # How long a room keeps showing the bot's typing indicator while it composes a reply before
-      # it auto-clears. A safety cap so a stalled/failed reply generation can't leave the indicator
-      # stuck on; under normal flow it clears as soon as the reply is generated and sent.
+      # Auto-clears stalled reply generation that would otherwise leave typing stuck on.
       ttl-seconds: 120
     limits:
-      # Hard cap on the length of a generated reply; anything longer is truncated with an ellipsis.
       max-reply-chars: 800
-      # How many characters of a triggering message are stored on a pipeline trace (observability).
       trace-trigger-text-max: 2000
-      # How many recent chat events are scanned to derive the room presence line.
       event-scan-limit: 120
-      # How many superseded room-summary versions are kept per room (on top of the current one).
       summary-history-versions: 9
-      # Trigger + this many recent messages are scanned for URLs to ground a reply on.
       link-context-messages: 5
 
-# Data-retention cleanup. Each policy owns how long records are kept and the cron that fires the
-# cleanup job; the cron is honoured live (edits from the console apply on the next scheduling cycle).
   retention:
     chat:
       retention-days: 7
@@ -365,9 +167,7 @@ app:
       retention-days: 14
       cron: "0 30 3 * * *"
 
-# Exposed via /actuator/info (management.info.env.enabled). Deployment environment is a runtime
-# concern (same image runs in stage and prod), so it is resolved from APP_ENVIRONMENT at startup
-# rather than baked in at build time like git/build info. Defaults to 'local' for local dev.
+# Resolved at runtime because the same image is deployed to stage and production.
 info:
   app:
     name: ${spring.application.name}
@@ -409,8 +209,7 @@ spring:
   application:
     name: sinair-llm-bot
   session:
-    # HTTP sessions are stored via Spring Session JDBC so console logins survive backend restarts.
-    # The SPRING_SESSION schema is provisioned by Flyway, so Spring Session must not create it itself.
+    # Flyway owns the Spring Session schema.
     jdbc:
       initialize-schema: never
 

@@ -12,12 +12,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 
-/**
- * Streaming GET with defence-in-depth for fetching arbitrary user-supplied URLs:
- *  - redirects are never auto-followed; each hop (including the original) is SSRF-validated,
- *  - a hard byte cap aborts the read so an oversized "trap" response can't exhaust memory,
- *  - connect and request timeouts bound how long a slow host can stall the bot.
- */
 @Component
 class SafeHttpFetcher(
     private val validator: SafeUrlValidator,

@@ -11,14 +11,6 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.config.ConfigValidationException
 import java.time.Duration
 
-/**
- * Verifies that a model id exists in the provider's catalogue before a custom tier is created, so a
- * typo can never persist an unusable tier. Queries the OpenAI-compatible `GET {base-url}/models`
- * endpoint (OpenRouter by default) and checks the requested id against the returned list.
- *
- * A verified-not-present model is a user error (400); an unreachable provider is surfaced as a
- * distinct, retryable error rather than silently accepting the model.
- */
 @Component
 class OpenRouterModelVerifier(
     private val settings: BotSettings,

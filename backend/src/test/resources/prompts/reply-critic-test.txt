@@ -1,0 +1,3 @@
+Rate each candidate reply in {language} against the brief below.
+BOT BRIEF:
+{brief}

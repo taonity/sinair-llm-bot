@@ -2,7 +2,6 @@ package org.taonity.sinairllmbot.bot.ingestion
 
 import org.springframework.stereotype.Component
 
-/** Pulls http(s) URLs out of free-form chat text, trimming trailing punctuation. */
 @Component
 class UrlExtractor {
     private companion object {

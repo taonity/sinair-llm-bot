@@ -38,7 +38,6 @@ describe('config', () => {
 
     it('should exit if required env var is missing', async () => {
         const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
-        // Unset ENV_FILE so it doesn't load .env.local
         vi.stubEnv('ENV_FILE', '.env.nonexistent');
         vi.stubEnv('CHAT_WS_URL', 'ws://localhost:3001/ws/chat');
         delete process.env.CHAT_API_KEY;

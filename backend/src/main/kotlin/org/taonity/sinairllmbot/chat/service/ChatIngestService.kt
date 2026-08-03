@@ -147,11 +147,6 @@ class ChatIngestService(
         return "hash:${sha256(raw)}"
     }
 
-    /**
-     * The chat client API's sendMessage() is fire-and-forget and returns no external message id.
-     * Link the bot's later self-echo to the closest unlinked outbound row with identical room/text
-     * inside a narrow window. The provenance label makes this heuristic explicit to diagnostics.
-     */
     private fun reconcileOutboundEcho(msg: ChatMessageDto, sentAt: Instant): String? {
         if (!msg.senderLogin.equals(settings.bot().persona.name, ignoreCase = true)) return null
         val matched = outboundMessageRepository.findByRoomTargetAndMessageTextAndStatusInOrderByCreatedAtDesc(

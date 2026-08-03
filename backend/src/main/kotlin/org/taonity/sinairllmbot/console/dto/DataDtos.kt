@@ -92,9 +92,7 @@ data class RoomSummaryDto(
     val summary: String,
     val messageCount: Int,
     val updatedAt: Instant,
-    /** The pipeline run holding the source transcript, or null if never linked. */
     val pipelineRunId: String?,
-    /** True while that run still exists (i.e. within the 7-day retention window). */
     val detailAvailable: Boolean,
     val history: List<SummaryVersionDto> = emptyList(),
 )
@@ -108,11 +106,6 @@ data class SummaryVersionDto(
     val detailAvailable: Boolean,
 )
 
-/**
- * A persisted pipeline run for the console. [stages] is the deserialized [stagesJson] of the entity
- * (parsed by the service, which has the ObjectMapper); the stage shape mirrors
- * [org.taonity.sinairllmbot.bot.pipeline.PipelineStage].
- */
 data class PipelineRunDto(
     val id: String?,
     val pipelineKey: String,
@@ -160,7 +153,6 @@ data class PipelineRunDto(
     }
 }
 
-/** One failed JSON-deserialization attempt of a run's triage/critic prompt, with the raw payload. */
 data class JsonParseFailureDto(
     val label: String = "",
     val attempt: Int = 0,
@@ -209,7 +201,6 @@ data class LlmCallUsageDto(
     }
 }
 
-/** One client-tool call executed during an agentic LLM round, for console display. */
 data class ToolCallEntryDto(
     val name: String = "",
     val arguments: String = "",

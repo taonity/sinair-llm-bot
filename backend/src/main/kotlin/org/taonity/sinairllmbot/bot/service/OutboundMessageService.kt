@@ -9,10 +9,6 @@ import org.taonity.sinairllmbot.bot.entity.OutboundStatus
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import java.time.Instant
 
-/**
- * Delivery queue API for the collector: claim PENDING replies (marking them CLAIMED so they are
- * not handed out twice) and acknowledge them as SENT once delivered to the chat.
- */
 @Service
 class OutboundMessageService(
     private val outboundMessageRepository: OutboundMessageRepository,

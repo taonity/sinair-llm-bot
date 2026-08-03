@@ -9,14 +9,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 
-/**
- * Local/test WireMock stub for the OpenAI-compatible LLM endpoint, mirroring [GoogleWireMockConfig].
- *
- * Activated by the `stub-llm` profile. Mappings live in the `llm-stubs` module under
- * `wiremock/llm/mappings` and return deterministic responses for the three call kinds
- * (summary / classifier-JSON / reply). With this profile, point `app.llm.base-url` at the stub port
- * (`app.stub.llm.port`, see `application-stub-llm.yaml`).
- */
 @Configuration
 @Profile("stub-llm")
 class LlmWireMockConfig {

@@ -1,4 +1,3 @@
-// Packet types matching the real sinair.net chat protocol
 export const PacketType = {
     error: 0,
     system: 1,

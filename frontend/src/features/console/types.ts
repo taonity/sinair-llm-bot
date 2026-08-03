@@ -22,7 +22,6 @@ export interface UserSummary {
   requestedRole: ConsoleRole | null
 }
 
-/** A dev-only stub login shortcut returned by /api/dev/stub-users. */
 export interface StubLogin {
   registrationId: string
   label: string
@@ -113,21 +112,16 @@ export interface LlmCallUsage {
   toolCalls: ToolCallEntry[]
   hasRequestPayload: boolean
   hasResponsePayload: boolean
-  /** Prompt (input) tokens billed for this call, from the provider's usage. */
   promptTokens: number
-  /** Completion (output) tokens billed for this call, from the provider's usage. */
   completionTokens: number
-  /** 1-based transport attempt number and configured ceiling for this request. */
   attempt: number
   maxAttempts: number
   status: 'SUCCEEDED' | 'FAILED'
   error: string | null
-  /** 1-based agentic iteration, absent for non-agentic calls. */
   iteration: number | null
   totalIterations: number | null
 }
 
-/** One client-tool call executed during an agentic LLM round (e.g. search_code, get_file). */
 export interface ToolCallEntry {
   name: string
   arguments: string

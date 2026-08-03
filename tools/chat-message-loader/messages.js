@@ -1,23 +1,12 @@
-// Deterministic generator for a base of chat_message test rows.
-//
-// Produces 500 messages spread over 10 days, written by 6 made-up users.
-// Style is inspired by data/history.csv: casual lowercase Russian banter with
-// reply-quotes in the ">  HH:MM:SS @user: quoted\n\nreply" format, emoticons,
-// occasional links and inline `code`.
-//
-// The output is deterministic (seeded RNG) except for the row `id` (random UUID),
-// so regenerating gives the same texts/timestamps but fresh primary keys.
 
 import { randomUUID } from 'node:crypto';
 
 export const TOTAL_MESSAGES = 500;
 export const DAYS = 10;
 
-const EXT_BASE = 300000; // dedup_key = `ext:${EXT_BASE + globalIndex}`
+const EXT_BASE = 300000;
 const ROOM = '#taonity-room';
 
-// Start of the 10-day window (UTC, midnight). Defaults to the last 10 days
-// ending today; override with CHAT_LOADER_START_DATE=YYYY-MM-DD.
 function resolveWindowStart() {
   const override = process.env.CHAT_LOADER_START_DATE;
   if (override) {
@@ -38,8 +27,6 @@ const USERS = [
   { login: 'n0va', color: '#ffe066', memberId: 706, userId: 3107 },
 ];
 
-// Conversation threads. Each thread is an ordered list of lines belonging to a
-// topic; the generator assigns authors and wraps some lines as reply-quotes.
 const THREADS = [
   [
     'кто нибудь щупал новые свитчи на алишке? которые типа под холи пандами',
@@ -261,7 +248,6 @@ const THREADS = [
   ],
 ];
 
-// Short reactions used to pad the flow, like in real chats.
 const REACTIONS = [
   ')', '))', ')))', '+', '+1', 'ахах', 'лол', 'ну да', 'вот вот', 'согласен',
   'не, ну это перебор', 'база', 'жиза', 'кек', 'плюсую', 'ор ))', 'ну такое',
@@ -287,7 +273,6 @@ function fmtTime(date) {
   return `${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:${pad2(date.getUTCSeconds())}`;
 }
 
-// Extract a short snippet of a previous message body for use inside a reply quote.
 function quoteSnippet(text) {
   let body = text;
   if (body.startsWith('>')) {
@@ -298,18 +283,11 @@ function quoteSnippet(text) {
   return body.length > 90 ? `${body.slice(0, 90)}…` : body;
 }
 
-/**
- * Build the deterministic base of messages.
- * @param {number} [seed]
- * @returns {Array<object>} rows ready for insertion into chat_message
- */
 export function buildMessages(seed = 20260705) {
   const rand = mulberry32(seed);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   const windowStart = resolveWindowStart();
 
-  // Flatten threads into a reusable pool, reshuffling order each pass so the
-  // 10 days do not replay topics in the same sequence.
   const flow = [];
   let pass = 0;
   while (flow.length < TOTAL_MESSAGES) {
@@ -317,7 +295,6 @@ export function buildMessages(seed = 20260705) {
     for (const ti of order) {
       for (const line of THREADS[ti]) {
         flow.push({ text: line, threadId: `${ti}:${pass}` });
-        // Occasionally drop a short reaction between substantive lines.
         if (rand() < 0.18 && flow.length < TOTAL_MESSAGES * 2) {
           flow.push({ text: pick(REACTIONS), threadId: `${ti}:${pass}`, reaction: true });
         }
@@ -326,13 +303,12 @@ export function buildMessages(seed = 20260705) {
     pass += 1;
   }
 
-  const perDay = Math.floor(TOTAL_MESSAGES / DAYS); // 50
+  const perDay = Math.floor(TOTAL_MESSAGES / DAYS);
   const rows = [];
   let flowIdx = 0;
 
   for (let day = 0; day < DAYS; day++) {
     const dayStart = windowStart + day * 86400000;
-    // Start the day's chatter in the morning and walk forward.
     let cursor = dayStart + (8 * 3600 + Math.floor(rand() * 1800)) * 1000;
 
     let prevAuthorIdx = -1;
@@ -344,14 +320,12 @@ export function buildMessages(seed = 20260705) {
     for (let i = 0; i < count; i++) {
       const item = flow[flowIdx++];
 
-      // Pick an author different from the previous speaker.
       let authorIdx = Math.floor(rand() * USERS.length);
       if (authorIdx === prevAuthorIdx) {
         authorIdx = (authorIdx + 1) % USERS.length;
       }
       const author = USERS[authorIdx];
 
-      // Turn ~32% of non-first, non-reaction lines into reply-quotes.
       let text = item.text;
       if (i > 0 && prevText !== null && !item.reaction && rand() < 0.32) {
         const quotedUser = USERS[prevAuthorIdx].login;
@@ -381,7 +355,6 @@ export function buildMessages(seed = 20260705) {
       prevText = text;
       prevTime = sentAt;
 
-      // Advance time by 0.5..15 minutes, with the occasional longer lull.
       let stepSec = 30 + Math.floor(rand() * 870);
       if (rand() < 0.1) stepSec += 600 + Math.floor(rand() * 1800);
       cursor += stepSec * 1000;

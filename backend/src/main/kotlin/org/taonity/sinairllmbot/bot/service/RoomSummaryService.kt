@@ -17,11 +17,6 @@ import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
 
-/**
- * Maintains a rolling, compressed summary per room so the bot has long-term context without
- * paying to resend full history on every reply. Refreshed with the cheap "gate" tier, and only
- * once enough new messages have accumulated.
- */
 @Service
 class RoomSummaryService(
     private val roomSummaryRepository: RoomSummaryRepository,
@@ -66,9 +61,6 @@ class RoomSummaryService(
         if (transcript.isBlank()) return
 
         val previousSummary = existing?.summary
-        // Trace the refresh as its own "summary" pipeline run so the console shows the same detail as
-        // a reply run (its LLM call, with request/response payloads). begin()/record run on this
-        // thread; the reply pipeline (BotMessageOrchestrator) starts its own tracking afterwards.
         pipelineTraceService.begin()
         val newSummary = generateSummary(previousSummary, transcript)
         if (newSummary == null) {
@@ -127,8 +119,6 @@ class RoomSummaryService(
                 ),
             ),
         )
-        // Link the summary to the pipeline run holding its source transcript, so the console can show
-        // the messages behind it — until retention purges that run after 7 days (the summary stays).
         if (runId != null) {
             current.pipelineRunId = runId
             roomSummaryRepository.save(current)
@@ -136,7 +126,6 @@ class RoomSummaryService(
         LOGGER.info { "Refreshed room summary for $roomTarget ($totalMessages msgs)" }
     }
 
-    /** Archive the summary that is about to be overwritten, then prune to the latest few versions. */
     private fun archivePreviousVersion(existing: RoomSummaryEntity) {
         roomSummaryHistoryRepository.save(
             RoomSummaryHistoryEntity(

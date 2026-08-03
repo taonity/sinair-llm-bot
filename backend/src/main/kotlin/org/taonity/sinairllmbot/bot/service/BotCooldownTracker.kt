@@ -6,10 +6,6 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * In-memory per-room rate limiting so the bot doesn't spam: a minimum gap between replies
- * plus a cap on replies within a sliding window.
- */
 @Component
 class BotCooldownTracker(
     private val settings: BotSettings,

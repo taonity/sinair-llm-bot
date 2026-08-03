@@ -22,11 +22,6 @@ import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 import tools.jackson.databind.JsonNode
 import java.time.Instant
 
-/**
- * Reads and mutates the runtime config overrides. Every operation requires ADMIN/OWNER access and
- * is audited. Writes are validated against [ConfigRegistry] (type/range/enum) before persisting,
- * then [BotSettings] is reloaded so the change applies live on the next message.
- */
 @Service
 class ConfigService(
     private val registry: ConfigRegistry,

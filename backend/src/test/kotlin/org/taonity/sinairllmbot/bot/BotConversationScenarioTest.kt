@@ -18,16 +18,6 @@ import org.taonity.sinairllmbot.chat.dto.IngestRequest
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Instant
 
-/**
- * End-to-end "few messages" scenario for the bot, exercising the full backend pipeline:
- * ingest -> debounce -> command gate -> LLM triage -> (summary) -> reply -> outbound queue.
- *
- * The LLM is faked by the `stub-llm` WireMock stub (module `llm-stubs`, mappings under
- * `wiremock/llm/mappings`), exactly like `stub-google` fakes Google OAuth. The message source is
- * the ingest endpoint — what the collector posts — so this is identical whether sinair is stub or prod.
- *
- * To run against a real provider, drop the `stub-llm` profile and set LLM_API_KEY.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("bottest", "stub-llm")

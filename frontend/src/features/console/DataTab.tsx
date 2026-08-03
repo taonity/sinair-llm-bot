@@ -40,7 +40,6 @@ export type Column<T> = {
   cellClassName?: string
   headClassName?: string
   skeleton?: string
-  /** Backend field id this column maps to; when set, the column is offered as a search scope. */
   searchKey?: string
 }
 
@@ -48,16 +47,12 @@ type DataTabProps<T> = {
   columns: Column<T>[]
   rowKey: (row: T) => string
   load: (page: number, size: number, q?: string, field?: string, direction?: string) => Promise<PageResponse<T>>
-  /** Resolves the page index where a searched row lives in the unfiltered list, enabling the jump action. */
   locate?: (row: T, size: number, direction?: string) => Promise<number>
-  /** When set, rows get a chevron toggle that reveals this content in a full-width row below. */
   expand?: (row: T) => React.ReactNode
-  /** Reads the room name off a row so it can be shown once instead of as a per-row column. */
   roomAccessor?: (row: T) => string
   canEdit?: boolean
   onDelete?: (row: T) => Promise<unknown>
   emptyLabel: string
-  /** Label for the column the rows are ordered by (shown on the sort toggle). Defaults to "time". */
   sortLabel?: string
   onError: (message: string) => void
 }
@@ -112,8 +107,6 @@ export function DataTab<T>({
       q: string,
       searchField: string,
       dir: string,
-      // A silent reload keeps the current table visible and only spins the refresh icon,
-      // instead of swapping the rows out for skeletons.
       opts?: { silent?: boolean },
     ) => {
       if (opts?.silent) setRefreshing(true)
@@ -132,11 +125,6 @@ export function DataTab<T>({
     [load, onError],
   )
 
-  // Initial load only. Subsequent loads are triggered explicitly by user actions
-  // (search, paging, page-size, sort, jump) so that a programmatic search-clear during a
-  // jump can't reset the page back to 0. Guarded by a ref so it fires exactly once per mount:
-  // `reload` is recreated whenever the parent passes a fresh inline `load` prop (e.g. on every
-  // re-render), and without the guard that would re-trigger a skeleton load on each parent render.
   const didInitialLoad = useRef(false)
   useEffect(() => {
     if (didInitialLoad.current) return
@@ -152,7 +140,6 @@ export function DataTab<T>({
     [],
   )
 
-  // Debounce the search box; a new search always starts from the first page.
   const onSearchChange = (value: string) => {
     setQuery(value)
     if (searchTimer.current) clearTimeout(searchTimer.current)

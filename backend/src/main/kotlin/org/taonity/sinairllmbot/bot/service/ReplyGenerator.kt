@@ -11,17 +11,6 @@ import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
-/**
- * Final stage: produces the actual chat reply.
- *
- * When any tool is available (web search, repo lookup, app context) the reply model runs in an
- * agentic tool loop with global round settings from [LlmProperties.ToolLoop], so it can decide
- * for itself whether to reach for a tool while composing the answer. When no tool is available
- * and the critic layer is enabled it draws several candidates, has a cheap judge rate them against
- * the same brief, keeps the best and repairs it once if it scores too low. Otherwise it falls back
- * to a single direct generation. Prompt assembly (persona + context + any grounded link/image
- * content, plus vision-tier routing) lives in [ReplyPromptBuilder].
- */
 @Service
 class ReplyGenerator(
     private val llmClient: LlmClient,
@@ -40,10 +29,6 @@ class ReplyGenerator(
         private const val TRIPLE_BACKTICKS = "```"
     }
 
-    /**
-     * @param roomTarget the room the trigger message belongs to.
-     * @param trigger the message the bot is replying to.
-     */
     fun generate(
         roomTarget: String,
         trigger: ChatMessageEntity,
@@ -52,11 +37,6 @@ class ReplyGenerator(
         trigger = trigger,
     ).reply
 
-    /**
-     * Like [generate] but also returns the intermediate candidates, critic scores and repair state
-     * so the pipeline trace can show what alternatives were considered. The `reply` field carries
-     * the final sanitized reply (null when none could be produced).
-     */
     fun generateTraced(
         roomTarget: String,
         trigger: ChatMessageEntity,
@@ -90,12 +70,6 @@ class ReplyGenerator(
         return raw.copy(reply = reply)
     }
 
-    /**
-     * Agentic tool-loop generation: the model is offered all available tools (web search, repo
-     * lookup, app context) and runs in a tool loop with global round settings from
-     * [LlmProperties.ToolLoop]. The model decides for itself whether to reach for a tool while
-     * composing the answer — no critic candidates are drawn, keeping cost bounded.
-     */
     private fun generateWithTools(
         roomTarget: String,
         trigger: ChatMessageEntity,
@@ -260,10 +234,6 @@ class ReplyGenerator(
 
 }
 
-/**
- * Result of a reply generation, carrying the final [reply] plus the candidates and critic state the
- * pipeline chose between so a trace can display the alternatives.
- */
 data class ReplyGeneration(
     val reply: String?,
     val candidates: List<CandidateTrace> = emptyList(),
@@ -273,7 +243,6 @@ data class ReplyGeneration(
     val criticFeedback: String? = null,
 )
 
-/** One candidate reply the generator produced, with the critic's per-candidate scores when rated. */
 data class CandidateTrace(
     val text: String,
     val chosen: Boolean = false,

@@ -15,24 +15,14 @@ import {
 } from '@/lib/appInfo'
 
 interface AppInfoPanelProps {
-  /** Compact mode tightens spacing/typography for the login card. */
   compact?: boolean
   className?: string
 }
 
-/**
- * Remembers how many rows each source rendered last time so the skeleton reserves the same
- * height on the next mount and the layout does not jump. Seeded with the typical field counts
- * so even the very first load is close to the final size.
- */
 const rowCountCache: Record<string, number> = { Backend: 11, Frontend: 9 }
 
 const LABELS = ['Backend', 'Frontend'] as const
 
-/**
- * Displays every field returned by the backend Spring Boot Actuator `/actuator/info`
- * endpoint and the frontend build metadata. Used on the login screen and the About tab.
- */
 export function AppInfoPanel({ compact = false, className }: AppInfoPanelProps) {
   const [sources, setSources] = useState<AppInfoSource[] | null>(null)
 

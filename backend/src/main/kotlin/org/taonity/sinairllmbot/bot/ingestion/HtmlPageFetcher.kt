@@ -7,10 +7,6 @@ import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
 import java.nio.charset.StandardCharsets
 
-/**
- * Fetches a generic web page through [SafeHttpFetcher] (SSRF-guarded, size-capped) and extracts the
- * readable main content, title, canonical URL, and documentation/API links.
- */
 @Component
 class HtmlPageFetcher(
     private val safeHttpFetcher: SafeHttpFetcher,

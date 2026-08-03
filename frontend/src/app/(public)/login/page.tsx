@@ -44,7 +44,6 @@ export default function LoginPage() {
         }
       })
       .catch(() => {
-        // Ignore — backend may be down, login page still renders
       })
   }, [])
 

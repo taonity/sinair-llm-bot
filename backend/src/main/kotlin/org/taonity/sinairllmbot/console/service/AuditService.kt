@@ -8,10 +8,7 @@ import org.taonity.sinairllmbot.console.entity.AuditLogEntity
 import org.taonity.sinairllmbot.console.repository.AuditLogRepository
 import org.taonity.sinairllmbot.user.entity.UserEntity
 
-/**
- * Records audit entries for data console changes. Entries never contain the changed data itself —
- * only the action, the affected record's type/id, the actor and the timestamp.
- */
+// Audit records intentionally exclude changed values.
 @Service
 class AuditService(
     private val auditLogRepository: AuditLogRepository,

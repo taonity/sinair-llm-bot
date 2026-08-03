@@ -2,10 +2,6 @@ package org.taonity.sinairllmbot.bot.context
 
 import org.springframework.stereotype.Component
 
-/**
- * Defense-in-depth sanitizer for diagnostic payload excerpts. Safe config and normal DTOs are
- * allowlisted before this point; this catches credentials embedded in stored provider payloads.
- */
 @Component
 class ContextResultSanitizer {
     private val jsonSecret = Regex(

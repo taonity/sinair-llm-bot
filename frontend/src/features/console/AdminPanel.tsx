@@ -243,7 +243,6 @@ function UsersCard({
     void load()
   }, [load])
 
-  // Owners can assign any role; admins only up to EDITOR.
   const assignableRoles: ConsoleRole[] = access.isOwner
     ? ['NONE', 'VIEWER', 'EDITOR', 'ADMIN', 'OWNER']
     : ['NONE', 'VIEWER', 'EDITOR']
@@ -302,7 +301,6 @@ function UsersCard({
               <TableBody>
                 {users.map((u) => {
                   const isSelf = u.email === access.email
-                  // Only the owner may change an existing admin/owner.
                   const targetIsAdmin = u.role === 'ADMIN' || u.role === 'OWNER'
                   const locked = isSelf || (targetIsAdmin && !access.isOwner)
                   return (

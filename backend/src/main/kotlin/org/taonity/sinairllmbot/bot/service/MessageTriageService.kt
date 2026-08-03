@@ -8,29 +8,6 @@ import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Cheap second stage: a single "gate"-tier call that triages the current conversation and decides
- * whether the bot should reply at all, keeping tokens minimal with a tiny prompt and strict JSON
- * output.
- *
- *  - [TriageVerdict.respond] — should the bot jump in now? This is the sole intent judge (the
- *    [CommandGate] only catches mute/un-mute commands). It fires ONLY when the bot is addressed
- *    directly (by nick/@mention/alias) or the latest message is an unmistakable direct follow-up or
- *    reply to the bot's OWN last message. A general/open question thrown out to the room that any
- *    member could answer does NOT fire it — people name the bot when they actually want its input.
- *    It also fires when the latest message states a clear, objective factual falsehood the bot can
- *    correct (real checkable facts only, not opinions/jokes). It deliberately does NOT fire just
- *    because the bot could add an opinion or a joke — the bot stays quiet unless it is actually being
- *    addressed or genuine misinformation needs correcting.
- *
- * Once the bot decides to reply, [ReplyGenerator] offers it every capability (live web search, repo
- * lookup, application context) subject only to their own settings toggles — the gate no longer
- * pre-judges which tools a reply will need, since the model itself decides whether to reach for a
- * tool while composing the answer.
- *
- * The bot's own messages appear in the transcript under its nick, which is what lets the model
- * recognise follow-ups aimed at the bot without an explicit mention.
- */
 @Service
 class MessageTriageService(
     private val llmClient: LlmClient,
@@ -139,10 +116,6 @@ class MessageTriageService(
         }
     }
 
-    /**
-     * Best-effort recovery when strict JSON parsing fails (usually truncated output that hit the
-     * tier's token cap mid-string). Returns null only when not even `respond` can be recovered.
-     */
     private fun salvage(text: String): TriageVerdict? {
         val respond = RESPOND_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true)
             ?: return null
@@ -156,10 +129,6 @@ data class TriageVerdict(
     val respond: Boolean = false,
     val category: String = "",
 ) {
-    /**
-     * Topic-free kind of decision safe to log. Whitelisted so no free-form model text (which could
-     * echo the conversation) ever reaches the logs — anything unrecognized becomes "unclassified".
-     */
     val loggableCategory: String
         get() = category.trim().lowercase().takeIf { it in ALLOWED_CATEGORIES } ?: "unclassified"
 

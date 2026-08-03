@@ -8,14 +8,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * A persisted trace of one bot processing-pipeline run for a room, retained like chat data so the
- * console can show why the bot did (or did not) reply to a given message.
- *
- * [stagesJson] holds the ordered list of pipeline stages serialized as JSON (see
- * [org.taonity.sinairllmbot.bot.pipeline.PipelineStage]); keeping it as an opaque document keeps the
- * schema stable while new pipelines add their own stage shapes.
- */
 @Entity
 @Table(name = "pipeline_run")
 class PipelineRunEntity(
@@ -46,9 +38,7 @@ class PipelineRunEntity(
     val jsonParseFailureCount: Int = 0,
     @Column(columnDefinition = "text")
     val jsonParseFailuresJson: String = "[]",
-    /** Secret-free effective configuration captured when the pipeline began. */
     val configRevisionId: String? = null,
-    /** References to application/repository context actually consulted by this run. */
     @Column(columnDefinition = "text")
     val contextManifestJson: String = "{}",
     val createdAt: Instant = Instant.now(),

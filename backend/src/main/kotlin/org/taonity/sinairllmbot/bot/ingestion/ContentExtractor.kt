@@ -9,11 +9,6 @@ import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceImage
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceLink
 
-/**
- * Turns raw HTML (a web page or GitHub's rendered README) into clean readable text plus extracted
- * links and images. Navigation, scripts, styles and other chrome are stripped before text is
- * collected so the model gets the article body rather than the whole DOM.
- */
 @Component
 class ContentExtractor(
     private val linkClassifier: LinkClassifier,
@@ -76,7 +71,6 @@ class ContentExtractor(
         return ExtractedContent(title, canonical, text, links, images)
     }
 
-    /** Collects visible text while turning block elements and list items into line breaks. */
     private class TextVisitor : NodeVisitor {
         private val accumulator = StringBuilder()
         private val blocks = setOf(

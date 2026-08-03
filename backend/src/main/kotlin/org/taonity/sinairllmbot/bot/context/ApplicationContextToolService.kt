@@ -29,12 +29,6 @@ import org.taonity.sinairllmbot.config.service.ConfigRevisionService
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 
-/**
- * Read-only, room-scoped bridge from console-visible application data to LLM function tools.
- *
- * The model never supplies a room: every entity is checked against ToolExecutionContext.roomTarget.
- * Admin, audit, access-control and arbitrary database data are deliberately absent.
- */
 @Service
 class ApplicationContextToolService(
     private val chatMessageRepository: ChatMessageRepository,

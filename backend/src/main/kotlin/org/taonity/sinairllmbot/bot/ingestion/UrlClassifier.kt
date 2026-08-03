@@ -4,10 +4,6 @@ import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.ingestion.config.IngestionSettings
 import java.net.URI
 
-/**
- * Deterministically routes a URL to the right fetcher: a `github.com/{owner}/{repo}` link, a direct
- * image link (by path extension), or a generic web page.
- */
 @Component
 class UrlClassifier(
     private val settings: IngestionSettings,
@@ -20,7 +16,6 @@ class UrlClassifier(
             RegexOption.IGNORE_CASE,
         )
 
-        /** github.com paths that are site pages, not `{owner}/{repo}` repositories. */
         private val GITHUB_RESERVED = setOf(
             "features", "about", "pricing", "marketplace", "sponsors", "topics", "collections",
             "trending", "login", "join", "settings", "notifications", "explore", "orgs", "apps",

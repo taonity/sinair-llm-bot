@@ -61,7 +61,6 @@ volumes:
 
 networks:
   backend:
-  # TODO: rename that network
   prodenv-shared-internal:
     external: true
   artist-insight-shared:

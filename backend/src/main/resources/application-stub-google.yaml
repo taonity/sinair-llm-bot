@@ -41,7 +41,6 @@ spring:
             user-name-attribute: sub
 
 app:
-  # Port the in-process Google OAuth2 WireMock stub binds to (see GoogleWireMockConfig).
   stub:
     google:
       port: 9561
@@ -51,7 +50,6 @@ app:
     owner-emails:
       - test@example.com
     admin-emails: []
-  # Dev-only: lets the frontend offer "log in as" shortcuts for the stub users above.
   dev:
     stub-logins:
       - registration-id: google-sinair-llm-bot

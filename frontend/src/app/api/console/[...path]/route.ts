@@ -1,11 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { fetchFromBackend } from '@/lib/backend'
 
-/**
- * Catch-all proxy for the data console. Forwards every /api/console/* request to the backend
- * /console/* endpoint, preserving the path, query string, method, body and CSRF token. Cookies are
- * forwarded by fetchFromBackend, so the backend sees the authenticated session.
- */
 async function proxy(req: NextRequest, path: string[]) {
   const segments = path.map(encodeURIComponent).join('/')
   const search = req.nextUrl.search

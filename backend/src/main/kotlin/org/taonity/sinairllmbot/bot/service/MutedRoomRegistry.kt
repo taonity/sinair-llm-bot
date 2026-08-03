@@ -8,15 +8,6 @@ import org.taonity.sinairllmbot.bot.repository.RoomBotStateRepository
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Tracks rooms where the bot has been muted via the `!stop` command (and un-muted via `!start`).
- *
- * Shared between the message pipeline (which honours the mute when deciding to reply) and the
- * presence service (a muted room reports the bot as offline).
- *
- * The set is an in-memory cache backed by [RoomBotStateRepository]; it is loaded on startup and
- * written through on every change so the mute state survives a backend restart.
- */
 @Component
 class MutedRoomRegistry(
     private val roomBotStateRepository: RoomBotStateRepository,
@@ -41,7 +32,6 @@ class MutedRoomRegistry(
         return added
     }
 
-    /** Returns true if the room was previously muted. */
     fun unmute(roomTarget: String): Boolean {
         val removed = mutedRooms.remove(roomTarget)
         if (removed) persistMuted(roomTarget, false)

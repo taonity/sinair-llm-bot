@@ -8,11 +8,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * Immutable, secret-free snapshot of the effective runtime configuration used by a pipeline run.
- * The snapshot contains only fields allowlisted by ConfigRegistry, never arbitrary Spring
- * Environment properties or credentials.
- */
 @Entity
 @Table(name = "bot_config_revision")
 class BotConfigRevisionEntity(

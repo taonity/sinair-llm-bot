@@ -21,13 +21,6 @@ import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-/**
- * Dev-only: seeds one representative [PipelineRunEntity] per outcome/kind on startup so the console
- * "Pipelines" tab (and its detail view: stages, alternatives, LLM usage, JSON-parse failures) can be
- * exercised without waiting for real bot traffic — which, under the stubs, only ever produces SILENT
- * runs. Gated on the opt-in `demo-data` profile and only seeds when the table is empty, so it never
- * duplicates rows or touches real data. Independent of the OAuth2 stub (works under any profile set).
- */
 @Component
 @Profile("demo-data")
 class DevPipelineSeeder(
@@ -52,16 +45,11 @@ class DevPipelineSeeder(
         LOGGER.info { "Seeded ${runs.size} demo pipeline runs into $room (demo-data profile)" }
     }
 
-    /**
-     * One demo run per kind, newest first. [minutesAgo] staggers [PipelineRunEntity.createdAt] so the
-     * console's newest-first ordering shows them in a natural sequence.
-     */
     private fun buildFixtures(room: String): List<PipelineRunEntity> {
         var minutesAgo = 2L
         fun next() = minutesAgo++
 
         return listOf(
-            // A deliberately large, repetitive payload for testing the code viewer and caret matching.
             reply(
                 room, next(), sender = "payload-tester", text = "@segfault payload viewer context test",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-payload-viewer",
@@ -74,7 +62,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(payloadViewerTestCall()),
             ),
-            // A plain reply: triage said respond, one candidate, critic disabled.
             reply(
                 room, next(), sender = "alice", text = "@segfault какая последняя версия node?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-1",
@@ -86,7 +73,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), replyCall()),
             ),
-            // A reply chosen by the critic between two candidates.
             reply(
                 room, next(), sender = "bob", text = "@segfault посоветуй книгу по алгоритмам",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-2",
@@ -102,7 +88,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), replyCall(), replyCall(), criticCall()),
             ),
-            // A reply the critic repaired before sending.
             reply(
                 room, next(), sender = "charlie", text = "@segfault ты опять сломался?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-3",
@@ -123,7 +108,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), replyCall(), replyCall(), criticCall(), replyCall(tier = "cheap", tokens = 180)),
             ),
-            // A reply that needed fresh info, so the reply call used the web_search tool.
             reply(
                 room, next(), sender = "diana", text = "@segfault что там с погодой на выходных?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-4",
@@ -135,9 +119,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), replyCall(tokens = 620, tools = listOf("web_search"))),
             ),
-            // A reply that needed the project's own code, so the reply model ran the agentic repo
-            // tool loop (search_code → get_file) before answering. The tool calls are captured
-            // structurally and shown inline in the console's LLM-usage chip.
             reply(
                 room, next(), sender = "frank", text = "@segfault где у нас описан ChatCompletionRequest?",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-6",
@@ -150,7 +131,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(gateCall(respond = true), repoReplyCall()),
             ),
-            // A reply where the model's JSON was malformed and the prompt was retried (new resilience feature).
             reply(
                 room, next(), sender = "eve", text = "@segfault оцени мой код",
                 outcome = PipelineOutcome.REPLIED, outboundId = "demo-out-5",
@@ -170,7 +150,6 @@ class DevPipelineSeeder(
                     JsonParseFailure("critic", 1, "```json\n{\"scores\":[{\"fit\":8,\"persona\": ...truncated"),
                 ),
             ),
-            // Triage decided to stay silent (the common case under the stubs).
             reply(
                 room, next(), sender = "charlie", text = "лол ну такое",
                 outcome = PipelineOutcome.SILENT, outcomeDetail = "driver=none",
@@ -178,7 +157,6 @@ class DevPipelineSeeder(
                 decision = decisionStage(reply = false, driver = "none"),
                 usage = listOf(gateCall(respond = false)),
             ),
-            // On cooldown after a recent reply.
             reply(
                 room, next(), sender = "alice", text = "@segfault а ещё?",
                 outcome = PipelineOutcome.COOLDOWN,
@@ -187,13 +165,11 @@ class DevPipelineSeeder(
                     PipelineStage("cooldown", "Cooldown", PipelineStageStatus.STOP, "on cooldown"),
                 ),
             ),
-            // A "stop the bot" command.
             reply(
                 room, next(), sender = "bob", text = "!stop",
                 outcome = PipelineOutcome.MUTE_COMMAND, outcomeDetail = "muted by @bob",
                 stagesOverride = listOf(PipelineStage("command", "Command gate", PipelineStageStatus.STOP, "mute command")),
             ),
-            // A message arriving while the room is muted.
             reply(
                 room, next(), sender = "diana", text = "кто-нибудь тут?",
                 outcome = PipelineOutcome.MUTED,
@@ -202,13 +178,11 @@ class DevPipelineSeeder(
                     PipelineStage("mute", "Mute check", PipelineStageStatus.STOP, "room muted"),
                 ),
             ),
-            // A "start the bot" command.
             reply(
                 room, next(), sender = "bob", text = "!start",
                 outcome = PipelineOutcome.UNMUTE_COMMAND, outcomeDetail = "un-muted by @bob",
                 stagesOverride = listOf(PipelineStage("command", "Command gate", PipelineStageStatus.STOP, "un-mute command")),
             ),
-            // A rolling-summary refresh (its own pipeline kind), driven by a background job.
             summary(
                 room, next(), outcome = PipelineOutcome.SUMMARY_REFRESHED,
                 stage = PipelineStage(
@@ -223,7 +197,6 @@ class DevPipelineSeeder(
                 ),
                 usage = listOf(LlmCallUsage("gate", "stub/gate", 900, requestPayload = requestJson("summarise"), responsePayload = responseJson("Ребята обсуждали Node и погоду."))),
             ),
-            // A summary refresh that failed (model returned nothing).
             summary(
                 room, next(), outcome = PipelineOutcome.SUMMARY_FAILED, outcomeDetail = "empty summary",
                 stage = PipelineStage(
@@ -235,7 +208,6 @@ class DevPipelineSeeder(
         )
     }
 
-    // --- stage builders (mirror BotMessageOrchestrator / RoomSummaryService output) ---
 
     private fun commandStage() = PipelineStage("command", "Command gate", PipelineStageStatus.PASS, "no command")
 
@@ -284,7 +256,6 @@ class DevPipelineSeeder(
         },
     )
 
-    // --- LLM call builders ---
 
     private fun gateCall(respond: Boolean) = LlmCallUsage(
         tier = "gate", model = "stub/gate", tokens = 18, promptTokens = 14, completionTokens = 4,
@@ -299,9 +270,6 @@ class DevPipelineSeeder(
         requestPayload = requestJson("reply"), responsePayload = responseJson("…"),
     )
 
-    /** A repo-lookup reply call: the model ran two client-tool rounds (search_code, then get_file)
-     *  before answering. The [toolCalls] capture each invocation's arguments and result so the
-     *  console can render the full tool-call exchange inline. */
     private fun repoReplyCall(tokens: Int = 880) = LlmCallUsage(
         tier = "repo", model = "anthropic/claude-3.5-sonnet", tokens = tokens,
         promptTokens = 720, completionTokens = 160,
@@ -433,7 +401,6 @@ class DevPipelineSeeder(
     private fun responseJson(content: String) =
         "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"$content\"}}]}"
 
-    // --- entity assembly ---
 
     private fun reply(
         room: String,

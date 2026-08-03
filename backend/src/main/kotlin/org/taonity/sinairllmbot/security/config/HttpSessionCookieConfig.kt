@@ -8,16 +8,7 @@ import org.springframework.session.web.http.CookieSerializer
 import org.springframework.session.web.http.DefaultCookieSerializer
 import org.taonity.sinairllmbot.common.config.AppProperties
 
-/**
- * Spring Session does not read `server.servlet.session.cookie.*`, so without this it would emit its
- * default `SESSION` cookie with no domain/secure/same-site. This restores the configured session
- * cookie name, domain and security attributes so behaviour matches the pre-Spring-Session setup.
- *
- * `DefaultCookieSerializer` defaults `cookieMaxAge` to `-1`, which emits a browser-session cookie
- * (no Max-Age/Expires) that is discarded when the browser closes, forcing re-authentication long
- * before the server-side session actually expires. Aligning the cookie Max-Age with the configured
- * `server.servlet.session.timeout` makes the cookie persist for the full session lifetime.
- */
+// Spring Session ignores server.servlet.session.cookie.* and defaults to a browser-session cookie.
 @Configuration
 class HttpSessionCookieConfig(
     private val appProperties: AppProperties,

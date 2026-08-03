@@ -15,10 +15,6 @@ import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.Base64
 
-/**
- * Read-only GitHub REST client. It only issues GET requests and accepts public repositories, while
- * retaining the configured organization as the default scope. Backs the agentic repo tools.
- */
 @Component
 class GithubCodeClient(
     private val settings: GithubSettings,
@@ -43,7 +39,6 @@ class GithubCodeClient(
         .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
         .build()
 
-    /** Searches code across GitHub. An optional [repo] narrows it to owner/repository. */
     fun searchCode(query: String, repo: String?): List<CodeHit> {
         val scope = buildString {
             append(query.trim())
@@ -68,7 +63,6 @@ class GithubCodeClient(
         }.orEmpty()
     }
 
-    /** Lists public repositories in the configured organization. */
     fun listRepos(): List<OrgRepo> {
         val response = restClient.get()
             .uri { builder ->
@@ -85,7 +79,6 @@ class GithubCodeClient(
         return response?.map { OrgRepo(name = it.name ?: "?", description = it.description) }.orEmpty()
     }
 
-    /** Reads a file (or lists a directory) on the given [ref] (default branch when null). */
     fun getFile(repo: String, path: String, ref: String?): FileContent {
         val safeRepo = sanitizeRepository(repo)
         val safePath = sanitizePath(path)
@@ -137,7 +130,6 @@ class GithubCodeClient(
         return RepositoryRef(owner, name)
     }
 
-    /** Normalizes a repo-relative path and blocks traversal segments. */
     private fun sanitizePath(path: String): String {
         val clean = path.trim().trimStart('/')
         require(clean.isNotBlank() && clean.split('/').none { it == ".." }) { "invalid path: $path" }

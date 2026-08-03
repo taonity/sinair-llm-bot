@@ -9,11 +9,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * A reply produced by the bot, waiting to be delivered to the chat by the collector.
- *
- * Lifecycle: PENDING -> CLAIMED (collector fetched it) -> SENT (collector confirmed delivery).
- */
 @Entity
 @Table(name = "outbound_message")
 class OutboundMessageEntity(

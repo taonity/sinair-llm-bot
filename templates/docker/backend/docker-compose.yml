@@ -4,8 +4,6 @@ services:
     environment:
       JDK_JAVA_OPTIONS: --add-opens java.base/java.lang=ALL-UNNAMED
       JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-#      LOGGING_LEVEL_ROOT: TRACE
-#      LOGGING_LEVEL_ORG_TAONITY_SINAIRLLMBOT: DEBUG
     command: --spring.profiles.active=$SPRING_PROFILES_ACTIVE
 
     env_file:

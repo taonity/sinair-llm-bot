@@ -15,11 +15,6 @@ import org.taonity.sinairllmbot.config.dto.UpdateConfigBody
 import org.taonity.sinairllmbot.config.service.ConfigService
 import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 
-/**
- * Admin-only console endpoints for tuning LLM/bot configuration. All return the full schema
- * (metadata + default + current effective value per field, plus the tier list) so the UI can
- * re-render after a change.
- */
 @RestController
 @RequestMapping("/console/config")
 class ConfigController(

@@ -7,16 +7,6 @@ import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.config.BotSettings
 
-/**
- * Adds resilience to the prompts that expect a JSON reply (triage, critic): when the model's output
- * can't be deserialized, the same prompt is re-issued up to `app.llm.json-retry-attempts` times
- * before giving up. Every failed attempt is logged and recorded on the current pipeline run (via
- * [JsonParseFailureTracker]) so the console can show how often the model returned malformed JSON and
- * the exact payload that failed.
- *
- * Fail-open by contract: the caller decides how to degrade when all attempts are exhausted (the
- * runner simply returns null), so a flaky model can never break the reply pipeline.
- */
 @Component
 class JsonPromptRunner(
     private val settings: BotSettings,
@@ -29,15 +19,6 @@ class JsonPromptRunner(
         private const val MAX_PAYLOAD_CHARS = 4000
     }
 
-    /**
-     * Runs [call] and parses its content with [parse], retrying on any parse failure.
-     *
-     * @param label identifies the prompt in logs and the trace (e.g. "triage", "critic").
-     * @param call issues the LLM request; may return null when the call itself fails/empties.
-     * @param parse deserializes the raw content, returning null on failure (its own recovery, such
-     *   as the triage salvage path, counts as success and stops the retries).
-     * @return the first successfully parsed value, or null when every attempt failed.
-     */
     fun <T : Any> run(
         label: String,
         call: () -> LlmResult?,

@@ -16,13 +16,6 @@ import org.taonity.sinairllmbot.bot.service.OutboundMessageService
 import org.taonity.sinairllmbot.observability.logging.EndpointLogLevel
 import org.taonity.sinairllmbot.observability.logging.LogLevel
 
-/**
- * Internal endpoints the chat collector polls to deliver the bot's replies.
- * Permitted without auth (internal traffic) — see SecurityConfig.
- *
- * These are polled continuously, so per-request access logs are demoted to DEBUG to avoid spam;
- * actual state changes (messages claimed / acknowledged) are logged at INFO from the service.
- */
 @RestController
 @RequestMapping("/api/chat/outbound")
 class BotOutboundController(
@@ -42,12 +35,10 @@ class BotOutboundController(
     fun ack(@RequestBody request: OutboundAckRequest): OutboundAckResponse =
         OutboundAckResponse(outboundMessageService.acknowledge(request.ids))
 
-    /** Current online/offline presence per configured room, so the collector can reflect it in chat. */
     @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/presence")
     fun presence(): List<RoomPresenceDto> = botPresenceService.allPresences()
 
-    /** Rooms the bot is currently composing a reply in, so the collector can show a typing indicator. */
     @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/typing")
     fun typing(): List<String> = botTypingService.typingRooms()

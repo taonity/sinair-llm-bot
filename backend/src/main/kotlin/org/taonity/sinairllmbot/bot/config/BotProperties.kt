@@ -2,13 +2,6 @@ package org.taonity.sinairllmbot.bot.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 
-/**
- * Behaviour configuration for the chat bot.
- *
- * The bot deliberately does NOT answer every message. A cheap heuristic gate filters the bulk
- * for free; only ambiguous activity escalates to an LLM "interest" check, and only then to a
- * reply. Cooldown/rate limits keep it from spamming.
- */
 @ConfigurationProperties(prefix = "app.bot")
 data class BotProperties(
     val enabled: Boolean,
@@ -22,7 +15,7 @@ data class BotProperties(
     data class Persona(
         val name: String,
         val language: String,
-        val prompt: String,
+        val prompt: Prompt,
         val creatorUserId: Int,
         val stopCommand: String,
         val startCommand: String,

@@ -7,14 +7,6 @@ import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Rates candidate replies against the same brief the generator saw (persona rules + conversation +
- * trigger), using a cheap JSON-only judge tier. Picks the best candidate and flags whether it needs
- * a repair pass, with concrete feedback on what to fix.
- *
- * Fails open: any missing/invalid verdict returns null so the caller keeps a candidate instead of
- * dropping the reply.
- */
 @Service
 class ReplyCritic(
     private val llmClient: LlmClient,
@@ -42,7 +34,7 @@ class ReplyCritic(
 
         val system = buildString {
             append(MARKER).append(". ")
-            append(render(llmProperties.critic.prompt, brief = prompt.system, language = botProperties.persona.language))
+            append(render(llmProperties.critic.prompt.text, brief = prompt.system, language = botProperties.persona.language))
             append("\n\n").append(JSON_CONTRACT)
         }
 
@@ -66,10 +58,6 @@ class ReplyCritic(
         )
     }
 
-    /**
-     * Substitutes the runtime placeholder tokens into the configurable critic rubric. Tokens are
-     * guaranteed present by config-save validation (see ConfigRegistry.requireCriticPlaceholders).
-     */
     private fun render(template: String, brief: String, language: String): String =
         template.trim()
             .replace("{language}", language)

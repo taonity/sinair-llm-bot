@@ -3,7 +3,6 @@ package org.taonity.sinairllmbot.bot.ingestion
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 
-/** Routes a classified URL to the concrete fetcher. New source types plug in here. */
 @Component
 class SourceFetcher(
     private val urlClassifier: UrlClassifier,

@@ -87,10 +87,7 @@ app:
       candidate-count: 3
       candidate-temperature: 0.9
       repair-threshold: 7
-      prompt: |
-        Rate each candidate reply in {language} against the brief below.
-        BOT BRIEF:
-        {brief}
+      prompt: classpath:prompts/reply-critic-test.txt
     tiers:
       gate:
         model: test/gate-model
@@ -124,7 +121,7 @@ app:
       sleep-command: '!sleep'
       wake-command: '!wake'
       sleep-nick-suffix: '-zzz'
-      prompt: test persona
+      prompt: classpath:prompts/persona-test.txt
     decision:
       debounce-seconds: 6
       cooldown-seconds: 45
@@ -155,6 +152,3 @@ app:
       cron: "0 30 3 * * *"
   console:
     max-page-size: 100
-#logging:
-#  level:
-#    root: DEBUG

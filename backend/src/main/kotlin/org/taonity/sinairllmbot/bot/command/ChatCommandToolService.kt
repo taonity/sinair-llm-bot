@@ -19,22 +19,6 @@ import org.taonity.sinairllmbot.config.repository.BotConfigOverrideRepository
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 
-/**
- * Exposes chat commands (from the /help listing) as an LLM function tool.
- *
- * The model calls `execute_chat_command` with the desired command and arguments. The tool:
- *  1. Validates the command name and argument count
- *  2. Persists the command text as an [OutboundMessageEntity] so the collector delivers it
- *     to the chat server, which actually executes the command
- *  3. Polls for the server's response (echo message or event) and returns the actual result
- *
- * The LLM then reports on the outcome in its own conversational reply — e.g. "Done, I've changed
- * my nick to NewBot" — instead of outputting the raw command text.
- *
- * Special handling: when the /nick command is used, the tool also updates the
- * `app.bot.persona.name` config override so all internal mechanisms that rely on the bot's nick
- * (message filtering, system prompt, command gate, sleep/wake) stay in sync immediately.
- */
 @Service
 class ChatCommandToolService(
     private val objectMapper: ObjectMapper,
@@ -269,7 +253,6 @@ class ChatCommandToolService(
         return response
     }
 
-    /** Public execute for direct use without context (e.g. from tests). */
     fun execute(name: String, argumentsJson: String): String {
         val command = parseCommand(argumentsJson) ?: return "ERROR: 'command' is required."
         val rawArgs = parseArguments(argumentsJson)
@@ -284,10 +267,6 @@ class ChatCommandToolService(
         return "SUCCESS: $commandText"
     }
 
-    /**
-     * Persists the command as an outbound message and syncs nick config if needed.
-     * Runs in its own transaction so the collector can pick it up immediately.
-     */
     @Transactional
     fun persistOutbound(roomTarget: String, commandText: String, command: String, rawArgs: String): String {
         val saved = outboundMessageRepository.save(
@@ -306,15 +285,6 @@ class ChatCommandToolService(
         return saved.id ?: throw RuntimeException("Failed to persist outbound message")
     }
 
-    /**
-     * Polls for the chat server's response to the command. Checks three things:
-     *  1. An echo message linked to our outbound row via [ChatMessageEntity.sourceOutboundMessageId]
-     *  2. Recent events in the room (nick/color changes produce events; system messages carry
-     *     command responses like "Ник изменен" or "Указан неверный цвет")
-     *  3. The outbound message reaching SENT status (collector delivered it)
-     *
-     * Returns the first meaningful response found, or a timeout message.
-     */
     private fun pollForResponse(
         roomTarget: String,
         outboundId: String,

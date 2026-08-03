@@ -3,14 +3,13 @@ spring:
     hibernate:
       ddl-auto: none
   datasource:
-    url: jdbc:h2:file:./h2_db #;AUTO_SERVER=TRUE
+    url: jdbc:h2:file:./h2_db
     username: sa
     password: sa
-    driver-class-name: org.h2.Driver
+        url: jdbc:h2:file:./h2_db
 
   flyway:
     enabled: true
-#    enabled: false
     clean-disabled: false
     locations:
       - filesystem:templates/docker/flyway/sql/tables
@@ -19,7 +18,6 @@ spring:
   sql:
     init:
       mode: always
-#      data-locations: classpath:sql/test-data.sql
 
 app:
   additional-profiles: flyway-clean-migrate

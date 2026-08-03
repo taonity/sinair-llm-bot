@@ -17,14 +17,6 @@ import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import kotlin.random.Random
 
-/**
- * Orchestrates the "should I respond, and with what?" pipeline after new messages are ingested.
- *
- * Bursts are debounced per room, so a fast human back-and-forth is judged once after it settles.
- * After the quiet period the latest room state is re-read from the DB and run through:
- *   command gate -> LLM triage (should respond?) -> reply generator -> persist outbound.
- * The collector later picks up PENDING outbound messages and sends them to the chat.
- */
 @Service
 class BotMessageOrchestrator(
     private val settings: BotSettings,
@@ -68,20 +60,11 @@ class BotMessageOrchestrator(
         runCatching {
             val trigger = latestNonBotMessage(roomTarget) ?: return
 
-            // Refresh the rolling summary first. It records its own "summary" pipeline run (with the
-            // LLM call and its request/response payloads), so it is traced independently of — and not
-            // conflated with — the reply run's LLM usage tracked below. The triggering message is
-            // attributed on the summary run so the console shows what drove the refresh.
             runCatching { roomSummaryService.refreshIfStale(roomTarget, SummaryRefreshTrigger.Message(trigger)) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
-            // Collect the token cost / model / tool-set of every LLM call the reply pipeline makes
-            // below, so the persisted reply trace can show what this evaluation actually spent.
             pipelineTraceService.begin()
 
-            // Every decision point below is appended as a pipeline stage so the console can show
-            // exactly why the bot did (or did not) reply to this message. The trace is persisted on
-            // every exit path, not only when a reply is produced.
             val stages = mutableListOf<PipelineStage>()
 
             val commandDecision = commandGate.evaluate(trigger)
@@ -165,10 +148,6 @@ class BotMessageOrchestrator(
                 return
             }
 
-            // Decided to reply: show a typing indicator while the LLM composes the answer. The
-            // marker is kept alive until the PENDING outbound message is saved — the typing
-            // service then picks up the DB entry and keeps the indicator live until the
-            // collector delivers the message.
             botTypingService.markTyping(roomTarget)
             val generation = runCatching {
                 replyGenerator.generateTraced(
@@ -201,8 +180,6 @@ class BotMessageOrchestrator(
                         ?.removePrefix("ext:"),
                 ),
             )
-            // PENDING entry now exists in the DB — the typing service will keep the indicator
-            // alive via the queued-message lookup. Safe to remove the in-memory marker.
             botTypingService.clearTyping(roomTarget)
             cooldownTracker.recordReply(roomTarget)
             LOGGER.info { "Bot queued reply in $roomTarget to @${trigger.senderLogin}" }

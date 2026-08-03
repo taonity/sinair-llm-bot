@@ -17,12 +17,6 @@ import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 
-/**
- * Thin wrapper over an OpenAI-compatible chat-completions endpoint (OpenRouter by default).
- *
- * The model is chosen per call by tier name, so the same client serves the cheap classifier,
- * the summarizer and the (swappable) reply model.
- */
 @Component
 class LlmClient(
     private val settings: BotSettings,
@@ -50,19 +44,6 @@ class LlmClient(
     private val restClient: RestClient = buildRestClient()
     private val prettyWriter = objectMapper.writerWithDefaultPrettyPrinter()
 
-    /**
-     * Runs a completion against the given tier.
-     *
-     * @param forceJson when true, asks the provider to constrain output to a JSON object.
-     * @param webSearch when true, offers OpenRouter's `openrouter:web_search` server tool so the
-     *                  model can ground its answer in live results when it judges it useful (adds
-     *                  latency and per-search cost only when the model actually searches).
-     * @param maxTokensOverride when set, overrides the tier's default `maxTokens` for this call
-     *                  (e.g. a longer output budget for summaries than for the cheap classifier).
-     * @param temperatureOverride when set, overrides the tier's default `temperature` for this call
-     *                  (e.g. raising it to draw diverse reply candidates for the critic layer).
-     * @return the assistant text content, or null on any failure (caller decides how to degrade).
-     */
     fun complete(
         tierName: String,
         messages: List<ChatMessage>,
@@ -110,13 +91,6 @@ class LlmClient(
         return LlmResult(content = content, totalTokens = response?.usage?.totalTokens ?: 0, citationUrls = citationUrls)
     }
 
-    /**
-     * Agentic completion: offers the given client-side [tools] and runs a bounded tool-call loop. On
-     * each round the model may ask to call one or more tools; [toolExecutor] runs them (read-only)
-     * and their results are fed back until the model produces a final text answer or [maxRounds] tool
-     * rounds are exhausted (after which one final, tool-free call forces an answer). Every provider
-     * call is recorded to the pipeline usage tracker. Returns the final assistant text, or null.
-     */
     fun completeWithTools(
         tierName: String,
         messages: List<ChatMessage>,
@@ -232,7 +206,6 @@ class LlmClient(
         return null
     }
 
-    /** POSTs a chat-completion request and retries transient provider or transport failures. */
     private fun postChatCompletion(
         tierName: String,
         tier: LlmProperties.Tier,
@@ -375,7 +348,6 @@ class LlmClient(
         val maxAttempts: Int,
     )
 
-    /** Logs token usage and records the call (tokens, model, tool set, payloads) on the trace. */
     private fun recordCall(
         tierName: String,
         tier: LlmProperties.Tier,
@@ -417,14 +389,12 @@ class LlmClient(
         )
     }
 
-    /** Serializes a DTO to pretty JSON for debug logging, degrading gracefully on any failure. */
     private fun prettyJson(value: Any?): String = try {
         prettyWriter.writeValueAsString(value)
     } catch (exception: Exception) {
         "<unserializable: ${exception.message}>"
     }
 
-    /** Re-indents an already-serialized JSON string for readable debug logging. */
     private fun prettyJson(json: String?): String = try {
         if (json.isNullOrBlank()) "<empty>" else prettyWriter.writeValueAsString(objectMapper.readTree(json))
     } catch (exception: Exception) {

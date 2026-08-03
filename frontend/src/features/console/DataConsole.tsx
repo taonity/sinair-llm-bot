@@ -162,10 +162,6 @@ export default function DataConsole() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabKey>('messages')
-  // Tabs are mounted lazily on first visit and then kept mounted (see keepMounted below), so
-  // switching back to an already-seen tab restores its rows/search/scroll instantly instead of
-  // replaying the skeleton load. Trade-off: a revisited tab shows data from its first load until
-  // the user hits Refresh.
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set<TabKey>(['messages']))
 
   const selectTab = useCallback((next: TabKey) => {
@@ -235,7 +231,6 @@ export default function DataConsole() {
 
       <Tabs value={tab} onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}>
         <div className="flex items-center justify-between gap-2">
-          {/* Mobile: compact dropdown keeps every tab one tap away without hidden horizontal scroll. */}
           <Select
             items={tabItems}
             value={tab}
@@ -252,7 +247,6 @@ export default function DataConsole() {
               ))}
             </SelectContent>
           </Select>
-          {/* Tablet and up: full tab bar. */}
           <TabsList variant="line" className="hidden h-9 sm:flex">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
@@ -429,11 +423,6 @@ function AccessGate({
   )
 }
 
-/**
- * Subtle inline control shown next to the role badge for a VIEWER who can read but not edit: lets
- * them request an upgrade to EDITOR, which an admin then approves. Renders nothing for
- * editors/admins/owners.
- */
 function UpgradeAccessControl({
   access,
   onUpdated,
@@ -446,7 +435,6 @@ function UpgradeAccessControl({
   const [submitting, setSubmitting] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  // Only viewers (can view, cannot edit, not admin) may request an upgrade.
   if (!access.canView || access.canEdit || access.isAdmin) return null
 
   if (access.accessStatus === 'PENDING') {
@@ -466,7 +454,6 @@ function UpgradeAccessControl({
     }
   }
 
-  // Two-step confirm so the request can't be triggered by an accidental click.
   if (confirming) {
     return (
       <div className="flex items-center gap-1">

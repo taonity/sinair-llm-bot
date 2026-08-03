@@ -14,11 +14,7 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.config.service.ConfigRevisionService
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Persists pipeline-run traces so the console can show, per triggering message, every decision the
- * bot made and any alternatives it chose between. Purely observational and fail-open: a failure to
- * record a trace must never affect the reply pipeline.
- */
+// Tracing is observational and must fail open without affecting replies.
 @Service
 class PipelineTraceService(
     private val pipelineRunRepository: PipelineRunRepository,
@@ -34,10 +30,6 @@ class PipelineTraceService(
         private const val SYSTEM_ACTOR = "system"
     }
 
-    /**
-     * Starts all observational trackers for one pipeline and captures the safe effective config
-     * revision before any decision or tool call is made.
-     */
     fun begin(): String? {
         pipelineLlmUsageTracker.begin()
         jsonParseFailureTracker.begin()
@@ -52,7 +44,6 @@ class PipelineTraceService(
 
     fun recordContextSource(uri: String) = pipelineContextTracker.recordSource(uri)
 
-    /** Clears trackers after an unexpected failure before a trace could be recorded. */
     fun discard() {
         pipelineLlmUsageTracker.drain()
         jsonParseFailureTracker.drain()
@@ -93,12 +84,6 @@ class PipelineTraceService(
         }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
     }
 
-    /**
-     * Records a summary-refresh as its own pipeline run, so the console shows it with the same detail
-     * as a reply run: its stages and the LLM call that produced it (with the request/response payloads
-     * gathered by the usage tracker). The [trigger] attributes the source — the triggering message
-     * (when a new message drove the refresh) or the background job that requested it.
-     */
     fun recordSummary(
         roomTarget: String,
         trigger: SummaryRefreshTrigger,

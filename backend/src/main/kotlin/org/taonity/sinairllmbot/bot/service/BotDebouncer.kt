@@ -7,11 +7,6 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 
-/**
- * Per-room quiet-period debounce: when a room gets new messages, schedule a single evaluation
- * after [BotProperties.Decision.debounceSeconds]. Each new burst reschedules, so a fast back-and-forth
- * between humans is judged once (after it settles) instead of on every ingest flush.
- */
 @Component
 class BotDebouncer(
     private val settings: BotSettings,

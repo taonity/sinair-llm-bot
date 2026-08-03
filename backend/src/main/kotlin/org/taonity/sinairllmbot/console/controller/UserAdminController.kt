@@ -12,10 +12,6 @@ import org.taonity.sinairllmbot.console.dto.UserSummaryDto
 import org.taonity.sinairllmbot.console.service.AccessService
 import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 
-/**
- * Admin user management. Listing requires ADMIN; changing roles to/from ADMIN or OWNER requires
- * OWNER (enforced in [AccessService.changeRole]).
- */
 @RestController
 @RequestMapping("/console/users")
 class UserAdminController(

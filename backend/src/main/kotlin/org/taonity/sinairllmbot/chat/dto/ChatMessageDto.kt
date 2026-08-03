@@ -11,6 +11,5 @@ data class ChatMessageDto(
     val messageStyle: String,
     val recipientMemberId: Int = 0,
     val sentAt: Long,
-    /** True for messages replayed from the room's history burst on (re)join: store but do not process. */
     val historical: Boolean = false
 )

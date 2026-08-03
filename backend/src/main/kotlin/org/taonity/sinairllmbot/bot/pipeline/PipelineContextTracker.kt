@@ -4,10 +4,6 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.util.Collections
 
-/**
- * Tracks the safe config revision and application/repository references consulted by the current
- * pipeline. Like the LLM usage tracker, this is observational and thread-local.
- */
 @Component
 class PipelineContextTracker(
     private val objectMapper: ObjectMapper,

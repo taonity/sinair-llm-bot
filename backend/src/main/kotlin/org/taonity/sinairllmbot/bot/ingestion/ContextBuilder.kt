@@ -6,12 +6,6 @@ import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceDocument
 import org.taonity.sinairllmbot.bot.ingestion.model.SourceType
 
-/**
- * Assembles the compact, source-cited context that grounds the reply. Text sources are rendered in
- * the `Source N:` block format and trimmed to a character budget (long documents get simple
- * keyword/heading-based section selection); image sources are surfaced as attachments whose bytes
- * are carried separately as data URLs for the vision model.
- */
 @Component
 class ContextBuilder(
     private val settings: IngestionSettings,
@@ -86,10 +80,6 @@ class ContextBuilder(
         append("Content: (image attached below — analyse it directly)")
     }
 
-    /**
-     * Fits document text into [charBudget]. When it overflows, keeps the paragraphs that best match
-     * the question's keywords (falling back to a head-truncation when nothing matches).
-     */
     private fun selectRelevant(text: String, question: String, charBudget: Int): String {
         val clean = text.trim()
         if (clean.length <= charBudget) return clean

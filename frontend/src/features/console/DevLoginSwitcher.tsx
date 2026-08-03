@@ -5,17 +5,10 @@ import { Button } from '@/components/ui/button'
 import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import type { StubLogin } from './types'
 
-/**
- * Dev-only "log in as" switcher. Fetches the stub login shortcuts exposed by the backend
- * (only present under the local `stub-google` profile) and links each to the real OAuth2 flow,
- * so request/approve can be tested end-to-end as different users. Renders nothing when the
- * endpoint is unavailable (e.g. production or real Google).
- */
 export function DevLoginSwitcher() {
   const [logins, setLogins] = useState<StubLogin[] | null>(null)
   const [backendUrl, setBackendUrl] = useState('')
 
-  // Opt-out flag: run the frontend with NEXT_PUBLIC_HIDE_DEV_LOGIN=true to hide the switcher.
   const hidden = process.env.NEXT_PUBLIC_HIDE_DEV_LOGIN === 'true'
 
   useEffect(() => {
@@ -31,7 +24,6 @@ export function DevLoginSwitcher() {
         setBackendUrl(config.publicBackendUrl || '')
         setLogins(data)
       } catch {
-        // Endpoint absent → not in stub mode; keep the switcher hidden.
       }
     })()
     return () => {

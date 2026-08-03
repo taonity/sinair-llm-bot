@@ -14,10 +14,6 @@ import org.taonity.sinairllmbot.user.entity.AccessRequestStatus
 import org.taonity.sinairllmbot.user.entity.ConsoleRole
 import org.taonity.sinairllmbot.user.repository.UserRepository
 
-/**
- * Handles the access-request lifecycle: a freshly logged-in user has no access and must request
- * VIEWER or EDITOR access, which an admin then approves or rejects.
- */
 @Service
 class AccessService(
     private val userRepository: UserRepository,

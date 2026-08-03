@@ -12,11 +12,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/**
- * Assembles the reply prompt (persona rules + conversation context + trigger, plus any grounded
- * link/image content) once, so both the candidate generator and the critic judge against exactly
- * the same instructions and context.
- */
 @Service
 class ReplyPromptBuilder(
     private val contextBuilder: ConversationContextBuilder,
@@ -71,7 +66,7 @@ class ReplyPromptBuilder(
         }
 
         val system = buildString {
-            append(persona.prompt.trim()).append("\n\n")
+            append(persona.prompt.text.trim()).append("\n\n")
             append("Your chat nick is '").append(persona.name).append("'. ")
             append("Always write in ").append(persona.language).append(". ")
             append("Write like a real chat participant: short, casual, lowercase is fine. ")
@@ -224,11 +219,6 @@ class ReplyPromptBuilder(
         )
     }
 
-    /**
-     * URLs to ground on come from the trigger PLUS the last few messages of the live segment, so a
-     * link shared just before the trigger ("here's the link" → "try again") is still fetched. The
-     * trigger is listed first so its own links win the per-message cap.
-     */
     private fun linkScanText(roomTarget: String, trigger: ChatMessageEntity): String {
         val recent = contextBuilder.recentMessageTexts(roomTarget, botProperties.limits.linkContextMessages)
             .filter { it != trigger.messageText }
@@ -236,12 +226,6 @@ class ReplyPromptBuilder(
     }
 }
 
-/**
- * The assembled reply prompt, shared between candidate generation and critic evaluation.
- *
- * [system] and [userText] hold the exact persona rules and conversation/trigger the generator saw;
- * the critic reuses them so it rates candidates against the same brief.
- */
 data class ReplyPrompt(
     val system: String,
     val userText: String,

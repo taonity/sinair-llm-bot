@@ -22,7 +22,6 @@ interface PayloadState {
   loading: boolean
 }
 
-/** Fetches and formats a raw payload while preserving non-JSON responses. */
 async function fetchPayload(path: string): Promise<Payload | null> {
   const res = await fetch(path, { credentials: 'include' })
   if (!res.ok) {
@@ -44,7 +43,6 @@ interface BracketPair {
   closing: number
 }
 
-/** Finds matching structural brackets while ignoring all brackets inside JSON strings. */
 function findBracketPairs(json: string): BracketPair[] {
   const pairs: BracketPair[] = []
   const openings: Array<{ char: string, index: number }> = []
@@ -81,7 +79,6 @@ function findEnclosingPair(pairs: BracketPair[], cursor: number): BracketPair | 
     .sort((first, second) => (first.closing - first.opening) - (second.closing - second.opening))[0] ?? null
 }
 
-/** JSON is formatted with two spaces, so each indent level gets one editor guide. */
 function indentationLevel(line: string): number {
   const indentation = line.match(/^\s*/)?.[0].length ?? 0
   return Math.floor(indentation / 2)
@@ -125,7 +122,6 @@ function highlightWordOccurrences(text: string, activeWord: string | null, keyPr
   return nodes.length ? nodes : [text]
 }
 
-/** Adds compact editor-style syntax colors without changing the copied payload. */
 function highlightJsonLine(
   line: string,
   lineOffset: number,

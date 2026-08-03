@@ -6,13 +6,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * A single runtime override for a dotted config key (e.g. `app.bot.decision.cooldown-seconds`).
- *
- * The yaml `@ConfigurationProperties` provide the defaults; a row here overlays exactly that key.
- * The value is stored as a JSON scalar/list so its type is preserved. Deleting the row resets the
- * key to its yaml default.
- */
 @Entity
 @Table(name = "bot_config_override")
 class BotConfigOverrideEntity(

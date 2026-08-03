@@ -8,9 +8,7 @@ export type ResolvedTheme = 'light' | 'dark'
 export const THEME_STORAGE_KEY = 'theme'
 
 type ThemeContextValue = {
-  /** The user's selection: an explicit theme or "system" (follow OS/browser). */
   theme: Theme
-  /** The theme actually applied after resolving "system". */
   resolvedTheme: ResolvedTheme
   setTheme: (theme: Theme) => void
 }
@@ -29,13 +27,6 @@ function resolve(theme: Theme): ResolvedTheme {
   return theme
 }
 
-/**
- * Applies a switchable light/dark theme by toggling the `dark` class on <html>.
- *
- * The selection is persisted in localStorage and defaults to "system", which follows the
- * OS/browser `prefers-color-scheme`. A blocking inline script in the document head (see
- * {@link themeInitScript}) applies the correct class before hydration to avoid a flash.
- */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system')
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light')
@@ -46,7 +37,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', resolved === 'dark')
   }, [])
 
-  // Load the stored preference once on mount.
   useEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
     const initial: Theme =
@@ -55,7 +45,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     apply(initial)
   }, [apply])
 
-  // Keep in sync with the OS/browser while the selection is "system".
   useEffect(() => {
     if (theme !== 'system') return
     const media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -87,8 +76,5 @@ export function useTheme(): ThemeContextValue {
   return ctx
 }
 
-/**
- * Inline script that runs before React hydrates to set the initial `dark` class from the
- * stored preference (or OS setting), preventing a light/dark flash on first paint.
- */
+// Runs before hydration to avoid flashing the wrong theme.
 export const themeInitScript = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');var d=t==='dark'||((t==='system'||!t)&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`

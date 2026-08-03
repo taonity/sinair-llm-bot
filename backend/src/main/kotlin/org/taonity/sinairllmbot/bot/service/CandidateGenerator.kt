@@ -8,11 +8,6 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import java.util.concurrent.CompletableFuture
 
-/**
- * Draws several independent reply candidates for one message so the critic has diverse drafts to
- * choose between. Candidates are generated in parallel (they are independent calls), so the added
- * latency stays close to a single call, and at a raised temperature to keep them varied.
- */
 @Service
 class CandidateGenerator(
     private val llmClient: LlmClient,

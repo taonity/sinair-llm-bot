@@ -10,12 +10,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * An immutable record of a change made through the data console.
- *
- * By design this entity stores no business data values — only the action, the type and id of the
- * affected record, who performed it and when. Entries are purged after the retention window.
- */
 @Entity
 @Table(name = "audit_log")
 class AuditLogEntity(

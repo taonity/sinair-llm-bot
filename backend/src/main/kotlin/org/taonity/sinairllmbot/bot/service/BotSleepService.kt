@@ -9,13 +9,6 @@ import org.taonity.sinairllmbot.bot.repository.RoomBotStateRepository
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Tracks per-room `!sleep` / `!wake` state. Sleep is scoped per room because one bot instance
- * serves one room; several instances share this backend for different rooms.
- *
- * The set is an in-memory cache backed by [RoomBotStateRepository]; it is loaded on startup and
- * written through on every change so the state survives a backend restart.
- */
 @Service
 class BotSleepService(
     private val settings: BotSettings,

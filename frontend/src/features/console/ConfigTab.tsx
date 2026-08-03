@@ -27,12 +27,10 @@ import type { ConfigField, ConfigSchema } from './types'
 
 const TIER_GROUP_PREFIX = 'LLM · Tier: '
 
-/** Extracts the tier name from a group label like "LLM · Tier: cheap", or null. */
 function tierNameFromGroup(group: string): string | null {
   return group.startsWith(TIER_GROUP_PREFIX) ? group.slice(TIER_GROUP_PREFIX.length) : null
 }
 
-/** Edit-form representation of a field's value (all stored as strings, incl. BOOL as 'true'/'false'). */
 function toDraft(field: ConfigField): string {
   const v = field.value
   if (field.type === 'STRING_LIST') return Array.isArray(v) ? v.join(', ') : ''
@@ -40,7 +38,6 @@ function toDraft(field: ConfigField): string {
   return String(v)
 }
 
-/** Converts an edit-form draft back to the JSON value the backend expects. */
 function toJsonValue(field: ConfigField, draft: string): unknown {
   switch (field.type) {
     case 'BOOL':
@@ -229,7 +226,6 @@ export function ConfigTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Sticky toolbar: search + live-apply hint + save/discard */}
       <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="relative flex-1 basis-56">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -272,7 +268,6 @@ export function ConfigTab({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        {/* Group navigation (hidden while searching) */}
         {!q && (
           <nav className="flex gap-1 overflow-x-auto pb-1 sm:sticky sm:top-14 sm:w-48 sm:shrink-0 sm:flex-col sm:overflow-visible sm:pb-0">
             {groups.map((g) => (
@@ -305,7 +300,6 @@ export function ConfigTab({
           </nav>
         )}
 
-        {/* Fields */}
         <div className="min-w-0 flex-1">
           {visibleGroups.length === 0 ? (
             <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">

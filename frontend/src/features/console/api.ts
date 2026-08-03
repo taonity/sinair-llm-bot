@@ -35,7 +35,6 @@ class ApiError extends Error {
   }
 }
 
-/** Extracts the backend's error message (ClientErrorResponse.errorMessage) if present. */
 async function errorMessage(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { errorMessage?: string }
@@ -43,7 +42,6 @@ async function errorMessage(res: Response): Promise<string> {
       return data.errorMessage
     }
   } catch {
-    // ignore parse errors, fall back to generic message
   }
   return `Request failed (${res.status})`
 }

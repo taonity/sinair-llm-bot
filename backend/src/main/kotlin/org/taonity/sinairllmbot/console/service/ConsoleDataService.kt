@@ -39,10 +39,6 @@ import org.taonity.sinairllmbot.security.principal.GoogleUserPrincipal
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 
-/**
- * Read and mutate console data. Reads require VIEWER access, mutations require EDITOR access.
- * Every mutation is recorded in the audit log (without the changed data values).
- */
 @Service
 class ConsoleDataService(
     private val chatMessageRepository: ChatMessageRepository,
@@ -253,7 +249,6 @@ class ConsoleDataService(
         auditService.record(AuditAction.DELETE_PIPELINE_RUN, "pipeline_run", id, actor)
     }
 
-    /** Returns the raw provider request or response payload (pretty-printed) for one LLM call of a run. */
     fun pipelineRunLlmPayload(principal: GoogleUserPrincipal, id: String, index: Int, kind: String): String {
         accessGuard.requireView(principal)
         val entity = pipelineRunRepository.findById(id)
@@ -294,7 +289,6 @@ class ConsoleDataService(
         tree.get("sources")?.mapNotNull { it.asText()?.takeIf(String::isNotBlank) }.orEmpty()
     }.getOrElse { emptyList() }
 
-    /** Re-indents a stored JSON payload for readable display; returns it unchanged if not valid JSON. */
     private fun prettyJson(json: String): String = runCatching {
         objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(json))
     }.getOrElse { json }
@@ -327,15 +321,9 @@ class ConsoleDataService(
             },
     )
 
-    /** A summary's source transcript is available only while its pipeline run survives retention. */
     private fun detailAvailable(pipelineRunId: String?): Boolean =
         pipelineRunId != null && pipelineRunRepository.existsById(pipelineRunId)
 
-    /**
-     * Edits any summary version. Ids are globally unique across the two tables, so a single id
-     * resolves to either the current summary or an archived one. Always returns the room's refreshed
-     * card so the caller sees the updated history.
-     */
     @Transactional
     fun updateSummary(principal: GoogleUserPrincipal, id: String, summary: String): RoomSummaryDto {
         val actor = accessGuard.requireEdit(principal)
@@ -356,12 +344,6 @@ class ConsoleDataService(
         return toRoomSummaryDto(room)
     }
 
-    /**
-     * Deletes any summary version. Deleting an archived version just removes it. Deleting the current
-     * summary promotes the most recent archived version to current (a revert) so the room keeps a
-     * summary and its remaining history stays visible; if there is none, the row is removed and the
-     * bot regenerates from scratch on the next refresh.
-     */
     @Transactional
     fun deleteSummary(principal: GoogleUserPrincipal, id: String) {
         val actor = accessGuard.requireEdit(principal)

@@ -13,10 +13,6 @@ const NEXT_LABEL: Record<Theme, string> = {
   dark: 'Switch to system theme',
 }
 
-/**
- * A single button that cycles the theme selection: system → light → dark → system.
- * The icon reflects the current selection (monitor for system, sun for light, moon for dark).
- */
 export function ThemeToggle({ className, hideOnPayload = false }: { className?: string; hideOnPayload?: boolean }) {
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()

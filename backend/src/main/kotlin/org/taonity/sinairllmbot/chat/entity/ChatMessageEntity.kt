@@ -24,9 +24,7 @@ class ChatMessageEntity(
     val recipientMemberId: Int = 0,
     val sentAt: Instant,
     val receivedAt: Instant = Instant.now(),
-    /** Outbound row that produced this bot self-echo, when reconciliation could identify it. */
     val sourceOutboundMessageId: String? = null,
-    /** Provenance quality, currently ECHO_TIME_TEXT for the chat API's unacknowledged sends. */
     val sourceOutboundMatch: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {

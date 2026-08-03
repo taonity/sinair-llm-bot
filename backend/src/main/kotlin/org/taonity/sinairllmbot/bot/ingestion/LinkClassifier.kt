@@ -3,10 +3,6 @@ package org.taonity.sinairllmbot.bot.ingestion
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.ingestion.model.LinkKind
 
-/**
- * Best-effort intent classification for links found in a README/page, so noisy badges and social
- * links can be dropped and documentation links surfaced first (per the ingestion design).
- */
 @Component
 class LinkClassifier {
     private companion object {
