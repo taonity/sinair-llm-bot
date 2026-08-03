@@ -223,6 +223,37 @@ function CallLinks({ runId, index, call }: { runId: string; index: number; call:
   )
 }
 
+/** Transport-attempt metadata kept separate from the agentic iteration that produced the request. */
+function AttemptLabels({ call }: { call: LlmCallUsage }) {
+  const failed = call.status === 'FAILED'
+  return (
+    <>
+      {call.iteration != null && (
+        <span className="tabular-nums text-foreground/60">
+          iteration {call.iteration}/{call.totalIterations ?? '?'}
+        </span>
+      )}
+      <span className="tabular-nums text-foreground/60">
+        attempt {call.attempt}/{call.maxAttempts}
+      </span>
+      <span
+        className={cn(
+          'rounded px-1 text-[10px] font-medium lowercase',
+          failed ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600',
+        )}
+        title={call.error ?? undefined}
+      >
+        {call.status}
+      </span>
+      {failed && call.error && (
+        <span className="max-w-80 truncate text-red-600" title={call.error}>
+          {call.error}
+        </span>
+      )}
+    </>
+  )
+}
+
 /** Pretty-prints a tool-call arguments JSON string, degrading to the raw string if not valid JSON. */
 function prettyArgs(args: string): string {
   if (!args) return ''
@@ -320,6 +351,7 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
       <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
         <span className="font-medium text-foreground/80">{call.tier}</span>
         <span>{call.model}</span>
+        <AttemptLabels call={call} />
         <TokenSplit prompt={call.promptTokens} completion={call.completionTokens} total={call.tokens} />
         {call.tools.length > 0 && (
           <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
@@ -340,6 +372,7 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
   const completionTokens = entries.reduce((sum, e) => sum + e.call.completionTokens, 0)
   const models = Array.from(new Set(entries.map((e) => e.call.model)))
   const tools = Array.from(new Set(entries.flatMap((e) => e.call.tools)))
+  const failedAttempts = entries.filter((entry) => entry.call.status === 'FAILED').length
   return (
     <div className="flex w-full flex-col gap-1 rounded border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
       <button
@@ -350,9 +383,14 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
       >
         {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         <span className="font-medium text-foreground/80">
-          {tier} × {entries.length}
+          {tier} · {entries.length} request attempt{entries.length === 1 ? '' : 's'}
         </span>
         <span>{models.length === 1 ? models[0] : `${models.length} models`}</span>
+        {failedAttempts > 0 && (
+          <span className="rounded bg-red-500/10 px-1 text-red-600">
+            {failedAttempts} failed
+          </span>
+        )}
         <TokenSplit prompt={promptTokens} completion={completionTokens} total={tokens} prefix="Σ" />
         {tools.length > 0 && (
           <span className="rounded bg-sky-500/10 px-1 text-sky-600">{tools.join(', ')}</span>
@@ -365,6 +403,7 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="tabular-nums text-foreground/50">#{i + 1}</span>
                 {models.length > 1 && <span>{e.call.model}</span>}
+                <AttemptLabels call={e.call} />
                 <TokenSplit
                   prompt={e.call.promptTokens}
                   completion={e.call.completionTokens}

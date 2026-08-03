@@ -181,6 +181,12 @@ data class LlmCallUsageDto(
     val hasResponsePayload: Boolean = false,
     val promptTokens: Int = 0,
     val completionTokens: Int = 0,
+    val attempt: Int = 1,
+    val maxAttempts: Int = 1,
+    val status: String = "SUCCEEDED",
+    val error: String? = null,
+    val iteration: Int? = null,
+    val totalIterations: Int? = null,
 ) {
     companion object {
         fun from(u: LlmCallUsage) = LlmCallUsageDto(
@@ -193,6 +199,12 @@ data class LlmCallUsageDto(
             hasResponsePayload = u.responsePayload.isNotBlank(),
             promptTokens = u.promptTokens,
             completionTokens = u.completionTokens,
+            attempt = u.attempt,
+            maxAttempts = u.maxAttempts,
+            status = u.status.name,
+            error = u.error,
+            iteration = u.iteration,
+            totalIterations = u.totalIterations,
         )
     }
 }

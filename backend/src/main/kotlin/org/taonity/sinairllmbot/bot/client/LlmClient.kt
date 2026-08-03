@@ -11,6 +11,7 @@ import org.springframework.web.client.ResourceAccessException
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
+import org.taonity.sinairllmbot.bot.pipeline.LlmCallStatus
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import tools.jackson.databind.ObjectMapper
@@ -81,18 +82,24 @@ class LlmClient(
         )
         // Serialized once so the persisted trace can show the exact request body sent to the provider.
         val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
-        val rawResponse = postChatCompletion(tierName, tier, request) ?: return null
+        val transport = postChatCompletion(tierName, tier, request) ?: return null
+        val rawResponse = transport.rawResponse
 
         val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
             .getOrNull()
         val message = response?.choices?.firstOrNull()?.message
         val content = (message?.content as? String)?.trim()
+        recordCall(
+            tierName, tier, response, rawResponse, requestJson,
+            if (webSearch) listOf("web_search") else emptyList(), emptyList(),
+            attempt = transport.attempt,
+            maxAttempts = transport.maxAttempts,
+        )
         if (content.isNullOrBlank()) {
             LOGGER.warn { "LLM tier '$tierName' (${tier.model}) returned empty content" }
             return null
         }
         val citationUrls = message.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
-        recordCall(tierName, tier, response, rawResponse, requestJson, if (webSearch) listOf("web_search") else emptyList(), emptyList())
         if (webSearch) {
             LOGGER.info {
                 val outcome = if (citationUrls.isEmpty()) "offered, no citations"
@@ -149,12 +156,14 @@ class LlmClient(
                 tools = if (offerTools) tools else null,
             )
             val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
-            val rawResponse = postChatCompletion(
+            val transport = postChatCompletion(
                 tierName = tierName,
                 tier = tier,
                 request = request,
-                iterationLabel = "iteration $iteration/$totalIterations",
+                iteration = iteration,
+                totalIterations = totalIterations,
             ) ?: return null
+            val rawResponse = transport.rawResponse
             val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
                 .getOrNull()
             val choice = response?.choices?.firstOrNull()
@@ -187,6 +196,10 @@ class LlmClient(
                 tierName, tier, response, rawResponse, requestJson,
                 toolCalls.mapNotNull { it.function?.name },
                 toolCallEntries,
+                attempt = transport.attempt,
+                maxAttempts = transport.maxAttempts,
+                iteration = iteration,
+                totalIterations = totalIterations,
             )
 
             if (offerTools && toolCalls.isNotEmpty()) {
@@ -223,12 +236,16 @@ class LlmClient(
         tierName: String,
         tier: LlmProperties.Tier,
         request: ChatCompletionRequest,
-        iterationLabel: String? = null,
-    ): String? {
+        iteration: Int? = null,
+        totalIterations: Int? = null,
+    ): LlmTransportResult? {
+        val iterationLabel = iteration?.let { "iteration $it/${totalIterations ?: "?"}" }
         val callLabel = "tier=$tierName" + iterationLabel?.let { ", $it" }.orEmpty()
+        val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
         LOGGER.debug { "OpenRouter request ($callLabel):\n${prettyJson(request)}" }
         return try {
             val retry = llmProperties.retry
+            var attempt = 0
             val rawResponse = RetryExecutor.execute(
                 name = "llm-$tierName",
                 maxAttempts = retry.maxAttempts,
@@ -241,37 +258,66 @@ class LlmClient(
                     }
                 },
             ) {
-                restClient.post()
-                    .uri("/chat/completions")
-                    .headers { headers ->
-                        headers.setBearerAuth(llmProperties.apiKey)
-                        headers.contentType = MediaType.APPLICATION_JSON
-                        llmProperties.title?.let { headers.set("X-Title", it) }
-                    }
-                    .body(request)
-                    .retrieve()
-                    .body(String::class.java)
-                    .also { rawResponse ->
-                        detectProviderError(rawResponse)?.let { error ->
-                            throw EmbeddedProviderException(error, rawResponse.orEmpty())
+                attempt++
+                try {
+                    restClient.post()
+                        .uri("/chat/completions")
+                        .headers { headers ->
+                            headers.setBearerAuth(llmProperties.apiKey)
+                            headers.contentType = MediaType.APPLICATION_JSON
+                            llmProperties.title?.let { headers.set("X-Title", it) }
                         }
-                    }
+                        .body(request)
+                        .retrieve()
+                        .body(String::class.java)
+                        .also { rawResponse ->
+                            detectProviderError(rawResponse)?.let { error ->
+                                throw EmbeddedProviderException(error, rawResponse.orEmpty())
+                            }
+                        }
+                } catch (exception: Exception) {
+                    val responsePayload = failurePayload(exception)
+                    val response = runCatching {
+                        objectMapper.readValue(responsePayload, ChatCompletionResponse::class.java)
+                    }.getOrNull()
+                    recordCall(
+                        tierName, tier, response, responsePayload, requestJson, emptyList(), emptyList(),
+                        attempt = attempt,
+                        maxAttempts = retry.maxAttempts,
+                        status = LlmCallStatus.FAILED,
+                        error = exception.message ?: exception.javaClass.simpleName,
+                        iteration = iteration,
+                        totalIterations = totalIterations,
+                    )
+                    throw exception
+                }
             }
             LOGGER.debug { "OpenRouter response ($callLabel):\n${prettyJson(rawResponse)}" }
-            rawResponse
-        } catch (exception: EmbeddedProviderException) {
-            val response = runCatching {
-                objectMapper.readValue(exception.rawResponse, ChatCompletionResponse::class.java)
-            }.getOrNull()
-            val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
-            recordCall(tierName, tier, response, exception.rawResponse, requestJson, emptyList(), emptyList())
-            LOGGER.warn(exception) { "LLM call failed ($callLabel, model=${tier.model})" }
-            null
+            LlmTransportResult(rawResponse.orEmpty(), attempt, retry.maxAttempts)
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed ($callLabel, model=${tier.model})" }
             null
         }
     }
+
+    private fun failurePayload(exception: Exception): String = when (exception) {
+        is EmbeddedProviderException -> exception.rawResponse
+        is RestClientResponseException -> exception.responseBodyAsString.takeIf { it.isNotBlank() }
+            ?: errorPayload(exception, exception.statusCode.value())
+        else -> errorPayload(exception)
+    }
+
+    private fun errorPayload(exception: Exception, status: Int? = null): String = runCatching {
+        objectMapper.writeValueAsString(
+            mapOf(
+                "error" to mapOf(
+                    "type" to exception.javaClass.name,
+                    "message" to (exception.message ?: exception.javaClass.simpleName),
+                    "httpStatus" to status,
+                ),
+            ),
+        )
+    }.getOrDefault(exception.message ?: exception.javaClass.simpleName)
 
     private fun detectProviderError(rawResponse: String?): ChatCompletionResponse.ProviderError? {
         if (rawResponse.isNullOrBlank()) return null
@@ -322,6 +368,12 @@ class LlmClient(
         "provider response error code=${error.code ?: "unknown"}: ${error.message ?: "no message"}",
     )
 
+    private data class LlmTransportResult(
+        val rawResponse: String,
+        val attempt: Int,
+        val maxAttempts: Int,
+    )
+
     /** Logs token usage and records the call (tokens, model, tool set, payloads) on the trace. */
     private fun recordCall(
         tierName: String,
@@ -331,6 +383,12 @@ class LlmClient(
         requestJson: String,
         toolNames: List<String>,
         toolCallEntries: List<ToolCallEntry>,
+        attempt: Int = 1,
+        maxAttempts: Int = 1,
+        status: LlmCallStatus = LlmCallStatus.SUCCEEDED,
+        error: String? = null,
+        iteration: Int? = null,
+        totalIterations: Int? = null,
     ) {
         val usage = response?.usage
         LOGGER.info {
@@ -348,6 +406,12 @@ class LlmClient(
                 toolCalls = toolCallEntries,
                 promptTokens = usage?.promptTokens ?: 0,
                 completionTokens = usage?.completionTokens ?: 0,
+                attempt = attempt,
+                maxAttempts = maxAttempts,
+                status = status,
+                error = error,
+                iteration = iteration,
+                totalIterations = totalIterations,
             ),
         )
     }

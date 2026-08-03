@@ -25,7 +25,21 @@ data class LlmCallUsage(
     val promptTokens: Int = 0,
     /** Completion (output) tokens billed for this call, from the provider's usage. */
     val completionTokens: Int = 0,
+    /** 1-based transport attempt number for this request. */
+    val attempt: Int = 1,
+    /** Configured maximum transport attempts for this request. */
+    val maxAttempts: Int = 1,
+    val status: LlmCallStatus = LlmCallStatus.SUCCEEDED,
+    val error: String? = null,
+    /** 1-based agentic iteration, absent for non-agentic calls. */
+    val iteration: Int? = null,
+    val totalIterations: Int? = null,
 )
+
+enum class LlmCallStatus {
+    SUCCEEDED,
+    FAILED,
+}
 
 /**
  * One client-tool call executed during an agentic LLM round: the tool [name] the model asked for,
