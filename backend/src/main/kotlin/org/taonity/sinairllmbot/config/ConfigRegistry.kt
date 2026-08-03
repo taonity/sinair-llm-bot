@@ -133,6 +133,11 @@ class ConfigRegistry(
             read = { it.llm.retry.backoffMillis },
             apply = { c, v -> c.copy(llm = c.llm.copy(retry = c.llm.retry.copy(backoffMillis = (v as Int).toLong()))) },
         )
+        fields += ConfigField(
+            key = "app.llm.retry.retry-provider-errors", group = "LLM", type = ConfigType.BOOL,
+            read = { it.llm.retry.retryProviderErrors },
+            apply = { c, v -> c.copy(llm = c.llm.copy(retry = c.llm.retry.copy(retryProviderErrors = v as Boolean))) },
+        )
 
         // ---- LLM · Critic ----
         fields += ConfigField(

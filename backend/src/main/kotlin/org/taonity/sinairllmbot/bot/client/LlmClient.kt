@@ -120,9 +120,15 @@ class LlmClient(
         val tier = llmProperties.tier(tierName)
         val conversation = messages.toMutableList()
         var totalTokens = 0
+        val totalIterations = maxRounds + 1
 
         for (round in 0..maxRounds) {
+            val iteration = round + 1
             val offerTools = round < maxRounds
+            LOGGER.info {
+                "Agentic tier '$tierName' iteration $iteration/$totalIterations " +
+                    "(${if (offerTools) "tools enabled" else "final answer"})"
+            }
             if (!offerTools) {
                 conversation += ChatMessage.user(
                     "The investigation has reached its tool-call limit. Now wrap up " +
@@ -143,7 +149,12 @@ class LlmClient(
                 tools = if (offerTools) tools else null,
             )
             val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
-            val rawResponse = postChatCompletion(tierName, tier, request) ?: return null
+            val rawResponse = postChatCompletion(
+                tierName = tierName,
+                tier = tier,
+                request = request,
+                iterationLabel = "iteration $iteration/$totalIterations",
+            ) ?: return null
             val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
                 .getOrNull()
             val choice = response?.choices?.firstOrNull()
@@ -166,7 +177,10 @@ class LlmClient(
                         .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
                     toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
-                    LOGGER.info { "LLM tool '$name' executed -> ${result.length} chars" }
+                    LOGGER.info {
+                        "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
+                            "tool '$name' executed -> ${result.length} chars"
+                    }
                 }
             }
             recordCall(
@@ -194,7 +208,8 @@ class LlmClient(
             val truncated = finishReason?.lowercase() in TRUNCATION_FINISH_REASONS ||
                 nativeFinishReason?.contains("MALFORMED", ignoreCase = true) == true
             LOGGER.warn {
-                "Agentic tier '$tierName' produced no usable output on round $round " +
+                "Agentic tier '$tierName' produced no usable output on iteration " +
+                    "$iteration/$totalIterations " +
                     "(finish=$finishReason native=$nativeFinishReason)"
             }
             if (offerTools && truncated) continue
@@ -208,18 +223,20 @@ class LlmClient(
         tierName: String,
         tier: LlmProperties.Tier,
         request: ChatCompletionRequest,
+        iterationLabel: String? = null,
     ): String? {
-        LOGGER.debug { "OpenRouter request (tier=$tierName):\n${prettyJson(request)}" }
+        val callLabel = "tier=$tierName" + iterationLabel?.let { ", $it" }.orEmpty()
+        LOGGER.debug { "OpenRouter request ($callLabel):\n${prettyJson(request)}" }
         return try {
             val retry = llmProperties.retry
             val rawResponse = RetryExecutor.execute(
                 name = "llm-$tierName",
                 maxAttempts = retry.maxAttempts,
                 backoffMillis = retry.backoffMillis,
-                shouldRetryException = ::isRetryableLlmFailure,
+                shouldRetryException = { exception -> isRetryableLlmFailure(exception, retry.retryProviderErrors) },
                 onRetry = { nextAttempt, cause ->
                     LOGGER.warn {
-                        "LLM call failed for tier '$tierName' (${tier.model}): $cause; " +
+                        "LLM call failed ($callLabel, model=${tier.model}): $cause; " +
                             "retrying attempt $nextAttempt/${retry.maxAttempts}"
                     }
                 },
@@ -234,13 +251,34 @@ class LlmClient(
                     .body(request)
                     .retrieve()
                     .body(String::class.java)
+                    .also { rawResponse ->
+                        detectProviderError(rawResponse)?.let { error ->
+                            throw EmbeddedProviderException(error, rawResponse.orEmpty())
+                        }
+                    }
             }
-            LOGGER.debug { "OpenRouter response (tier=$tierName):\n${prettyJson(rawResponse)}" }
+            LOGGER.debug { "OpenRouter response ($callLabel):\n${prettyJson(rawResponse)}" }
             rawResponse
+        } catch (exception: EmbeddedProviderException) {
+            val response = runCatching {
+                objectMapper.readValue(exception.rawResponse, ChatCompletionResponse::class.java)
+            }.getOrNull()
+            val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
+            recordCall(tierName, tier, response, exception.rawResponse, requestJson, emptyList(), emptyList())
+            LOGGER.warn(exception) { "LLM call failed ($callLabel, model=${tier.model})" }
+            null
         } catch (exception: Exception) {
-            LOGGER.warn(exception) { "LLM call failed for tier '$tierName' (${tier.model})" }
+            LOGGER.warn(exception) { "LLM call failed ($callLabel, model=${tier.model})" }
             null
         }
+    }
+
+    private fun detectProviderError(rawResponse: String?): ChatCompletionResponse.ProviderError? {
+        if (rawResponse.isNullOrBlank()) return null
+        val response = runCatching {
+            objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java)
+        }.getOrNull() ?: return null
+        return response.error ?: response.choices.firstNotNullOfOrNull { it.error }
     }
 
     private fun executeToolWithRetry(
@@ -270,11 +308,19 @@ class LlmClient(
         return RETRYABLE_TOOL_ERROR_MARKERS.any(normalized::contains)
     }
 
-    private fun isRetryableLlmFailure(exception: Exception): Boolean = when (exception) {
+    private fun isRetryableLlmFailure(exception: Exception, retryProviderErrors: Boolean): Boolean = when (exception) {
         is ResourceAccessException -> true
         is RestClientResponseException -> exception.statusCode.value() == 429 || exception.statusCode.is5xxServerError
+        is EmbeddedProviderException -> exception.error.shouldRetry(retryProviderErrors)
         else -> false
     }
+
+    private class EmbeddedProviderException(
+        val error: ChatCompletionResponse.ProviderError,
+        val rawResponse: String,
+    ) : RuntimeException(
+        "provider response error code=${error.code ?: "unknown"}: ${error.message ?: "no message"}",
+    )
 
     /** Logs token usage and records the call (tokens, model, tool set, payloads) on the trace. */
     private fun recordCall(

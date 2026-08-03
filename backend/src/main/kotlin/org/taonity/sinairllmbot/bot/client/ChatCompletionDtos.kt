@@ -133,13 +133,24 @@ data class ResponseFormat(val type: String) {
 data class ChatCompletionResponse(
     val choices: List<Choice> = emptyList(),
     val usage: Usage? = null,
+    val error: ProviderError? = null,
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class Choice(
         val message: ChatMessage? = null,
         @JsonProperty("finish_reason") val finishReason: String? = null,
         @JsonProperty("native_finish_reason") val nativeFinishReason: String? = null,
+        val error: ProviderError? = null,
     )
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    data class ProviderError(
+        val code: Int? = null,
+        val message: String? = null,
+    ) {
+        fun shouldRetry(enabled: Boolean): Boolean =
+            enabled && (code == 429 || code != null && code in 500..599)
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class Usage(

@@ -80,6 +80,7 @@ app:
     retry:
       max-attempts: 3
       backoff-millis: 0
+      retry-provider-errors: true
     json-retry-attempts: 1
     critic:
       enabled: false

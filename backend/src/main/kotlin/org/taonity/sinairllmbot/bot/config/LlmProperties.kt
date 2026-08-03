@@ -39,6 +39,7 @@ data class LlmProperties(
     data class Retry(
         val maxAttempts: Int,
         val backoffMillis: Long,
+        val retryProviderErrors: Boolean,
     )
 
     data class Tier(

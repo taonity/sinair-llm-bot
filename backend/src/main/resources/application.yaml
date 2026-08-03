@@ -79,6 +79,9 @@ app:
       max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:5}
       # Fixed delay between attempts; keep bounded because it adds directly to reply latency.
       backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:1000}
+      # Retry provider errors embedded in successful HTTP responses (for example choices[].error 500).
+      # When false, the current LLM flow fails immediately on such an error.
+      retry-provider-errors: ${LLM_RETRY_PROVIDER_ERRORS:true}
     # Web search for the reply tier via OpenRouter's `openrouter:web_search` server tool. Off by
     # default. The tool is only offered on time-sensitive messages (asking about latest/recent/
     # current facts); within those, the model decides whether to actually search. Each performed
