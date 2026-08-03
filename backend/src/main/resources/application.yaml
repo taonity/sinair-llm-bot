@@ -60,7 +60,7 @@ app:
     gate-tier: gate
     critic-tier: critic
     retry:
-      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:5}
+      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:20}
       backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:1000}
       retry-provider-errors: ${LLM_RETRY_PROVIDER_ERRORS:true}
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
@@ -86,7 +86,7 @@ app:
       smart-glm:
         model: z-ai/glm-5.2
         temperature: 0.2
-        max-tokens: 500
+        max-tokens: 1500
       # Sized to prevent multi-round tool calls from being truncated mid-emission.
       repo:
         model: z-ai/glm-5.2
@@ -153,7 +153,7 @@ app:
       # Auto-clears stalled reply generation that would otherwise leave typing stuck on.
       ttl-seconds: 120
     limits:
-      max-reply-chars: 800
+      max-reply-chars: 4000
       trace-trigger-text-max: 2000
       event-scan-limit: 120
       summary-history-versions: 9

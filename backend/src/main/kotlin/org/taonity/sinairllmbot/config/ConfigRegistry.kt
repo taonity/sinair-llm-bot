@@ -299,7 +299,7 @@ class ConfigRegistry(
         )
 
         fields += ConfigField(
-            key = "app.bot.limits.max-reply-chars", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 4000.0,
+            key = "app.bot.limits.max-reply-chars", group = "Bot · Limits", type = ConfigType.INT, min = 100.0, max = 8000.0,
             read = { it.bot.limits.maxReplyChars },
             apply = { c, v -> c.copy(bot = c.bot.copy(limits = c.bot.limits.copy(maxReplyChars = v as Int))) },
         )
