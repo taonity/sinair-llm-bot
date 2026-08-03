@@ -13,6 +13,10 @@ class PromptConverter : Converter<String, Prompt> {
     override fun convert(source: String): Prompt {
         val resource = DefaultResourceLoader().getResource(source)
         require(resource.exists()) { "Prompt resource '$source' does not exist" }
-        return Prompt(resource.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }.trimEnd())
+        val text = resource.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val normalizedText = text.replace("\r\n", "\n").replace('\r', '\n')
+        return Prompt(normalizedText.trim().split(Regex("\n(?:[\\t ]*\n)+")).joinToString("\n\n") { paragraph ->
+            paragraph.lines().joinToString(" ") { it.trim() }
+        })
     }
 }
