@@ -1,9 +1,10 @@
 'use client'
 
-import { Fragment, useState } from 'react'
-import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Wrench } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Maximize2, Minimize2, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
@@ -257,7 +258,38 @@ function prettyJson(value: string): string {
   }
 }
 
-function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
+interface ExpansionCommand {
+  expanded: boolean
+  revision: number
+}
+
+function ToolResult({ value, command }: { value: string; command: ExpansionCommand }) {
+  const [expanded, setExpanded] = useState(command.expanded)
+  useEffect(() => setExpanded(command.expanded), [command.expanded, command.revision])
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="absolute right-1 top-1 rounded bg-background/80 p-0.5 text-muted-foreground hover:text-foreground"
+        title={expanded ? 'Shrink result' : 'Expand result'}
+        aria-label={expanded ? 'Shrink result' : 'Expand result'}
+      >
+        {expanded ? <Minimize2 className="size-3" /> : <Maximize2 className="size-3" />}
+      </button>
+      <pre
+        className={cn(
+          'whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 pr-6 text-[11px] leading-snug text-muted-foreground',
+          expanded ? 'max-h-none overflow-visible' : 'max-h-28 overflow-auto',
+        )}
+      >
+        {prettyJson(value)}
+      </pre>
+    </div>
+  )
+}
+
+function ToolCallRow({ entry, responseCommand }: { entry: ToolCallEntry; responseCommand: ExpansionCommand }) {
   const failedAttempts = entry.attempts.filter((attempt) => attempt.error).length
   const recovered = !entry.error && failedAttempts > 0
   return (
@@ -298,9 +330,7 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
                 <div className={cn('text-[10px]', attempt.error ? 'text-red-600' : 'text-emerald-600')}>
                   attempt {attempt.attempt}/{entry.maxAttempts} · {attempt.error ? 'failed' : 'succeeded'}
                 </div>
-                <pre className="whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
-                  {prettyJson(attempt.result)}
-                </pre>
+                <ToolResult value={attempt.result} command={responseCommand} />
               </li>
             ))}
           </ol>
@@ -309,17 +339,22 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
       {entry.result && entry.attempts.length <= 1 && (
         <div className="mt-1">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">result</div>
-          <pre className="mt-0.5 whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
-            {prettyJson(entry.result)}
-          </pre>
+          <div className="mt-0.5">
+            <ToolResult value={entry.result} command={responseCommand} />
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
-  const [open, setOpen] = useState(false)
+function ToolCalls({ calls, callCommand, responseCommand }: {
+  calls: ToolCallEntry[]
+  callCommand: ExpansionCommand
+  responseCommand: ExpansionCommand
+}) {
+  const [open, setOpen] = useState(callCommand.expanded)
+  useEffect(() => setOpen(callCommand.expanded), [callCommand.expanded, callCommand.revision])
   if (calls.length === 0) return null
   const errorCount = calls.filter((c) => c.error).length
   const retryFailureCount = calls.reduce(
@@ -351,7 +386,7 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
       {open && (
         <div className="flex flex-col gap-1">
           {calls.map((c, i) => (
-            <ToolCallRow key={i} entry={c} />
+            <ToolCallRow key={i} entry={c} responseCommand={responseCommand} />
           ))}
         </div>
       )}
@@ -359,7 +394,12 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
   )
 }
 
-function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
+function UsageChip({ runId, entry, callCommand, responseCommand }: {
+  runId: string
+  entry: UsageEntry
+  callCommand: ExpansionCommand
+  responseCommand: ExpansionCommand
+}) {
   const { call, index } = entry
   const hasToolCalls = call.toolCalls.length > 0
   const toolErrorCount = call.toolCalls.filter((c) => c.error).length
@@ -389,13 +429,22 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
         )}
         <CallLinks runId={runId} index={index} call={call} />
       </span>
-      {hasToolCalls && <ToolCalls calls={call.toolCalls} />}
+      {hasToolCalls && (
+        <ToolCalls calls={call.toolCalls} callCommand={callCommand} responseCommand={responseCommand} />
+      )}
     </div>
   )
 }
 
-function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; entries: UsageEntry[] }) {
-  const [open, setOpen] = useState(false)
+function UsageGroup({ runId, tier, entries, callCommand, responseCommand }: {
+  runId: string
+  tier: string
+  entries: UsageEntry[]
+  callCommand: ExpansionCommand
+  responseCommand: ExpansionCommand
+}) {
+  const [open, setOpen] = useState(callCommand.expanded)
+  useEffect(() => setOpen(callCommand.expanded), [callCommand.expanded, callCommand.revision])
   const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
   const promptTokens = entries.reduce((sum, e) => sum + e.call.promptTokens, 0)
   const completionTokens = entries.reduce((sum, e) => sum + e.call.completionTokens, 0)
@@ -466,7 +515,13 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
                 )}
                 <CallLinks runId={runId} index={e.index} call={e.call} />
               </div>
-              {e.call.toolCalls.length > 0 && <ToolCalls calls={e.call.toolCalls} />}
+              {e.call.toolCalls.length > 0 && (
+                <ToolCalls
+                  calls={e.call.toolCalls}
+                  callCommand={callCommand}
+                  responseCommand={responseCommand}
+                />
+              )}
             </li>
           ))}
         </ol>
@@ -476,6 +531,8 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
 }
 
 function PipelineDetail({ run }: { run: PipelineRun }) {
+  const [callCommand, setCallCommand] = useState<ExpansionCommand>({ expanded: false, revision: 0 })
+  const [responseCommand, setResponseCommand] = useState<ExpansionCommand>({ expanded: false, revision: 0 })
   const totalPrompt = run.llmUsage.reduce((s, u) => s + u.promptTokens, 0)
   const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
@@ -522,7 +579,7 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
       {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
             <span>LLM usage</span>
             <TokenSplit
               prompt={totalPrompt}
@@ -530,13 +587,46 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
               total={run.totalTokens}
               prefix="Σ"
             />
+            <label className="flex items-center gap-1.5 font-normal text-muted-foreground">
+              <Switch
+                checked={callCommand.expanded}
+                onCheckedChange={(expanded) =>
+                  setCallCommand((command) => ({ expanded, revision: command.revision + 1 }))
+                }
+                aria-label="Expand all tool calls"
+              />
+              tool calls
+            </label>
+            <label className="flex items-center gap-1.5 font-normal text-muted-foreground">
+              <Switch
+                checked={responseCommand.expanded}
+                onCheckedChange={(expanded) =>
+                  setResponseCommand((command) => ({ expanded, revision: command.revision + 1 }))
+                }
+                aria-label="Expand all tool responses"
+              />
+              responses
+            </label>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {groupUsage(run.llmUsage).map((group, gi) =>
               group.entries.length === 1 ? (
-                <UsageChip key={gi} runId={run.id} entry={group.entries[0]!} />
+                <UsageChip
+                  key={gi}
+                  runId={run.id}
+                  entry={group.entries[0]!}
+                  callCommand={callCommand}
+                  responseCommand={responseCommand}
+                />
               ) : (
-                <UsageGroup key={gi} runId={run.id} tier={group.tier} entries={group.entries} />
+                <UsageGroup
+                  key={gi}
+                  runId={run.id}
+                  tier={group.tier}
+                  entries={group.entries}
+                  callCommand={callCommand}
+                  responseCommand={responseCommand}
+                />
               ),
             )}
           </div>
