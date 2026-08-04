@@ -295,6 +295,7 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
 function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
   const [open, setOpen] = useState(false)
   if (calls.length === 0) return null
+  const errorCount = calls.filter((c) => c.error).length
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -306,6 +307,11 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
         {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         <Wrench className="size-3" />
         {calls.length} tool call{calls.length === 1 ? '' : 's'}
+        {errorCount > 0 && (
+          <span className="rounded bg-red-500/10 px-1 text-[10px] text-red-600">
+            {errorCount} error{errorCount === 1 ? '' : 's'}
+          </span>
+        )}
       </button>
       {open && (
         <div className="flex flex-col gap-1">
@@ -321,6 +327,7 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
 function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
   const { call, index } = entry
   const hasToolCalls = call.toolCalls.length > 0
+  const toolErrorCount = call.toolCalls.filter((c) => c.error).length
   return (
     <div className="flex flex-col gap-1">
       <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -330,6 +337,11 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
         <TokenSplit prompt={call.promptTokens} completion={call.completionTokens} total={call.tokens} />
         {call.tools.length > 0 && (
           <span className="rounded bg-sky-500/10 px-1 text-sky-600">{call.tools.join(', ')}</span>
+        )}
+        {toolErrorCount > 0 && (
+          <span className="rounded bg-red-500/10 px-1 text-[10px] text-red-600">
+            {toolErrorCount} tool error{toolErrorCount === 1 ? '' : 's'}
+          </span>
         )}
         <CallLinks runId={runId} index={index} call={call} />
       </span>
@@ -346,6 +358,10 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
   const models = Array.from(new Set(entries.map((e) => e.call.model)))
   const tools = Array.from(new Set(entries.flatMap((e) => e.call.tools)))
   const failedAttempts = entries.filter((entry) => entry.call.status === 'FAILED').length
+  const toolErrorCount = entries.reduce(
+    (sum, e) => sum + e.call.toolCalls.filter((c) => c.error).length,
+    0,
+  )
   return (
     <div className="flex w-full flex-col gap-1 rounded border bg-background px-1.5 py-1 text-[11px] text-muted-foreground">
       <button
@@ -362,6 +378,11 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
         {failedAttempts > 0 && (
           <span className="rounded bg-red-500/10 px-1 text-red-600">
             {failedAttempts} failed
+          </span>
+        )}
+        {toolErrorCount > 0 && (
+          <span className="rounded bg-red-500/10 px-1 text-red-600">
+            {toolErrorCount} tool error{toolErrorCount === 1 ? '' : 's'}
           </span>
         )}
         <TokenSplit prompt={promptTokens} completion={completionTokens} total={tokens} prefix="Σ" />

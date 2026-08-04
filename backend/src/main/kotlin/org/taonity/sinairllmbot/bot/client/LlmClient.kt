@@ -161,9 +161,16 @@ class LlmClient(
                         .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
                     toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
-                    LOGGER.info {
-                        "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
-                            "tool '$name' executed -> ${result.length} chars"
+                    if (isError) {
+                        LOGGER.warn {
+                            "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
+                                "tool '$name' returned error (${result.take(500)})"
+                        }
+                    } else {
+                        LOGGER.info {
+                            "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
+                                "tool '$name' executed -> ${result.length} chars"
+                        }
                     }
                 }
             }
@@ -325,7 +332,11 @@ class LlmClient(
     private fun isRetryableToolResult(result: String): Boolean {
         if (!result.startsWith("ERROR:")) return false
         val normalized = result.lowercase()
-        return RETRYABLE_TOOL_ERROR_MARKERS.any(normalized::contains)
+        val retryable = RETRYABLE_TOOL_ERROR_MARKERS.any(normalized::contains)
+        if (retryable) {
+            LOGGER.warn { "Tool returned retryable error: ${result.take(500)}" }
+        }
+        return retryable
     }
 
     private fun isRetryableLlmFailure(exception: Exception, retryProviderErrors: Boolean): Boolean = when (exception) {
