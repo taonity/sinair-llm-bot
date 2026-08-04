@@ -70,6 +70,22 @@ app:
       max-rounds: 2
       max-search-results: 5
       max-file-chars: 2000
+  grafana:
+    mcp:
+      enabled: false
+      base-url: http://grafana-mcp:8000
+      endpoint: /mcp
+      request-timeout-seconds: 20
+      datasource-uid: loki
+      container-prefix: sinair-llm-bot-test
+      services:
+        - db
+        - flyway
+        - backend
+        - chat-collector
+        - frontend
+      max-results: 100
+      max-result-chars: 30000
   llm:
     base-url: http://127.0.0.1:9999/v1
     api-key: test-key

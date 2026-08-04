@@ -48,7 +48,7 @@ class ReplyGenerator(
             trigger,
         )
 
-        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext || prompt.chatCommands
+        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext || prompt.chatCommands || prompt.logs
         val raw = when {
             hasTools -> generateWithTools(
                 roomTarget,
@@ -89,6 +89,7 @@ class ReplyGenerator(
             if (prompt.repoLookup && githubProperties.mcp.writeEnabled) add(ToolCapability.REPOSITORY_WRITE)
             if (prompt.appContext) add(ToolCapability.APPLICATION)
             if (prompt.chatCommands) add(ToolCapability.CHAT_COMMAND)
+            if (prompt.logs) add(ToolCapability.LOGS)
         }
         val offeredTools = buildList {
             addAll(toolDispatcher.definitions(executionContext, capabilities))

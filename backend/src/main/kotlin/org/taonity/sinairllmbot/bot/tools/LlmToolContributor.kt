@@ -8,6 +8,7 @@ enum class ToolCapability {
     REPOSITORY_WRITE,
     APPLICATION,
     CHAT_COMMAND,
+    LOGS,
 }
 
 data class ToolExecutionContext(

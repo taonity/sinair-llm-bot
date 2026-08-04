@@ -1,0 +1,120 @@
+GRAFANA MCP SETUP IN taonity/prodenv
+=====================================
+
+The bot connects to Grafana's official grafana/mcp-grafana server over a shared Docker network. The MCP server queries the existing Grafana Loki datasource; it does not connect to Loki directly.
+
+The bot exposes only search_current_environment_logs to the LLM. It constructs the container selector from COMPOSE_PROJECT_NAME and these related services:
+
+- db
+- flyway
+- backend
+- chat-collector
+- frontend
+
+For example, a deployment whose project is sinair-llm-bot searches containers matching sinair-llm-bot-*-1. A stage project named sinair-llm-bot-stage searches only sinair-llm-bot-stage-*-1. The LLM cannot submit raw LogQL or select another Compose project.
+
+1. GET THE LOKI DATASOURCE UID
+------------------------------
+
+The datasource in logging/grafana/provisioning/datasources/loki.yml is named Loki, but currently has no fixed UID. Read its generated UID from Grafana:
+
+    curl -sS -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
+      http://127.0.0.1:3000/api/datasources/name/Loki
+
+Use the response's uid value as GRAFANA_MCP_DATASOURCE_UID. For a new Grafana installation, the datasource can instead be provisioned with a stable UID:
+
+    datasources:
+      - name: Loki
+        uid: loki
+        type: loki
+
+Do not add a new UID blindly to an existing provisioned datasource. First use its current UID or recreate the datasource deliberately.
+
+2. CREATE A GRAFANA SERVICE ACCOUNT
+-----------------------------------
+
+In Grafana, create a service account named sinair-llm-bot-mcp with the Viewer role and generate a token. The MCP server is started with only the Loki tool category and read-only mode.
+
+Store the token outside Git in:
+
+    logging/grafana-mcp/secrets/grafana-token
+
+Restrict the file to the deployment user and add logging/grafana-mcp/secrets/ to .gitignore.
+
+Grafana Enterprise or Cloud installations with datasource RBAC should grant only datasources:query on the Loki datasource UID. Grafana OSS uses the broader built-in Viewer role.
+
+3. ADD THE MCP SERVICE
+----------------------
+
+Create logging/grafana-mcp/docker-compose.yml in prodenv:
+
+    services:
+      grafana-mcp:
+        image: grafana/mcp-grafana:v1.0.0
+        command:
+          - --transport
+          - streamable-http
+          - --address
+          - 0.0.0.0:8000
+          - --allowed-hosts
+          - grafana-mcp:8000
+          - --disable-write
+          - --enabled-tools
+          - loki
+          - --max-loki-log-limit
+          - "50"
+        environment:
+          GRAFANA_URL: http://grafana:3000
+          GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE: /run/secrets/grafana-token
+        volumes:
+          - ./secrets/grafana-token:/run/secrets/grafana-token:ro
+        expose:
+          - "8000"
+
+The official image contains neither curl nor wget, so do not add a container-local HTTP health check without building a derived image. Do not publish port 8000 on the host. The MCP endpoint contains no client authentication and must remain reachable only through Docker networks used by trusted services.
+
+Add the service to the root docker-compose.yml:
+
+    services:
+      grafana-mcp:
+        extends:
+          file: logging/grafana-mcp/docker-compose.yml
+          service: grafana-mcp
+        networks:
+          - logging
+          - artist-insight-shared
+        depends_on:
+          grafana:
+            condition: service_started
+
+The logging network lets MCP reach Grafana. artist-insight-shared lets the bot backend reach MCP; the backend is already attached to that external network.
+
+4. CONFIGURE EACH BOT ENVIRONMENT
+---------------------------------
+
+Set these values in each deployed bot environment file:
+
+    GRAFANA_MCP_ENABLED=true
+    GRAFANA_MCP_BASE_URL=http://grafana-mcp:8000
+    GRAFANA_MCP_ENDPOINT=/mcp
+    GRAFANA_MCP_DATASOURCE_UID=<uid returned for Loki>
+    GRAFANA_MCP_MAX_RESULTS=50
+
+Do not set GRAFANA_MCP_CONTAINER_PREFIX in the environment file. The bot Compose template passes it from that deployment's COMPOSE_PROJECT_NAME:
+
+    environment:
+      GRAFANA_MCP_CONTAINER_PREFIX: ${COMPOSE_PROJECT_NAME}
+
+This is the isolation boundary. Verify the actual COMPOSE_PROJECT_NAME in each production and stage deployment before enabling MCP. Production and stage must use distinct project names.
+
+Redeploy prodenv first, then redeploy each bot backend with the updated Compose template.
+
+5. VERIFY
+---------
+
+From the Docker host, verify the MCP container and endpoint. The existing Grafana image has wget, so it can perform the network check:
+
+    docker compose ps grafana-mcp
+    docker compose exec grafana wget -qO- http://grafana-mcp:8000/healthz
+
+Then ask each bot for a recent backend log entry and confirm its pipeline trace contains grafana://loki/current-environment. Confirm every returned container label starts with that deployment's COMPOSE_PROJECT_NAME. A request naming an unrelated or opposite-environment service must be rejected by the bot before an MCP call.

@@ -51,6 +51,22 @@ app:
       enabled: ${GITHUB_REPO_LOOKUP_ENABLED:true}
       max-search-results: 8
       max-file-chars: 20000
+  grafana:
+    mcp:
+      enabled: ${GRAFANA_MCP_ENABLED:true}
+      base-url: ${GRAFANA_MCP_BASE_URL:http://grafana-mcp:8000}
+      endpoint: ${GRAFANA_MCP_ENDPOINT:/mcp}
+      request-timeout-seconds: ${GRAFANA_MCP_REQUEST_TIMEOUT_SECONDS:20}
+      datasource-uid: ${GRAFANA_MCP_DATASOURCE_UID:loki}
+      container-prefix: ${GRAFANA_MCP_CONTAINER_PREFIX:sinair-llm-bot}
+      services:
+        - db
+        - flyway
+        - backend
+        - chat-collector
+        - frontend
+      max-results: ${GRAFANA_MCP_MAX_RESULTS:100}
+      max-result-chars: ${GRAFANA_MCP_MAX_RESULT_CHARS:30000}
   llm:
     base-url: https://openrouter.ai/api/v1
     api-key: ${LLM_API_KEY}
