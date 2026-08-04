@@ -31,6 +31,14 @@ data class ToolCallEntry(
     val arguments: String,
     val result: String,
     val error: Boolean = false,
+    val attempts: List<ToolCallAttempt> = emptyList(),
+    val maxAttempts: Int = 1,
+)
+
+data class ToolCallAttempt(
+    val attempt: Int,
+    val result: String,
+    val error: Boolean,
 )
 
 @Component

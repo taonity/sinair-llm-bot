@@ -13,6 +13,7 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallStatus
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallAttempt
 import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
@@ -156,11 +157,18 @@ class LlmClient(
                 toolCalls.forEach { call ->
                     val name = call.function?.name.orEmpty()
                     val args = call.function?.arguments.orEmpty()
-                    val (result, isError) = runCatching { executeToolWithRetry(name, args, toolExecutor) }
-                        .map { it to it.startsWith("ERROR:") }
-                        .getOrElse { "ERROR: tool '$name' failed: ${it.message}" to true }
+                    val execution = executeToolWithRetry(name, args, toolExecutor)
+                    val result = execution.result
+                    val isError = result.startsWith("ERROR:")
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
-                    toolCallEntries += ToolCallEntry(name = name, arguments = args, result = result, error = isError)
+                    toolCallEntries += ToolCallEntry(
+                        name = name,
+                        arguments = args,
+                        result = result,
+                        error = isError,
+                        attempts = execution.attempts,
+                        maxAttempts = execution.maxAttempts,
+                    )
                     if (isError) {
                         LOGGER.warn {
                             "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
@@ -312,22 +320,35 @@ class LlmClient(
         name: String,
         argumentsJson: String,
         toolExecutor: (name: String, argumentsJson: String) -> String,
-    ): String {
+    ): ToolExecution {
         val retry = llmProperties.retry
-        return RetryExecutor.execute(
-            name = "tool-$name",
-            maxAttempts = retry.maxAttempts,
-            backoffMillis = retry.backoffMillis,
-            shouldRetryResult = ::isRetryableToolResult,
-            onRetry = { nextAttempt, cause ->
-                LOGGER.warn {
-                    "Tool '$name' failed ($cause); retrying attempt $nextAttempt/${retry.maxAttempts}"
-                }
-            },
-        ) {
-            toolExecutor(name, argumentsJson)
+        val attempts = mutableListOf<ToolCallAttempt>()
+        val result = try {
+            RetryExecutor.execute(
+                name = "tool-$name",
+                maxAttempts = retry.maxAttempts,
+                backoffMillis = retry.backoffMillis,
+                shouldRetryResult = ::isRetryableToolResult,
+                onRetry = { nextAttempt, cause ->
+                    LOGGER.warn {
+                        "Tool '$name' failed ($cause); retrying attempt $nextAttempt/${retry.maxAttempts}"
+                    }
+                },
+                onAttempt = { attempt, attemptResult, exception ->
+                    val rendered = attemptResult ?: toolFailureResult(name, exception)
+                    attempts += ToolCallAttempt(attempt, rendered, rendered.startsWith("ERROR:"))
+                },
+            ) {
+                toolExecutor(name, argumentsJson)
+            }
+        } catch (exception: Exception) {
+            attempts.lastOrNull()?.result ?: toolFailureResult(name, exception)
         }
+        return ToolExecution(result, attempts, retry.maxAttempts)
     }
+
+    private fun toolFailureResult(name: String, exception: Exception?): String =
+        "ERROR: tool '$name' failed: ${exception?.message ?: exception?.javaClass?.simpleName ?: "unknown error"}"
 
     private fun isRetryableToolResult(result: String): Boolean {
         if (!result.startsWith("ERROR:")) return false
@@ -356,6 +377,12 @@ class LlmClient(
     private data class LlmTransportResult(
         val rawResponse: String,
         val attempt: Int,
+        val maxAttempts: Int,
+    )
+
+    private data class ToolExecution(
+        val result: String,
+        val attempts: List<ToolCallAttempt>,
         val maxAttempts: Int,
     )
 

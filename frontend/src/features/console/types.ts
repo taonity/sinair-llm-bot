@@ -127,6 +127,14 @@ export interface ToolCallEntry {
   arguments: string
   result: string
   error: boolean
+  attempts: ToolCallAttempt[]
+  maxAttempts: number
+}
+
+export interface ToolCallAttempt {
+  attempt: number
+  result: string
+  error: boolean
 }
 
 export interface JsonParseFailure {

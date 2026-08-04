@@ -5,6 +5,7 @@ import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
 import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
+import org.taonity.sinairllmbot.bot.pipeline.ToolCallAttempt
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.console.entity.AuditLogEntity
@@ -206,6 +207,8 @@ data class ToolCallEntryDto(
     val arguments: String = "",
     val result: String = "",
     val error: Boolean = false,
+    val attempts: List<ToolCallAttemptDto> = emptyList(),
+    val maxAttempts: Int = 1,
 ) {
     companion object {
         fun from(t: ToolCallEntry) = ToolCallEntryDto(
@@ -213,7 +216,19 @@ data class ToolCallEntryDto(
             arguments = t.arguments,
             result = t.result,
             error = t.error,
+            attempts = t.attempts.map(ToolCallAttemptDto::from),
+            maxAttempts = t.maxAttempts,
         )
+    }
+}
+
+data class ToolCallAttemptDto(
+    val attempt: Int = 1,
+    val result: String = "",
+    val error: Boolean = false,
+) {
+    companion object {
+        fun from(a: ToolCallAttempt) = ToolCallAttemptDto(a.attempt, a.result, a.error)
     }
 }
 

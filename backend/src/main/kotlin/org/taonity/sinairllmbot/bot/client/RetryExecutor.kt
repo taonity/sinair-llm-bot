@@ -14,6 +14,7 @@ internal object RetryExecutor {
         shouldRetryResult: (T) -> Boolean = { false },
         shouldRetryException: (Exception) -> Boolean = { true },
         onRetry: (nextAttempt: Int, cause: String) -> Unit = { _, _ -> },
+        onAttempt: (attempt: Int, result: T?, exception: Exception?) -> Unit = { _, _, _ -> },
         operation: () -> T,
     ): T {
         val config = RetryConfig.custom<T>()
@@ -29,6 +30,15 @@ internal object RetryExecutor {
             val cause = event.lastThrowable?.message ?: "retryable result"
             onRetry(event.numberOfRetryAttempts + 1, cause)
         }
-        return retry.executeCallable(Callable(operation))
+        var attempt = 0
+        return retry.executeCallable(Callable {
+            attempt++
+            try {
+                operation().also { onAttempt(attempt, it, null) }
+            } catch (exception: Exception) {
+                onAttempt(attempt, null, exception)
+                throw exception
+            }
+        })
     }
 }

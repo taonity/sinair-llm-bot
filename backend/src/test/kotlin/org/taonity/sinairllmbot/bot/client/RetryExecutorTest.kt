@@ -26,12 +26,16 @@ class RetryExecutorTest {
     @Test
     fun `retries failed tool results until success`() {
         var calls = 0
+        val attempts = mutableListOf<Triple<Int, String?, Exception?>>()
 
         val result = RetryExecutor.execute(
             name = "result-then-success",
             maxAttempts = 3,
             backoffMillis = 0,
             shouldRetryResult = { it.startsWith("ERROR:") },
+            onAttempt = { attempt, attemptResult, exception ->
+                attempts += Triple(attempt, attemptResult, exception)
+            },
         ) {
             calls++
             if (calls == 1) "ERROR: temporary failure" else "ok"
@@ -39,6 +43,8 @@ class RetryExecutorTest {
 
         assertEquals("ok", result)
         assertEquals(2, calls)
+        assertEquals(listOf("ERROR: temporary failure", "ok"), attempts.map { it.second })
+        assertEquals(listOf(1, 2), attempts.map { it.first })
     }
 
     @Test

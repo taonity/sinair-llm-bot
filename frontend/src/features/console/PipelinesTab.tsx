@@ -258,6 +258,8 @@ function prettyJson(value: string): string {
 }
 
 function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
+  const failedAttempts = entry.attempts.filter((attempt) => attempt.error).length
+  const recovered = !entry.error && failedAttempts > 0
   return (
     <div
       className={cn(
@@ -271,6 +273,11 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
         {entry.error && (
           <span className="rounded bg-red-500/10 px-1 text-[10px] font-normal text-red-600">error</span>
         )}
+        {recovered && (
+          <span className="rounded bg-amber-500/10 px-1 text-[10px] font-normal text-amber-700">
+            recovered after {failedAttempts} failure{failedAttempts === 1 ? '' : 's'}
+          </span>
+        )}
       </div>
       {entry.arguments && (
         <div className="mt-1">
@@ -280,7 +287,26 @@ function ToolCallRow({ entry }: { entry: ToolCallEntry }) {
           </pre>
         </div>
       )}
-      {entry.result && (
+      {entry.attempts.length > 1 && (
+        <div className="mt-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            {entry.attempts.length}/{entry.maxAttempts} attempts
+          </div>
+          <ol className="mt-0.5 flex flex-col gap-1">
+            {entry.attempts.map((attempt) => (
+              <li key={attempt.attempt}>
+                <div className={cn('text-[10px]', attempt.error ? 'text-red-600' : 'text-emerald-600')}>
+                  attempt {attempt.attempt}/{entry.maxAttempts} · {attempt.error ? 'failed' : 'succeeded'}
+                </div>
+                <pre className="whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
+                  {prettyJson(attempt.result)}
+                </pre>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {entry.result && entry.attempts.length <= 1 && (
         <div className="mt-1">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">result</div>
           <pre className="mt-0.5 whitespace-pre-wrap break-words rounded bg-muted/40 px-1.5 py-1 text-[11px] leading-snug text-muted-foreground">
@@ -296,6 +322,10 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
   const [open, setOpen] = useState(false)
   if (calls.length === 0) return null
   const errorCount = calls.filter((c) => c.error).length
+  const retryFailureCount = calls.reduce(
+    (sum, call) => sum + call.attempts.filter((attempt) => attempt.error).length,
+    0,
+  )
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -310,6 +340,11 @@ function ToolCalls({ calls }: { calls: ToolCallEntry[] }) {
         {errorCount > 0 && (
           <span className="rounded bg-red-500/10 px-1 text-[10px] text-red-600">
             {errorCount} error{errorCount === 1 ? '' : 's'}
+          </span>
+        )}
+        {retryFailureCount > 0 && (
+          <span className="rounded bg-amber-500/10 px-1 text-[10px] text-amber-700">
+            {retryFailureCount} failed attempt{retryFailureCount === 1 ? '' : 's'}
           </span>
         )}
       </button>
@@ -328,6 +363,10 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
   const { call, index } = entry
   const hasToolCalls = call.toolCalls.length > 0
   const toolErrorCount = call.toolCalls.filter((c) => c.error).length
+  const toolRetryFailureCount = call.toolCalls.reduce(
+    (sum, toolCall) => sum + toolCall.attempts.filter((attempt) => attempt.error).length,
+    0,
+  )
   return (
     <div className="flex flex-col gap-1">
       <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -341,6 +380,11 @@ function UsageChip({ runId, entry }: { runId: string; entry: UsageEntry }) {
         {toolErrorCount > 0 && (
           <span className="rounded bg-red-500/10 px-1 text-[10px] text-red-600">
             {toolErrorCount} tool error{toolErrorCount === 1 ? '' : 's'}
+          </span>
+        )}
+        {toolRetryFailureCount > 0 && (
+          <span className="rounded bg-amber-500/10 px-1 text-[10px] text-amber-700">
+            {toolRetryFailureCount} failed tool attempt{toolRetryFailureCount === 1 ? '' : 's'}
           </span>
         )}
         <CallLinks runId={runId} index={index} call={call} />
@@ -360,6 +404,15 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
   const failedAttempts = entries.filter((entry) => entry.call.status === 'FAILED').length
   const toolErrorCount = entries.reduce(
     (sum, e) => sum + e.call.toolCalls.filter((c) => c.error).length,
+    0,
+  )
+  const toolRetryFailureCount = entries.reduce(
+    (sum, entry) =>
+      sum +
+      entry.call.toolCalls.reduce(
+        (toolSum, toolCall) => toolSum + toolCall.attempts.filter((attempt) => attempt.error).length,
+        0,
+      ),
     0,
   )
   return (
@@ -383,6 +436,11 @@ function UsageGroup({ runId, tier, entries }: { runId: string; tier: string; ent
         {toolErrorCount > 0 && (
           <span className="rounded bg-red-500/10 px-1 text-red-600">
             {toolErrorCount} tool error{toolErrorCount === 1 ? '' : 's'}
+          </span>
+        )}
+        {toolRetryFailureCount > 0 && (
+          <span className="rounded bg-amber-500/10 px-1 text-amber-700">
+            {toolRetryFailureCount} failed tool attempt{toolRetryFailureCount === 1 ? '' : 's'}
           </span>
         )}
         <TokenSplit prompt={promptTokens} completion={completionTokens} total={tokens} prefix="Σ" />
