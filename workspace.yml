@@ -12,6 +12,8 @@ collections:
     path: "collections/google"
   - name: "openrouter"
     path: "collections/openrouter"
+  - name: "mcp"
+    path: "collections/mcp"
 
 specs:
 
