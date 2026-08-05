@@ -30,25 +30,103 @@ Use the response's uid value as GRAFANA_MCP_DATASOURCE_UID. For a new Grafana in
 
 Do not add a new UID blindly to an existing provisioned datasource. First use its current UID or recreate the datasource deliberately.
 
-2. CREATE A GRAFANA SERVICE ACCOUNT
------------------------------------
+2. ADD THE MCP AND BOOTSTRAP FILES
+----------------------------------
 
-In Grafana, create a service account named sinair-llm-bot-mcp with the Viewer role and generate a token. The MCP server is started with only the Loki tool category and read-only mode.
+Grafana does not provision service accounts from its startup YAML files. Use a one-shot container that calls the Grafana HTTP API and writes the MCP token before the MCP server starts.
 
-Store the token outside Git in:
+Create logging/grafana-mcp/bootstrap.sh in prodenv:
 
-    logging/grafana-mcp/secrets/grafana-token
+    #!/bin/sh
+    set -eu
 
-Restrict the file to the deployment user and add logging/grafana-mcp/secrets/ to .gitignore.
+    account_name=sinair-llm-bot-mcp
+    token_name=grafana-mcp
+    token_file=/output/grafana-token
+    grafana_url=${GRAFANA_URL:-http://grafana:3000}
 
-Grafana Enterprise or Cloud installations with datasource RBAC should grant only datasources:query on the Loki datasource UID. Grafana OSS uses the broader built-in Viewer role.
+    request() {
+      curl --fail --silent --show-error \
+        --user "${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}" \
+        --header 'Content-Type: application/json' \
+        "$@"
+    }
 
-3. ADD THE MCP SERVICE
-----------------------
+    until request "${grafana_url}/api/health" >/dev/null 2>&1; do
+      sleep 2
+    done
+
+    account_id=$(request "${grafana_url}/api/serviceaccounts/search?query=${account_name}" \
+      | jq -r --arg name "$account_name" \
+        '.serviceAccounts[] | select(.name == $name) | .id' \
+      | head -n 1)
+
+    if [ -z "$account_id" ]; then
+      account_id=$(request \
+        --request POST \
+        --data "$(jq -cn --arg name "$account_name" \
+          '{name: $name, role: "Viewer", isDisabled: false}')" \
+        "${grafana_url}/api/serviceaccounts" \
+        | jq -r '.id')
+    else
+      request \
+        --request PATCH \
+        --data '{"role":"Viewer","isDisabled":false}' \
+        "${grafana_url}/api/serviceaccounts/${account_id}" >/dev/null
+    fi
+
+    if [ -s "$token_file" ] && curl --fail --silent \
+      --header "Authorization: Bearer $(cat "$token_file")" \
+      "${grafana_url}/api/org" >/dev/null; then
+      exit 0
+    fi
+
+    request "${grafana_url}/api/serviceaccounts/${account_id}/tokens" \
+      | jq -r --arg name "$token_name" '.[] | select(.name == $name) | .id' \
+      | while read -r token_id; do
+          request --request DELETE \
+            "${grafana_url}/api/serviceaccounts/${account_id}/tokens/${token_id}" \
+            >/dev/null
+        done
+
+    token=$(request \
+      --request POST \
+      --data "$(jq -cn --arg name "$token_name" \
+        '{name: $name, secondsToLive: 0}')" \
+      "${grafana_url}/api/serviceaccounts/${account_id}/tokens" \
+      | jq -er '.key')
+
+    umask 077
+    printf '%s' "$token" > "${token_file}.tmp"
+    chown 1000:1000 "${token_file}.tmp"
+    chmod 0600 "${token_file}.tmp"
+    mv "${token_file}.tmp" "$token_file"
+
+Create logging/grafana-mcp/Dockerfile.bootstrap:
+
+    FROM alpine:3.22
+
+    RUN apk add --no-cache curl jq
+
+    COPY bootstrap.sh /usr/local/bin/bootstrap.sh
+
+    ENTRYPOINT ["/bin/sh", "/usr/local/bin/bootstrap.sh"]
 
 Create logging/grafana-mcp/docker-compose.yml in prodenv:
 
     services:
+      grafana-mcp-bootstrap:
+        build:
+          context: .
+          dockerfile: Dockerfile.bootstrap
+        environment:
+          GRAFANA_URL: http://grafana:3000
+          GRAFANA_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+          GRAFANA_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+        volumes:
+          - ./secrets:/output
+        restart: "no"
+
       grafana-mcp:
         image: grafana/mcp-grafana:v1.0.0
         command:
@@ -71,11 +149,36 @@ Create logging/grafana-mcp/docker-compose.yml in prodenv:
         expose:
           - "8000"
 
-The official image contains neither curl nor wget, so do not add a container-local HTTP health check without building a derived image. Do not publish port 8000 on the host. The MCP endpoint contains no client authentication and must remain reachable only through Docker networks used by trusted services.
+Create the secret directory and keep it outside Git:
+
+    mkdir -p logging/grafana-mcp/secrets
+    chmod 700 logging/grafana-mcp/secrets
+
+Add this entry to .gitignore:
+
+    logging/grafana-mcp/secrets/
+
+The bootstrap is idempotent. It reuses a working token, creates a missing service account, and replaces an invalid or locally lost token. A token cannot be recovered from Grafana after creation, so replacement deletes any same-named token before generating a new one.
+
+The admin credentials are used only by the one-shot bootstrap container. Prefer Docker secrets for them when prodenv stores the Grafana admin password as a secret; otherwise they are visible in the bootstrap container configuration. The generated service-account token is written with mode 0600 and ownership 1000:1000 because the official grafana/mcp-grafana:v1.0.0 image runs as that non-root user. The token is never placed in an environment variable.
+
+Grafana Enterprise or Cloud installations with datasource RBAC should grant only datasources:query on the Loki datasource UID instead of using the Viewer role reconciliation above. Grafana OSS uses the broader built-in Viewer role.
+
+The official MCP image contains neither curl nor wget, so do not add a container-local HTTP health check without building a derived image. Do not publish port 8000 on the host. The MCP endpoint contains no client authentication and must remain reachable only through Docker networks used by trusted services.
 
 Add the service to the root docker-compose.yml:
 
     services:
+      grafana-mcp-bootstrap:
+        extends:
+          file: logging/grafana-mcp/docker-compose.yml
+          service: grafana-mcp-bootstrap
+        networks:
+          - logging
+        depends_on:
+          grafana:
+            condition: service_started
+
       grafana-mcp:
         extends:
           file: logging/grafana-mcp/docker-compose.yml
@@ -84,12 +187,12 @@ Add the service to the root docker-compose.yml:
           - logging
           - artist-insight-shared
         depends_on:
-          grafana:
-            condition: service_started
+          grafana-mcp-bootstrap:
+            condition: service_completed_successfully
 
-The logging network lets MCP reach Grafana. artist-insight-shared lets the bot backend reach MCP; the backend is already attached to that external network.
+The bootstrap waits for Grafana's API even when the Grafana service has no Compose health check. The logging network lets the bootstrap and MCP reach Grafana. artist-insight-shared lets the bot backend reach MCP; the backend is already attached to that external network.
 
-4. CONFIGURE EACH BOT ENVIRONMENT
+3. CONFIGURE EACH BOT ENVIRONMENT
 ---------------------------------
 
 Set these values in each deployed bot environment file:
@@ -109,12 +212,21 @@ This is the isolation boundary. Verify the actual COMPOSE_PROJECT_NAME in each p
 
 Redeploy prodenv first, then redeploy each bot backend with the updated Compose template.
 
-5. VERIFY
+4. VERIFY
 ---------
 
 From the Docker host, verify the MCP container and endpoint. The existing Grafana image has wget, so it can perform the network check:
 
+    docker compose up --build -d grafana-mcp-bootstrap grafana-mcp
+    docker compose ps -a grafana-mcp-bootstrap
     docker compose ps grafana-mcp
+    test -s logging/grafana-mcp/secrets/grafana-token
     docker compose exec grafana wget -qO- http://grafana-mcp:8000/healthz
+
+The bootstrap service must show exit code 0. Restart it once to verify idempotency; it must keep the existing valid token and exit successfully:
+
+    token_checksum=$(sha256sum logging/grafana-mcp/secrets/grafana-token)
+    docker compose run --rm grafana-mcp-bootstrap
+    test "$token_checksum" = "$(sha256sum logging/grafana-mcp/secrets/grafana-token)"
 
 Then ask each bot for a recent backend log entry and confirm its pipeline trace contains grafana://loki/current-environment. Confirm every returned container label starts with that deployment's COMPOSE_PROJECT_NAME. A request naming an unrelated or opposite-environment service must be rejected by the bot before an MCP call.
