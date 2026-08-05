@@ -29,6 +29,7 @@ class BotMessageOrchestrator(
     private val mutedRoomRegistry: MutedRoomRegistry,
     private val botSleepService: BotSleepService,
     private val botTypingService: BotTypingService,
+    private val roomProcessingGuard: RoomProcessingGuard,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val pipelineTraceService: PipelineTraceService,
@@ -52,7 +53,9 @@ class BotMessageOrchestrator(
             .distinct()
             .filterNot { botSleepService.isAsleep(it) }
             .forEach { roomTarget ->
-                botDebouncer.schedule(roomTarget) { evaluateRoom(roomTarget) }
+                botDebouncer.schedule(roomTarget) {
+                    roomProcessingGuard.runExclusive(roomTarget) { evaluateRoom(roomTarget) }
+                }
             }
     }
 
