@@ -6,6 +6,7 @@ import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './b
 import { startSender, stopSender } from './sender.js';
 import { startPresence, stopPresence } from './presence.js';
 import { startTyping, stopTyping } from './typing.js';
+import { estimateServerNowMs, isOlderThan, normalizeUnixTime } from './history.js';
 
 let chat = null;
 let reconnectTimeout = null;
@@ -16,6 +17,7 @@ const roomsByTarget = new Map();
 const historyWarmup = new Map();
 // Uses server time so clock skew cannot leak replayed history as live traffic.
 const roomJoinedAt = new Map();
+const roomJoinedLocallyAt = new Map();
 
 // Detects half-open sockets that never emit a close frame.
 let heartbeatTimer = null;
@@ -59,6 +61,7 @@ function sendChatMessage(target, text) {
 function onRoomReady(room) {
     roomsByTarget.set(room.target, room);
     roomJoinedAt.set(room.target, serverTimeAtJoin(room));
+    roomJoinedLocallyAt.set(room.target, Date.now());
     if (config.botColor) {
         room.sendMessage(`/color ${config.botColor}`);
         logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
@@ -79,15 +82,20 @@ function serverTimeAtJoin(room) {
     const local = Math.floor(Date.now() / 1000);
     let maxSeen = 0;
     for (const member of room?.members || []) {
-        const seen = member?.last_seen_time;
-        if (typeof seen === 'number' && seen > maxSeen) maxSeen = seen;
+        const seen = normalizeUnixTime(member?.last_seen_time);
+        if (seen != null && seen > maxSeen) maxSeen = seen;
     }
     return Math.max(local, maxSeen);
 }
 
 function isBeforeJoin(target, sentAt) {
     const joinedAt = roomJoinedAt.get(target);
-    return joinedAt != null && typeof sentAt === 'number' && sentAt <= joinedAt;
+    const timestamp = normalizeUnixTime(sentAt);
+    return joinedAt != null && timestamp != null && timestamp <= joinedAt;
+}
+
+function estimatedServerNow(target) {
+    return estimateServerNowMs(roomJoinedAt.get(target), roomJoinedLocallyAt.get(target), Date.now());
 }
 
 function startHistoryWarmup(target) {
@@ -119,6 +127,7 @@ function finishHistoryWarmup(target) {
 function clearAllHistoryWarmup() {
     for (const target of [...historyWarmup.keys()]) finishHistoryWarmup(target);
     roomJoinedAt.clear();
+    roomJoinedLocallyAt.clear();
 }
 
 function setRoomPresence(target, presence) {
@@ -181,11 +190,12 @@ export async function startCollector() {
         const member = room?.getMemberById?.(msgobj.from);
         const warmup = isHistoryWarmup(room?.target);
         const beforeJoin = isBeforeJoin(room?.target, msgobj.time);
-        const historical = warmup || beforeJoin;
+        const tooOld = isOlderThan(msgobj.time, estimatedServerNow(room?.target), config.messageLiveMaxAgeMs);
+        const historical = warmup || beforeJoin || tooOld;
         logger.debug(
             `[collector] message event — room=${room?.target}, from=${msgobj?.from_login}, ` +
             `id=${msgobj?.id ?? 'none'}, time=${msgobj?.time}, joinedAt=${roomJoinedAt.get(room?.target) ?? 'none'}, ` +
-            `warmup=${warmup}, beforeJoin=${beforeJoin}, historical=${historical}`,
+            `warmup=${warmup}, beforeJoin=${beforeJoin}, tooOld=${tooOld}, historical=${historical}`,
         );
         if (warmup) bumpHistoryWarmup(room.target);
         const dto = {

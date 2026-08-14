@@ -49,6 +49,7 @@ export const config = {
     typingRefreshInterval: parseInt(process.env.TYPING_REFRESH_INTERVAL || '3000', 10),
     historyWarmupIdleMs: parseInt(process.env.HISTORY_WARMUP_IDLE_MS || '1500', 10),
     historyWarmupMaxMs: parseInt(process.env.HISTORY_WARMUP_MAX_MS || '10000', 10),
+    messageLiveMaxAgeMs: parseInt(process.env.MESSAGE_LIVE_MAX_AGE_MS || '60000', 10),
     restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),
     heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS || '25000', 10),
     heartbeatTimeoutMs: parseInt(process.env.HEARTBEAT_TIMEOUT_MS || '60000', 10),
