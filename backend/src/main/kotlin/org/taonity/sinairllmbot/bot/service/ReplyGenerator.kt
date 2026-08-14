@@ -220,6 +220,7 @@ class ReplyGenerator(
         // Collapse blank-line paragraph breaks into a single newline: chat participants don't
         // double-space their messages, and the extra gap looks off.
         text = text.replace(Regex("\\n[ \\t]*\\n+"), "\n")
+        text = ChatReplyFormatter.wrapLongReply(text)
         val maxReplyChars = botProperties.limits.maxReplyChars
         if (text.length > maxReplyChars) {
             val ellipsis = "\u2026"
