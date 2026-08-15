@@ -15,11 +15,13 @@ internal object ChatReplyFormatter {
         .compactFenceBoundaries()
 
     fun wrapLongReply(text: String): String {
+        val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
+        if (fenceCount == 1) return "$text$TRIPLE_BACKTICKS"
+
         val visibleLines = text.lineSequence().sumOf { line ->
             maxOf(1, (line.length + APPROXIMATE_CHARS_PER_LINE - 1) / APPROXIMATE_CHARS_PER_LINE)
         }
         if (visibleLines <= MAX_VISIBLE_LINES) return text
-        val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
         extractDescriptionFromWholeBlock(text)?.let { return it }
         if (fenceCount > 0 && fenceCount % 2 == 0) {
             return text

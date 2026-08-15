@@ -92,14 +92,20 @@ class ChatReplyFormatterTest {
     }
 
     @Test
-    fun `normalizes an unclosed block into one block around the entire response`() {
+    fun `appends a closing fence to a long response with one fence`() {
         val response = "intro\n```\n${"a".repeat(811)}\noutro"
 
         val formatted = ChatReplyFormatter.wrapLongReply(response)
 
-        assertThat(formatted).startsWith("```intro\n")
-        assertThat(formatted).endsWith("outro```")
+        assertThat(formatted).isEqualTo("$response```")
         assertThat(formatted.windowed(3).count { it == "```" }).isEqualTo(2)
+    }
+
+    @Test
+    fun `appends a closing fence to a short response with one fence`() {
+        val response = "Description.```short details"
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo("$response```")
     }
 
     @Test
