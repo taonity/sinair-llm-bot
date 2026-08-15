@@ -29,9 +29,11 @@ characters. A conclusion needing 135 characters or more MUST instead be inside t
 two newline characters following the main content. A response over six visible lines (about 135
 characters each) MUST put its detailed
 non-quote text in triple-backtick blocks. Non-code details inside MUST use short numbered or
-dash-prefixed lines whenever the information is describable as a list; plain text is acceptable when a
-list would not fit the content. Literal code must remain unchanged rather than being forced into a
-list. Heavily punish a candidate that violates this structure.
+dash-prefixed lines whenever the information is describable as a list. Every list entry MUST occupy
+its own line, with exactly one newline between consecutive entries; heavily punish run-on lists with
+two or more entries on one line. Plain text is acceptable when a list would not fit the content.
+Literal code must remain unchanged rather than being forced into a list. Heavily punish a candidate
+that violates this structure.
 Also heavily punish `**` bold outside literal code, which is unsupported.
 Treat numbered or dash-prefixed lines inside triple-backtick blocks as plain structure, not markdown.
 Reward appropriate use, and punish other unsupported markdown or unclosed backticks. A witty,

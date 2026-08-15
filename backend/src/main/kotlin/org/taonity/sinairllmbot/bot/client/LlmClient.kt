@@ -124,8 +124,9 @@ class LlmClient(
                         "the opening fence and the closing fence immediately after the content, also with no " +
                         "newline or space. Never put the " +
                         "description inside the fence. Structure non-code details as short numbered or " +
-                        "dash-prefixed lines whenever " +
-                        "they can be described as a list; otherwise use plain text, and keep literal code " +
+                        "dash-prefixed lines whenever they can be described as a list. Put every entry on " +
+                        "its own line with exactly one newline between consecutive entries; never put two " +
+                        "entries on the same line. Otherwise use plain text, and keep literal code " +
                         "unchanged. Add a conclusion only when actually required. Keep it under 135 characters " +
                         "and place it immediately after the closing fence with no newline or space. If it needs " +
                         "135 characters or more, put it inside the block after exactly two newline characters " +
