@@ -42,10 +42,20 @@ class ChatReplyFormatterTest {
     }
 
     @Test
-    fun `leaves an already wrapped long response unchanged`() {
+    fun `leaves a single-line wrapped response unchanged when no description can be separated`() {
         val response = "```\n${"a".repeat(811)}\n```"
 
         assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    }
+
+    @Test
+    fun `moves a description out of a whole-message fenced block`() {
+        val details = (1..7).joinToString("\n") { "- detail $it" }
+        val response = "```\nBrief description of the structured details.\n$details\n```"
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
+            "Brief description of the structured details.\n```\n$details\n```",
+        )
     }
 
     @Test
@@ -60,6 +70,15 @@ class ChatReplyFormatterTest {
         val response = "Description of the details.\n```\n${"a".repeat(811)}\n```\nShort conclusion."
 
         assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    }
+
+    @Test
+    fun `removes blank lines around a fenced block and conclusion`() {
+        val response = "Description.\n\n```\n${"a".repeat(811)}\n```\n\nConclusion."
+
+        assertThat(ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(response))).isEqualTo(
+            "Description.\n```\n${"a".repeat(811)}\n```\nConclusion.",
+        )
     }
 
     @Test

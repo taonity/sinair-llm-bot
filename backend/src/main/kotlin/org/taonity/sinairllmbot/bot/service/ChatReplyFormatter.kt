@@ -18,6 +18,7 @@ internal object ChatReplyFormatter {
         }
         if (visibleLines <= MAX_VISIBLE_LINES) return text
         val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
+        extractDescriptionFromWholeBlock(text)?.let { return it }
         if (fenceCount > 0 && fenceCount % 2 == 0) {
             return text
         }
@@ -26,6 +27,22 @@ internal object ChatReplyFormatter {
         }
         val content = text.replace(TRIPLE_BACKTICKS, "").trim()
         return "$TRIPLE_BACKTICKS\n$content\n$TRIPLE_BACKTICKS"
+    }
+
+    private fun extractDescriptionFromWholeBlock(text: String): String? {
+        if (!text.startsWith("$TRIPLE_BACKTICKS\n") || !text.endsWith("\n$TRIPLE_BACKTICKS")) return null
+        if (text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return null
+
+        val lines = text
+            .removePrefix("$TRIPLE_BACKTICKS\n")
+            .removeSuffix("\n$TRIPLE_BACKTICKS")
+            .lines()
+        if (lines.size < 2) return null
+
+        val description = lines.first().trim()
+        val details = lines.drop(1).joinToString("\n").trim()
+        if (description.isEmpty() || details.isEmpty()) return null
+        return "$description\n$TRIPLE_BACKTICKS\n$details\n$TRIPLE_BACKTICKS"
     }
 
     private fun String.removeUnsupportedBold(): String = split(TRIPLE_BACKTICKS)
