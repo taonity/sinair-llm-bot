@@ -17,14 +17,8 @@ internal object ChatReplyFormatter {
             maxOf(1, (line.length + APPROXIMATE_CHARS_PER_LINE - 1) / APPROXIMATE_CHARS_PER_LINE)
         }
         if (visibleLines <= MAX_VISIBLE_LINES) return text
-        if (text.startsWith(TRIPLE_BACKTICKS) && text.endsWith(TRIPLE_BACKTICKS) &&
-            text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } == 2
-        ) {
-            return text
-        }
-        if (!text.startsWith(TRIPLE_BACKTICKS) && text.endsWith(TRIPLE_BACKTICKS) &&
-            text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } == 2
-        ) {
+        val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
+        if (fenceCount > 0 && fenceCount % 2 == 0) {
             return text
         }
         if (text.lineSequence().any { it.startsWith("> ") }) {
