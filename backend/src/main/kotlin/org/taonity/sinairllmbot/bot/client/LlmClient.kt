@@ -114,8 +114,10 @@ class LlmClient(
             if (!offerTools) {
                 conversation += ChatMessage.user(
                     "The investigation has reached its tool-call limit. Now wrap up " +
-                        "the answer for the user in the chat format, using only single-backtick " +
-                        "inline highlights or triple-backtick scroll/code blocks. If the response exceeds six " +
+                        "the answer for the user in the chat format, using only single-backtick inline " +
+                        "highlights, triple-backtick scroll/code blocks, or quote lines starting with `> `. " +
+                        "Keep each quote on its own line, outside scroll blocks, and continue on a new line. " +
+                        "Never use `**` bold outside literal code. If the response exceeds six " +
                         "visible lines of about 135 characters each, put all of it inside one triple-backtick block. Be concise: say " +
                         "which tools, application records, repositories, files or search terms you " +
                         "checked; what you found; distinguish current state from historical snapshots; " +

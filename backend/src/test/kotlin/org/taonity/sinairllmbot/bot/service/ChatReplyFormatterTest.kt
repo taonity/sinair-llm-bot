@@ -5,6 +5,28 @@ import org.junit.jupiter.api.Test
 
 class ChatReplyFormatterTest {
     @Test
+    fun `removes unsupported bold markers`() {
+        assertThat(ChatReplyFormatter.normalize("this is **important**"))
+            .isEqualTo("this is important")
+    }
+
+    @Test
+    fun `preserves double asterisks inside fenced code`() {
+        val response = "outside **bold**\n```\nvalue = 2 ** 3\n```"
+
+        assertThat(ChatReplyFormatter.normalize(response))
+            .isEqualTo("outside bold\n```\nvalue = 2 ** 3\n```")
+    }
+
+    @Test
+    fun `collapses blank lines without joining quote and reply lines`() {
+        val response = "> first quote\r\n\r\nreply\r\n> second quote\r\nnext reply"
+
+        assertThat(ChatReplyFormatter.normalize(response))
+            .isEqualTo("> first quote\nreply\n> second quote\nnext reply")
+    }
+
+    @Test
     fun `leaves a six line response unchanged`() {
         val response = "a".repeat(810)
 
@@ -43,5 +65,15 @@ class ChatReplyFormatterTest {
 
         assertThat(ChatReplyFormatter.wrapLongReply(response))
             .isEqualTo("```\n$response\n```")
+    }
+
+    @Test
+    fun `keeps multiple quotes functional in a long response`() {
+        val response = "> first quote\nreply one\nreply two\n> second quote\nreply three\nreply four\nreply five"
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
+            "> first quote\n```\nreply one\nreply two\n```\n" +
+                "> second quote\n```\nreply three\nreply four\nreply five\n```",
+        )
     }
 }
