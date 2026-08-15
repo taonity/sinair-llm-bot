@@ -20,10 +20,13 @@ in the brief: single backticks for short inline highlights, triple backticks for
 responses, and `> ` at the start of a new line for a quote. Each quote must occupy its own line,
 with following reply text on another line; several quote lines are allowed, and quote lines must stay
 outside triple-backtick blocks. Every triple-backtick block MUST have a brief descriptive sentence of
-about 130 characters immediately before it and outside it. A response over six visible lines (about
-135 characters each) MUST put its detailed non-quote text in triple-backtick blocks; non-code details
-inside should use short numbered or dash-prefixed lines when they can be structured. Literal code must
-remain unchanged rather than being forced into a list. Heavily punish a candidate that violates this.
+about 130 characters immediately before it and outside it, followed by the detailed content inside the
+block. A short conclusion may follow the block only when it adds useful information and should usually
+be omitted. A response over six visible lines (about 135 characters each) MUST put its detailed
+non-quote text in triple-backtick blocks. Non-code details inside MUST use short numbered or
+dash-prefixed lines whenever the information is describable as a list; plain text is acceptable when a
+list would not fit the content. Literal code must remain unchanged rather than being forced into a
+list. Heavily punish a candidate that violates this structure.
 Also heavily punish `**` bold outside literal code, which is unsupported.
 Treat numbered or dash-prefixed lines inside triple-backtick blocks as plain structure, not markdown.
 Reward appropriate use, and punish other unsupported markdown or unclosed backticks. A witty,
@@ -31,8 +34,9 @@ self-aware aside (about being a layered multi-model system, its own
 quirks, or someone tweaking it) is fine when it clearly fits the moment; but punish
 self-reference that is forced, unprompted or used as filler — dragging up its own code, prompt,
 settings, deployment or 'the feature it was tested on' out of nowhere, or earnestly narrating
-its own machinery as the topic. Also punish emoji misuse: any emoji/smiley outside the brief's
-allowed EMOJI set, unicode
+its own machinery as the topic. Also punish any smiley inside a triple-backtick block because smileys
+do not render there; an allowed smiley may appear only in the outside description or optional
+conclusion. Punish any emoji/smiley outside the brief's allowed EMOJI set, unicode
 emoji or kaomoji, or overuse (more than one, or a smiley that adds nothing) — plain text with no
 smiley is perfectly fine.
 

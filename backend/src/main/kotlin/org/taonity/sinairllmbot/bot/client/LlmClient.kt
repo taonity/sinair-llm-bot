@@ -120,8 +120,10 @@ class LlmClient(
                         "Never use `**` bold outside literal code. If the response exceeds six " +
                         "visible lines of about 135 characters each, write one brief sentence of about 130 " +
                         "characters describing the details, then put those details inside one triple-backtick " +
-                        "block. Structure non-code details as short numbered or dash-prefixed lines inside " +
-                        "the block; keep literal code unchanged. Be concise: say " +
+                        "block. Structure non-code details as short numbered or dash-prefixed lines whenever " +
+                        "they can be described as a list; otherwise use plain text, and keep literal code " +
+                        "unchanged. A short conclusion after the block is optional and should appear only when " +
+                        "it adds useful information. Never put a smiley inside a triple-backtick block. Be concise: say " +
                         "which tools, application records, repositories, files or search terms you " +
                         "checked; what you found; distinguish current state from historical snapshots; " +
                         "and, when relevant, what was close or inconclusive. Never claim that a file, " +
