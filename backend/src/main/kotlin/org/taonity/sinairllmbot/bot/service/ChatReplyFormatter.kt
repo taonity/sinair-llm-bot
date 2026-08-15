@@ -9,8 +9,10 @@ internal object ChatReplyFormatter {
     fun normalize(text: String): String = text
         .replace("\r\n", "\n")
         .replace('\r', '\n')
+        .extractBlankLineDelimitedDescription()
         .removeUnsupportedBold()
         .replace(BLANK_LINES, "\n")
+        .compactFenceBoundaries()
 
     fun wrapLongReply(text: String): String {
         val visibleLines = text.lineSequence().sumOf { line ->
@@ -26,24 +28,47 @@ internal object ChatReplyFormatter {
             return wrapTextBetweenQuotes(text)
         }
         val content = text.replace(TRIPLE_BACKTICKS, "").trim()
-        return "$TRIPLE_BACKTICKS\n$content\n$TRIPLE_BACKTICKS"
+        return "$TRIPLE_BACKTICKS$content$TRIPLE_BACKTICKS"
     }
 
     private fun extractDescriptionFromWholeBlock(text: String): String? {
-        if (!text.startsWith("$TRIPLE_BACKTICKS\n") || !text.endsWith("\n$TRIPLE_BACKTICKS")) return null
+        if (!text.startsWith(TRIPLE_BACKTICKS) || !text.endsWith(TRIPLE_BACKTICKS)) return null
         if (text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return null
 
         val lines = text
-            .removePrefix("$TRIPLE_BACKTICKS\n")
-            .removeSuffix("\n$TRIPLE_BACKTICKS")
+            .removePrefix(TRIPLE_BACKTICKS)
+            .removeSuffix(TRIPLE_BACKTICKS)
+            .trim('\n')
             .lines()
         if (lines.size < 2) return null
 
         val description = lines.first().trim()
         val details = lines.drop(1).joinToString("\n").trim()
         if (description.isEmpty() || details.isEmpty()) return null
-        return "$description\n$TRIPLE_BACKTICKS\n$details\n$TRIPLE_BACKTICKS"
+        return "$description$TRIPLE_BACKTICKS$details$TRIPLE_BACKTICKS"
     }
+
+    private fun String.extractBlankLineDelimitedDescription(): String {
+        if (!startsWith("$TRIPLE_BACKTICKS\n")) return this
+        if (windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return this
+
+        val closingFence = indexOf(TRIPLE_BACKTICKS, TRIPLE_BACKTICKS.length)
+        if (closingFence < 0) return this
+        val blockContent = substring(TRIPLE_BACKTICKS.length, closingFence).trim('\n')
+        val delimiter = BLANK_LINES.find(blockContent) ?: return this
+        val description = blockContent.substring(0, delimiter.range.first).trim()
+        val details = blockContent.substring(delimiter.range.last + 1).trim()
+        if (description.isEmpty() || details.isEmpty()) return this
+
+        val conclusion = substring(closingFence + TRIPLE_BACKTICKS.length).trim()
+        return buildString {
+            append(description).append(TRIPLE_BACKTICKS).append(details).append(TRIPLE_BACKTICKS)
+            if (conclusion.isNotEmpty()) append(conclusion)
+        }
+    }
+
+    private fun String.compactFenceBoundaries(): String = split(TRIPLE_BACKTICKS)
+        .joinToString(TRIPLE_BACKTICKS) { part -> part.trim('\n') }
 
     private fun String.removeUnsupportedBold(): String = split(TRIPLE_BACKTICKS)
         .mapIndexed { index, part -> if (index % 2 == 0) part.replace("**", "") else part }
@@ -53,7 +78,7 @@ internal object ChatReplyFormatter {
         val textLines = mutableListOf<String>()
         fun flushText() {
             if (textLines.isEmpty()) return
-            add("$TRIPLE_BACKTICKS\n${textLines.joinToString("\n")}\n$TRIPLE_BACKTICKS")
+            add("$TRIPLE_BACKTICKS${textLines.joinToString("\n")}$TRIPLE_BACKTICKS")
             textLines.clear()
         }
 

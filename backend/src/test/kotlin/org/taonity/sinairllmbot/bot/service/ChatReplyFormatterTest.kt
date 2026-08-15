@@ -15,7 +15,7 @@ class ChatReplyFormatterTest {
         val response = "outside **bold**\n```\nvalue = 2 ** 3\n```"
 
         assertThat(ChatReplyFormatter.normalize(response))
-            .isEqualTo("outside bold\n```\nvalue = 2 ** 3\n```")
+            .isEqualTo("outside bold```value = 2 ** 3```")
     }
 
     @Test
@@ -38,7 +38,7 @@ class ChatReplyFormatterTest {
         val response = "a".repeat(811)
 
         assertThat(ChatReplyFormatter.wrapLongReply(response))
-            .isEqualTo("```\n$response\n```")
+            .isEqualTo("```$response```")
     }
 
     @Test
@@ -54,7 +54,7 @@ class ChatReplyFormatterTest {
         val response = "```\nBrief description of the structured details.\n$details\n```"
 
         assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
-            "Brief description of the structured details.\n```\n$details\n```",
+            "Brief description of the structured details.```$details```",
         )
     }
 
@@ -77,7 +77,17 @@ class ChatReplyFormatterTest {
         val response = "Description.\n\n```\n${"a".repeat(811)}\n```\n\nConclusion."
 
         assertThat(ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(response))).isEqualTo(
-            "Description.\n```\n${"a".repeat(811)}\n```\nConclusion.",
+            "Description.```${"a".repeat(811)}```Conclusion.",
+        )
+    }
+
+    @Test
+    fun `moves blank-line-delimited description outside block before conclusion`() {
+        val details = (1..7).joinToString("\n") { "- detail $it" }
+        val response = "```\nDescription of the details.\n\n$details\n```\nConclusion."
+
+        assertThat(ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(response))).isEqualTo(
+            "Description of the details.```$details```Conclusion.",
         )
     }
 
@@ -87,8 +97,8 @@ class ChatReplyFormatterTest {
 
         val formatted = ChatReplyFormatter.wrapLongReply(response)
 
-        assertThat(formatted).startsWith("```\nintro\n")
-        assertThat(formatted).endsWith("\noutro\n```")
+        assertThat(formatted).startsWith("```intro\n")
+        assertThat(formatted).endsWith("outro```")
         assertThat(formatted.windowed(3).count { it == "```" }).isEqualTo(2)
     }
 
@@ -97,7 +107,7 @@ class ChatReplyFormatterTest {
         val response = (1..7).joinToString("\n") { "line $it" }
 
         assertThat(ChatReplyFormatter.wrapLongReply(response))
-            .isEqualTo("```\n$response\n```")
+            .isEqualTo("```$response```")
     }
 
     @Test
@@ -105,8 +115,8 @@ class ChatReplyFormatterTest {
         val response = "> first quote\nreply one\nreply two\n> second quote\nreply three\nreply four\nreply five"
 
         assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
-            "> first quote\n```\nreply one\nreply two\n```\n" +
-                "> second quote\n```\nreply three\nreply four\nreply five\n```",
+            "> first quote\n```reply one\nreply two```\n" +
+                "> second quote\n```reply three\nreply four\nreply five```",
         )
     }
 }

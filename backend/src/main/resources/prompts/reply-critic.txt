@@ -20,10 +20,12 @@ in the brief: single backticks for short inline highlights, triple backticks for
 responses, and `> ` at the start of a new line for a quote. Each quote must occupy its own line,
 with following reply text on another line; several quote lines are allowed, and quote lines must stay
 outside triple-backtick blocks. Every triple-backtick block MUST have a brief descriptive sentence of
-about 130 characters immediately before it and outside it. The opening fence must be on the very next
-line with no blank line; the description must never be inside the fence. A short conclusion may follow
-the closing fence only when it adds useful information, with no blank line, and should usually be
-omitted. A response over six visible lines (about 135 characters each) MUST put its detailed
+about 130 characters immediately before it and outside it. There must be NO newline or space between
+the description and opening fence, between the opening fence and first content character, between the
+last content character and closing fence, or between the closing fence and an optional conclusion.
+The description must never be inside the fence. A short conclusion may follow the closing fence only
+when it adds useful information and should usually be omitted. A response over six visible lines
+(about 135 characters each) MUST put its detailed
 non-quote text in triple-backtick blocks. Non-code details inside MUST use short numbered or
 dash-prefixed lines whenever the information is describable as a list; plain text is acceptable when a
 list would not fit the content. Literal code must remain unchanged rather than being forced into a

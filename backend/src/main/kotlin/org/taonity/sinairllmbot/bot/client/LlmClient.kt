@@ -119,13 +119,15 @@ class LlmClient(
                         "Keep each quote on its own line, outside scroll blocks, and continue on a new line. " +
                         "Never use `**` bold outside literal code. If the response exceeds six " +
                         "visible lines of about 135 characters each, write one brief sentence of about 130 " +
-                        "characters describing the details outside the fence, then put the opening fence on " +
-                        "the very next line with no blank line and put the details inside it. Never put the " +
+                        "characters describing the details outside the fence, then put the opening fence " +
+                        "immediately after it with no newline or space. Put the content immediately after " +
+                        "the opening fence and the closing fence immediately after the content, also with no " +
+                        "newline or space. Never put the " +
                         "description inside the fence. Structure non-code details as short numbered or " +
                         "dash-prefixed lines whenever " +
                         "they can be described as a list; otherwise use plain text, and keep literal code " +
-                        "unchanged. A short conclusion is optional and, when useful, goes on the line immediately " +
-                        "after the closing fence with no blank line. Never put a smiley inside a triple-backtick block. Be concise: say " +
+                        "unchanged. A short conclusion is optional and, when useful, goes immediately after " +
+                        "the closing fence with no newline or space. Never put a smiley inside a triple-backtick block. Be concise: say " +
                         "which tools, application records, repositories, files or search terms you " +
                         "checked; what you found; distinguish current state from historical snapshots; " +
                         "and, when relevant, what was close or inconclusive. Never claim that a file, " +
