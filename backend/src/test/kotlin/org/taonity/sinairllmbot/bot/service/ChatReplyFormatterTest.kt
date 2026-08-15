@@ -49,6 +49,13 @@ class ChatReplyFormatterTest {
     }
 
     @Test
+    fun `keeps a brief description outside its long response block`() {
+        val response = "Brief description of the structured details below.\n```\n${"a".repeat(811)}\n```"
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    }
+
+    @Test
     fun `normalizes partial blocks into one block around the entire response`() {
         val response = "intro\n```\n${"a".repeat(811)}\n```\noutro"
 

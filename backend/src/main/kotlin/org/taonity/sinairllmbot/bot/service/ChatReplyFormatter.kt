@@ -22,6 +22,11 @@ internal object ChatReplyFormatter {
         ) {
             return text
         }
+        if (!text.startsWith(TRIPLE_BACKTICKS) && text.endsWith(TRIPLE_BACKTICKS) &&
+            text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } == 2
+        ) {
+            return text
+        }
         if (text.lineSequence().any { it.startsWith("> ") }) {
             return wrapTextBetweenQuotes(text)
         }

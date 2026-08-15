@@ -19,9 +19,13 @@ prefix, never assistant-like or lecturing? The chat supports only the three form
 in the brief: single backticks for short inline highlights, triple backticks for code or long
 responses, and `> ` at the start of a new line for a quote. Each quote must occupy its own line,
 with following reply text on another line; several quote lines are allowed, and quote lines must stay
-outside triple-backtick blocks. A response over six visible lines (about 135 characters each) MUST
-use triple-backtick blocks around the non-quote text; heavily punish a candidate that violates this.
+outside triple-backtick blocks. Every triple-backtick block MUST have a brief descriptive sentence of
+about 130 characters immediately before it and outside it. A response over six visible lines (about
+135 characters each) MUST put its detailed non-quote text in triple-backtick blocks; non-code details
+inside should use short numbered or dash-prefixed lines when they can be structured. Literal code must
+remain unchanged rather than being forced into a list. Heavily punish a candidate that violates this.
 Also heavily punish `**` bold outside literal code, which is unsupported.
+Treat numbered or dash-prefixed lines inside triple-backtick blocks as plain structure, not markdown.
 Reward appropriate use, and punish other unsupported markdown or unclosed backticks. A witty,
 self-aware aside (about being a layered multi-model system, its own
 quirks, or someone tweaking it) is fine when it clearly fits the moment; but punish

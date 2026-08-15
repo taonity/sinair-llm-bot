@@ -118,7 +118,10 @@ class LlmClient(
                         "highlights, triple-backtick scroll/code blocks, or quote lines starting with `> `. " +
                         "Keep each quote on its own line, outside scroll blocks, and continue on a new line. " +
                         "Never use `**` bold outside literal code. If the response exceeds six " +
-                        "visible lines of about 135 characters each, put all of it inside one triple-backtick block. Be concise: say " +
+                        "visible lines of about 135 characters each, write one brief sentence of about 130 " +
+                        "characters describing the details, then put those details inside one triple-backtick " +
+                        "block. Structure non-code details as short numbered or dash-prefixed lines inside " +
+                        "the block; keep literal code unchanged. Be concise: say " +
                         "which tools, application records, repositories, files or search terms you " +
                         "checked; what you found; distinguish current state from historical snapshots; " +
                         "and, when relevant, what was close or inconclusive. Never claim that a file, " +
