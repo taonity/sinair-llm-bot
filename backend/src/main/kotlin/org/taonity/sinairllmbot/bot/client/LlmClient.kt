@@ -126,8 +126,10 @@ class LlmClient(
                         "description inside the fence. Structure non-code details as short numbered or " +
                         "dash-prefixed lines whenever " +
                         "they can be described as a list; otherwise use plain text, and keep literal code " +
-                        "unchanged. A short conclusion is optional and, when useful, goes immediately after " +
-                        "the closing fence with no newline or space. Never put a smiley inside a triple-backtick block. Be concise: say " +
+                        "unchanged. Add a conclusion only when actually required. Keep it under 135 characters " +
+                        "and place it immediately after the closing fence with no newline or space. If it needs " +
+                        "135 characters or more, put it inside the block after exactly two newline characters " +
+                        "following the main content. Never put a smiley inside a triple-backtick block. Be concise: say " +
                         "which tools, application records, repositories, files or search terms you " +
                         "checked; what you found; distinguish current state from historical snapshots; " +
                         "and, when relevant, what was close or inconclusive. Never claim that a file, " +

@@ -73,6 +73,23 @@ class ChatReplyFormatterTest {
     }
 
     @Test
+    fun `keeps a necessary short conclusion outside the block`() {
+        val response = "Description.```- detail 1\n- detail 2```Required conclusion."
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    }
+
+    @Test
+    fun `moves an oversized conclusion inside after a double newline`() {
+        val conclusion = "c".repeat(135)
+        val response = "Description.```- detail 1\n- detail 2```$conclusion"
+
+        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
+            "Description.```- detail 1\n- detail 2\n\n$conclusion```",
+        )
+    }
+
+    @Test
     fun `removes blank lines around a fenced block and conclusion`() {
         val response = "Description.\n\n```\n${"a".repeat(811)}\n```\n\nConclusion."
 

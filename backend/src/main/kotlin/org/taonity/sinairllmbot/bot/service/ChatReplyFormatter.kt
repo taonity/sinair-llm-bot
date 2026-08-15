@@ -4,6 +4,7 @@ internal object ChatReplyFormatter {
     private const val TRIPLE_BACKTICKS = "```"
     private const val MAX_VISIBLE_LINES = 6
     private const val APPROXIMATE_CHARS_PER_LINE = 135
+    private const val MAX_OUTSIDE_CONCLUSION_CHARS = 134
     private val BLANK_LINES = Regex("\n[ \t]*\n+")
 
     fun normalize(text: String): String = text
@@ -17,6 +18,7 @@ internal object ChatReplyFormatter {
     fun wrapLongReply(text: String): String {
         val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
         if (fenceCount == 1) return "$text$TRIPLE_BACKTICKS"
+        moveLongConclusionInsideBlock(text)?.let { return it }
 
         val visibleLines = text.lineSequence().sumOf { line ->
             maxOf(1, (line.length + APPROXIMATE_CHARS_PER_LINE - 1) / APPROXIMATE_CHARS_PER_LINE)
@@ -31,6 +33,20 @@ internal object ChatReplyFormatter {
         }
         val content = text.replace(TRIPLE_BACKTICKS, "").trim()
         return "$TRIPLE_BACKTICKS$content$TRIPLE_BACKTICKS"
+    }
+
+    private fun moveLongConclusionInsideBlock(text: String): String? {
+        if (text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return null
+        val openingFence = text.indexOf(TRIPLE_BACKTICKS)
+        val closingFence = text.indexOf(TRIPLE_BACKTICKS, openingFence + TRIPLE_BACKTICKS.length)
+        if (openingFence < 0 || closingFence < 0) return null
+
+        val conclusion = text.substring(closingFence + TRIPLE_BACKTICKS.length).trim()
+        if (conclusion.length <= MAX_OUTSIDE_CONCLUSION_CHARS) return null
+
+        val prefix = text.substring(0, openingFence).trimEnd()
+        val content = text.substring(openingFence + TRIPLE_BACKTICKS.length, closingFence).trim('\n')
+        return "$prefix$TRIPLE_BACKTICKS$content\n\n$conclusion$TRIPLE_BACKTICKS"
     }
 
     private fun extractDescriptionFromWholeBlock(text: String): String? {

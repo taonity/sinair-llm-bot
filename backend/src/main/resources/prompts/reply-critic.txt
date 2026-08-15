@@ -24,8 +24,10 @@ about 130 characters immediately before it and outside it. There must be NO newl
 the description and opening fence, between the opening fence and first content character, between the
 last content character and closing fence, or between the closing fence and an optional conclusion.
 The description must never be inside the fence. A short conclusion may follow the closing fence only
-when it adds useful information and should usually be omitted. A response over six visible lines
-(about 135 characters each) MUST put its detailed
+when it is actually required and should usually be omitted. An outside conclusion MUST be under 135
+characters. A conclusion needing 135 characters or more MUST instead be inside the block after exactly
+two newline characters following the main content. A response over six visible lines (about 135
+characters each) MUST put its detailed
 non-quote text in triple-backtick blocks. Non-code details inside MUST use short numbered or
 dash-prefixed lines whenever the information is describable as a list; plain text is acceptable when a
 list would not fit the content. Literal code must remain unchanged rather than being forced into a
