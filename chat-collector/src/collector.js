@@ -153,14 +153,21 @@ function setRoomTyping(target, isTyping) {
 
 export async function startCollector() {
     logger.info(`[collector] Connecting to ${config.chatWsUrl}...`);
-    chat = new WsChat(config.chatWsUrl);
+    const client = new WsChat(config.chatWsUrl);
+    chat = client;
+    let initializationPhase = 'opening connection';
 
-    chat.on(WsChatEvents.open, () => {
+    client.on(WsChatEvents.open, () => {
+        if (client !== chat) return;
         logger.info('[collector] Connected to chat server');
     });
 
-    chat.on(WsChatEvents.close, () => {
-        logger.warn('[collector] Disconnected from chat server');
+    client.on(WsChatEvents.close, () => {
+        if (client !== chat) {
+            logger.debug('[collector] Ignoring close event from a superseded connection');
+            return;
+        }
+        logger.warn(`[collector] Disconnected from chat server; joinedRooms=${formatRoomTargets()}`);
         stopHeartbeat();
         stopFlushTimer();
         stopSender();
@@ -171,21 +178,28 @@ export async function startCollector() {
         if (!shuttingDown) scheduleReconnect();
     });
 
-    chat.on(WsChatEvents.connectionError, (err) => {
+    client.on(WsChatEvents.connectionError, (err) => {
+        if (client !== chat) {
+            logger.debug('[collector] Ignoring connection error from a superseded connection');
+            return;
+        }
         logger.error('[collector] Connection error:', err);
         scheduleReconnect();
     });
 
-    chat.on(WsChatEvents.error, (err) => {
+    client.on(WsChatEvents.error, (err) => {
+        if (client !== chat) return;
         logger.error('[collector] Chat error:', err);
     });
 
-    chat.on(WsChatEvents.joinRoom, (room) => {
+    client.on(WsChatEvents.joinRoom, (room) => {
+        if (client !== chat) return;
         logger.info(`[collector] Auto-rejoined room after session restore: ${room.target}`);
         onRoomReady(room);
     });
 
-    chat.on(WsChatEvents.message, (room, msgobj) => {
+    client.on(WsChatEvents.message, (room, msgobj) => {
+        if (client !== chat) return;
         markAlive();
         const member = room?.getMemberById?.(msgobj.from);
         const warmup = isHistoryWarmup(room?.target);
@@ -214,7 +228,8 @@ export async function startCollector() {
         bufferMessage(dto);
     });
 
-    chat.on(WsChatEvents.sysMessage, (room, text) => {
+    client.on(WsChatEvents.sysMessage, (room, text) => {
+        if (client !== chat) return;
         markAlive();
         logger.debug(`[collector] sysMessage — room=${room?.target}, text=${text}`);
         if (!room) return;
@@ -234,7 +249,8 @@ export async function startCollector() {
         bufferEvent(dto);
     });
 
-    chat.on(WsChatEvents.userStatusChange, (room, userobj) => {
+    client.on(WsChatEvents.userStatusChange, (room, userobj) => {
+        if (client !== chat) return;
         markAlive();
         logger.debug(`[collector] userStatusChange — room=${room?.target}, member=${userobj?.name}, status=${userobj?.status} (raw=${JSON.stringify(userobj)})`);
 
@@ -262,14 +278,15 @@ export async function startCollector() {
     });
 
     try {
-        await chat.open();
+        await client.open();
 
         let restored = false;
         if (!sessionToken) sessionToken = loadToken();
         if (sessionToken) {
             try {
+                initializationPhase = 'restoring session';
                 logger.info('[collector] Restoring previous session (reclaiming orphan)...');
-                const auth = await chat.restoreConnection(sessionToken);
+                const auth = await client.restoreConnection(sessionToken);
                 if (auth?.user_id) {
                     restored = true;
                     sessionToken = auth.token || sessionToken;
@@ -278,7 +295,7 @@ export async function startCollector() {
                     logger.info(`[collector] Session restored (user_id=${auth.user_id})`);
                 } else {
                     logger.warn('[collector] Orphan expired (guest session returned); re-authenticating');
-                    sessionToken = null;
+                    clearToken();
                 }
             } catch (err) {
                 logger.warn(`[collector] Session restore failed, re-authenticating: ${err?.info || err?.message || err}`);
@@ -287,26 +304,59 @@ export async function startCollector() {
         }
 
         if (!restored) {
-            const auth = await chat.authByApiKey(config.chatApiKey);
+            initializationPhase = 'authenticating with API key';
+            const auth = await client.authByApiKey(config.chatApiKey);
             sessionToken = auth?.token || null;
             saveToken(sessionToken);
             logger.info(`[collector] Authenticated successfully (user_id=${auth?.user_id ?? 'unknown'})`);
         }
 
+        initializationPhase = 'joining rooms';
         for (const roomTarget of config.chatRooms) {
             if (roomsByTarget.has(roomTarget)) continue;
-            const room = await chat.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
+            logger.info(`[collector] Joining room ${roomTarget}...`);
+            const room = await client.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
             onRoomReady(room);
         }
 
+        const missingRooms = config.chatRooms.filter((target) => !roomsByTarget.has(target));
+        if (missingRooms.length > 0) {
+            throw new Error(`Room membership incomplete; missing=${missingRooms.join(',')}`);
+        }
+        logger.info(`[collector] Room membership established; joinedRooms=${formatRoomTargets()}`);
+
+        initializationPhase = 'starting background workers';
         startFlushTimer();
         startSender(sendChatMessage);
         startPresence(setRoomPresence, setRoomNick);
         startTyping(setRoomTyping);
         startHeartbeat();
     } catch (err) {
-        logger.error('[collector] Failed to initialize:', err);
-        scheduleReconnect();
+        logger.error(`[collector] Failed while ${initializationPhase}; joinedRooms=${formatRoomTargets()}:`, err);
+        if (client === chat) {
+            await closeFailedClient(client);
+            stopHeartbeat();
+            stopFlushTimer();
+            stopSender();
+            stopPresence();
+            stopTyping();
+            clearAllHistoryWarmup();
+            roomsByTarget.clear();
+            scheduleReconnect();
+        }
+    }
+}
+
+function formatRoomTargets() {
+    return roomsByTarget.size > 0 ? [...roomsByTarget.keys()].join(',') : 'none';
+}
+
+async function closeFailedClient(client) {
+    if (!client?.connected) return;
+    try {
+        await Promise.race([client.close(), sleep(config.shutdownCloseTimeout)]);
+    } catch (err) {
+        logger.warn(`[collector] Failed to close incomplete connection: ${err?.message || err}`);
     }
 }
 
