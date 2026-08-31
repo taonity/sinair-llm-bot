@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => {
         constructor() {
             this.handlers = new Map();
             this.connected = false;
-            this._sock = {
+            this.joinedTargets = [];
+            this.i = {
                 OPEN: 1,
                 readyState: 1,
                 on: vi.fn(),
@@ -36,6 +37,7 @@ const mocks = vi.hoisted(() => {
         }
 
         async joinRoom(target) {
+            this.joinedTargets.push(target);
             return {
                 target,
                 members: [],
@@ -123,7 +125,7 @@ describe('collector reconnect lifecycle', () => {
         vi.useRealTimers();
     });
 
-    it('ignores a late close event from a superseded failed connection', async () => {
+    it('survives stale close events and heartbeat timeouts without a close event', async () => {
         const { startCollector } = await import('./collector.js');
 
         await startCollector();
@@ -131,6 +133,8 @@ describe('collector reconnect lifecycle', () => {
 
         await vi.advanceTimersByTimeAsync(10000);
         expect(mocks.clients).toHaveLength(2);
+        expect(mocks.clients[1].i.on).toHaveBeenCalledWith('pong', expect.any(Function));
+        expect(mocks.logger.info).toHaveBeenCalledWith(expect.stringContaining('Heartbeat monitoring started'));
 
         mocks.clients[0].emit('close');
         await vi.advanceTimersByTimeAsync(10000);
@@ -139,5 +143,13 @@ describe('collector reconnect lifecycle', () => {
         expect(mocks.logger.debug).toHaveBeenCalledWith(
             '[collector] Ignoring close event from a superseded connection',
         );
+
+        await vi.advanceTimersByTimeAsync(65000);
+        expect(mocks.clients[1].i.terminate).toHaveBeenCalledOnce();
+        expect(mocks.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Heartbeat timeout'));
+
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(mocks.clients).toHaveLength(3);
+        expect(mocks.clients[2].joinedTargets).toEqual(['#room']);
     });
 });

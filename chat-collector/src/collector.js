@@ -330,7 +330,7 @@ export async function startCollector() {
         startSender(sendChatMessage);
         startPresence(setRoomPresence, setRoomNick);
         startTyping(setRoomTyping);
-        startHeartbeat();
+        startHeartbeat(client);
     } catch (err) {
         logger.error(`[collector] Failed while ${initializationPhase}; joinedRooms=${formatRoomTargets()}:`, err);
         if (client === chat) {
@@ -360,28 +360,56 @@ async function closeFailedClient(client) {
     }
 }
 
-function startHeartbeat() {
+function startHeartbeat(client) {
     stopHeartbeat();
-    const sock = chat?._sock;
-    if (!sock) return;
+    const socketEntry = findChatSocket(client);
+    if (!socketEntry) {
+        throw new Error('Could not locate the WebSocket used by the chat client');
+    }
+    const { socket, property } = socketEntry;
     markAlive();
-    sock.on('pong', markAlive);
+    socket.on('pong', () => {
+        if (client === chat) markAlive();
+    });
+    logger.info(
+        `[collector] Heartbeat monitoring started; intervalMs=${config.heartbeatIntervalMs}, ` +
+        `timeoutMs=${config.heartbeatTimeoutMs}, socketProperty=${property}`,
+    );
     heartbeatTimer = setInterval(() => {
-        const active = chat?._sock;
-        if (!active || active.readyState !== active.OPEN) return;
+        if (client !== chat) return;
+        if (socket.readyState !== socket.OPEN) {
+            logger.warn(`[collector] Heartbeat found socket state=${socket.readyState}; forcing reconnect`);
+            forceReconnect(client, socket);
+            return;
+        }
         try {
-            active.ping();
+            socket.ping();
         } catch (err) {
-            logger.debug(`[collector] Heartbeat ping failed: ${err?.message || err}`);
+            logger.warn(`[collector] Heartbeat ping failed; forcing reconnect: ${err?.message || err}`);
+            forceReconnect(client, socket);
         }
     }, config.heartbeatIntervalMs);
     heartbeatWatchdog = setInterval(() => {
-        if (shuttingDown) return;
-        if (Date.now() - lastPongAt > config.heartbeatTimeoutMs) {
-            logger.warn('[collector] Heartbeat timeout — connection appears dead, forcing reconnect');
-            forceReconnect();
+        if (shuttingDown || client !== chat) return;
+        const heartbeatAgeMs = Date.now() - lastPongAt;
+        if (heartbeatAgeMs > config.heartbeatTimeoutMs) {
+            logger.warn(
+                `[collector] Heartbeat timeout; ageMs=${heartbeatAgeMs}, socketState=${socket.readyState}, ` +
+                `joinedRooms=${formatRoomTargets()}; forcing reconnect`,
+            );
+            forceReconnect(client, socket);
         }
     }, config.heartbeatIntervalMs);
+}
+
+function findChatSocket(client) {
+    for (const [property, value] of Object.entries(client || {})) {
+        if (value && typeof value.on === 'function' && typeof value.ping === 'function'
+            && typeof value.terminate === 'function' && typeof value.readyState === 'number') {
+            return { socket: value, property };
+        }
+    }
+    return null;
 }
 
 function markAlive() {
@@ -399,18 +427,21 @@ function stopHeartbeat() {
     }
 }
 
-function forceReconnect() {
+function forceReconnect(client, socket) {
+    if (client !== chat || shuttingDown) return;
     stopHeartbeat();
-    const sock = chat?._sock;
-    if (sock) {
-        try {
-            sock.terminate();
-        } catch (err) {
-            logger.debug(`[collector] Error terminating dead socket: ${err?.message || err}`);
-        }
-    } else if (!shuttingDown) {
-        scheduleReconnect();
+    stopFlushTimer();
+    stopSender();
+    stopPresence();
+    stopTyping();
+    clearAllHistoryWarmup();
+    roomsByTarget.clear();
+    try {
+        socket.terminate();
+    } catch (err) {
+        logger.warn(`[collector] Error terminating dead socket: ${err?.message || err}`);
     }
+    scheduleReconnect();
 }
 
 function scheduleReconnect() {
