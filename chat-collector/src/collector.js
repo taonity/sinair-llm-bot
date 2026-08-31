@@ -66,10 +66,6 @@ function onRoomReady(room) {
         room.sendMessage(`/color ${config.botColor}`);
         logger.info(`[collector] Set color '${config.botColor}' in ${room.target}`);
     }
-    if (config.botNick) {
-        room.sendMessage(`/nick ${config.botNick}`);
-        logger.info(`[collector] Set nick '${config.botNick}' in ${room.target}`);
-    }
     startHistoryWarmup(room.target);
     logger.info(`[collector] Room ready: ${room.target}`);
 }

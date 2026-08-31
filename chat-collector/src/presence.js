@@ -13,7 +13,7 @@ export function startPresence(setRoomPresence, setRoomNick) {
     const presenceUrl = `${config.outboundUrl}/presence`;
     logger.debug(`[presence] Polling ${presenceUrl} every ${config.presencePollInterval}ms`);
 
-    pollTimer = setInterval(async () => {
+    const poll = async () => {
         try {
             const response = await fetch(presenceUrl, { method: 'GET' });
             if (!response.ok) {
@@ -32,7 +32,7 @@ export function startPresence(setRoomPresence, setRoomNick) {
                     }
                 }
 
-                const desiredNick = `${config.botNick}${item.nickSuffix || ''}`;
+                const desiredNick = item.nickname || `${config.botNick}${item.nickSuffix || ''}`;
                 if (appliedNick.get(item.roomTarget) !== desiredNick) {
                     if (setRoomNick(item.roomTarget, desiredNick)) {
                         appliedNick.set(item.roomTarget, desiredNick);
@@ -43,7 +43,10 @@ export function startPresence(setRoomPresence, setRoomNick) {
         } catch (err) {
             logger.error('[presence] Poll loop error:', err.message);
         }
-    }, config.presencePollInterval);
+    };
+
+    void poll();
+    pollTimer = setInterval(poll, config.presencePollInterval);
 }
 
 export function stopPresence() {

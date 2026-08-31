@@ -25,6 +25,6 @@ class BotPresenceService(
     fun allPresences(): List<RoomPresenceDto> =
         settings.botRooms().map { room ->
             val nickSuffix = if (botSleepService.isAsleep(room)) botProperties.persona.sleepNickSuffix else ""
-            RoomPresenceDto(room, presenceFor(room), nickSuffix)
+            RoomPresenceDto(room, presenceFor(room), botProperties.persona.name + nickSuffix, nickSuffix)
         }
 }
