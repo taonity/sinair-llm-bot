@@ -179,13 +179,13 @@ export async function startCollector() {
             logger.debug('[collector] Ignoring connection error from a superseded connection');
             return;
         }
-        logger.error('[collector] Connection error:', err);
+        logConnectionFailure('Connection error', err);
         scheduleReconnect();
     });
 
     client.on(WsChatEvents.error, (err) => {
         if (client !== chat) return;
-        logger.error('[collector] Chat error:', err);
+        logConnectionFailure('Chat error', err);
     });
 
     client.on(WsChatEvents.joinRoom, (room) => {
@@ -328,7 +328,10 @@ export async function startCollector() {
         startTyping(setRoomTyping);
         startHeartbeat(client);
     } catch (err) {
-        logger.error(`[collector] Failed while ${initializationPhase}; joinedRooms=${formatRoomTargets()}:`, err);
+        logConnectionFailure(
+            `Failed while ${initializationPhase}; joinedRooms=${formatRoomTargets()}`,
+            err,
+        );
         if (client === chat) {
             await closeFailedClient(client);
             stopHeartbeat();
@@ -345,6 +348,15 @@ export async function startCollector() {
 
 function formatRoomTargets() {
     return roomsByTarget.size > 0 ? [...roomsByTarget.keys()].join(',') : 'none';
+}
+
+function logConnectionFailure(context, err) {
+    const details = [err?.name, err?.code, err?.message || err?.info || String(err)]
+        .filter(Boolean)
+        .filter((value, index, values) => values.indexOf(value) === index)
+        .join(': ');
+    logger.error(`[collector] ${context}: ${details}`);
+    logger.debug(`[collector] ${context} details:`, err);
 }
 
 async function closeFailedClient(client) {
@@ -449,7 +461,7 @@ function scheduleReconnect() {
         try {
             await startCollector();
         } catch (err) {
-            logger.error('[collector] Reconnect failed:', err);
+            logConnectionFailure('Reconnect failed', err);
             scheduleReconnect();
         }
     }, delay);

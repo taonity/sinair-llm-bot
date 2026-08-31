@@ -117,6 +117,7 @@ vi.mock('./typing.js', () => ({ startTyping: vi.fn(), stopTyping: vi.fn() }));
 describe('collector reconnect lifecycle', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+        vi.clearAllMocks();
         mocks.clients.length = 0;
     });
 
@@ -130,6 +131,14 @@ describe('collector reconnect lifecycle', () => {
 
         await startCollector();
         expect(mocks.clients).toHaveLength(1);
+        expect(mocks.logger.error).toHaveBeenCalledWith(
+            '[collector] Failed while opening connection; joinedRooms=none: Error: server unavailable',
+        );
+        expect(mocks.logger.error.mock.calls[0]).toHaveLength(1);
+        expect(mocks.logger.debug).toHaveBeenCalledWith(
+            '[collector] Failed while opening connection; joinedRooms=none details:',
+            expect.any(Error),
+        );
 
         await vi.advanceTimersByTimeAsync(10000);
         expect(mocks.clients).toHaveLength(2);
