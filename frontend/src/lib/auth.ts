@@ -4,6 +4,15 @@ import {
   fetchWithTimeout,
 } from '@/lib/clientApi'
 
+export const POST_LOGIN_PATH_KEY = 'postLoginPath'
+
+export function safeLocalPath(value: string | null): string | null {
+  if (!value?.startsWith('/')) return null
+  const baseUrl = 'http://localhost'
+  const parsed = new URL(value, baseUrl)
+  return parsed.origin === baseUrl ? `${parsed.pathname}${parsed.search}${parsed.hash}` : null
+}
+
 export async function fetchAuthenticatedUserStatus() {
   try {
     const response = await fetchWithTimeout('/api/hello', { timeoutMs: 6000 })

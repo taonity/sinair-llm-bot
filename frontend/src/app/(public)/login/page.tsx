@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { checkBackendLiveness } from '@/lib/auth'
+import { checkBackendLiveness, POST_LOGIN_PATH_KEY, safeLocalPath } from '@/lib/auth'
 import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import { getCookie, deleteCookie } from '@/lib/cookies'
 import ErrorNotification from '@/components/ErrorNotification'
@@ -17,6 +17,10 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+
+  const requestedPath = safeLocalPath(
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('next'),
+  )
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -37,15 +41,21 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
+    if (requestedPath) sessionStorage.setItem(POST_LOGIN_PATH_KEY, requestedPath)
+  }, [requestedPath])
+
+  useEffect(() => {
     fetch('/api/hello')
       .then((res) => {
         if (res.ok) {
-          window.location.href = '/'
+          const returnPath = requestedPath ?? safeLocalPath(sessionStorage.getItem(POST_LOGIN_PATH_KEY))
+          sessionStorage.removeItem(POST_LOGIN_PATH_KEY)
+          window.location.href = returnPath ?? '/'
         }
       })
       .catch(() => {
       })
-  }, [])
+  }, [requestedPath])
 
   const handleLogin = async () => {
     setError(null)

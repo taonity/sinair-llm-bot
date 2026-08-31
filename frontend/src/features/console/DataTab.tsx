@@ -48,6 +48,8 @@ type DataTabProps<T> = {
   rowKey: (row: T) => string
   load: (page: number, size: number, q?: string, field?: string, direction?: string) => Promise<PageResponse<T>>
   locate?: (row: T, size: number, direction?: string) => Promise<number>
+  initialFocusId?: string | null
+  locateById?: (id: string, size: number, direction?: string) => Promise<number>
   expand?: (row: T) => React.ReactNode
   roomAccessor?: (row: T) => string
   canEdit?: boolean
@@ -77,6 +79,8 @@ export function DataTab<T>({
   rowKey,
   load,
   locate,
+  initialFocusId,
+  locateById,
   expand,
   roomAccessor,
   canEdit = false,
@@ -99,6 +103,7 @@ export function DataTab<T>({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
 
   const reload = useCallback(
     async (
@@ -129,8 +134,30 @@ export function DataTab<T>({
   useEffect(() => {
     if (didInitialLoad.current) return
     didInitialLoad.current = true
-    void reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
-  }, [reload])
+    if (!initialFocusId || !locateById) {
+      void reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
+      return
+    }
+
+    const focusInitialRow = async () => {
+      try {
+        const targetPage = await locateById(initialFocusId, DEFAULT_PAGE_SIZE, 'desc')
+        await reload(targetPage, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
+        setExpandedIds(new Set([initialFocusId]))
+        setHighlightId(initialFocusId)
+        highlightTimer.current = setTimeout(() => setHighlightId(null), 3000)
+      } catch {
+        onError('Failed to locate the linked pipeline run.')
+        await reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
+      }
+    }
+    void focusInitialRow()
+  }, [initialFocusId, locateById, onError, reload])
+
+  useEffect(() => {
+    if (!highlightId) return
+    rowRefs.current.get(highlightId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [data, highlightId])
 
   useEffect(
     () => () => {
@@ -338,7 +365,13 @@ export function DataTab<T>({
                 const isExpanded = expandedIds.has(id)
                 return (
                   <Fragment key={id}>
-                    <TableRow className={cn(highlightId === id && 'bg-primary/10')}>
+                    <TableRow
+                      ref={(element) => {
+                        if (element) rowRefs.current.set(id, element)
+                        else rowRefs.current.delete(id)
+                      }}
+                      className={cn(highlightId === id && 'bg-primary/10')}
+                    >
                       {expand && (
                         <TableCell className="w-[40px]">
                           <Button

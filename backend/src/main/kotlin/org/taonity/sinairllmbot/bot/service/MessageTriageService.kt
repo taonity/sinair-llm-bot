@@ -101,7 +101,7 @@ class MessageTriageService(
             label = "triage",
             call = { llmClient.complete(tierName = llmProperties.gateTier, messages = messages, forceJson = true) },
             parse = { parse(it) },
-        ) ?: TriageVerdict(respond = false)
+        ) ?: throw IllegalStateException("triage produced no verdict")
     }
 
     private fun parse(content: String): TriageVerdict? {

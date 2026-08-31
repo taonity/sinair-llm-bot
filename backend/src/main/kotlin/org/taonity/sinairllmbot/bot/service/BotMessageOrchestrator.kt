@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import org.springframework.web.util.UriComponentsBuilder
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
@@ -15,11 +16,13 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import org.taonity.sinairllmbot.common.config.AppProperties
 import kotlin.random.Random
 
 @Service
 class BotMessageOrchestrator(
     private val settings: BotSettings,
+    private val appProperties: AppProperties,
     private val botDebouncer: BotDebouncer,
     private val commandGate: CommandGate,
     private val messageTriageService: MessageTriageService,
@@ -38,6 +41,7 @@ class BotMessageOrchestrator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
+        private const val FAILURE_MESSAGE = "Что-то пошло не так, пока я готовил ответ."
     }
 
 
@@ -60,15 +64,17 @@ class BotMessageOrchestrator(
     }
 
     private fun evaluateRoom(roomTarget: String) {
-        runCatching {
-            val trigger = latestNonBotMessage(roomTarget) ?: return
+        val trigger = runCatching { latestNonBotMessage(roomTarget) }
+            .onFailure { LOGGER.warn(it) { "Failed to find the trigger message for room $roomTarget" } }
+            .getOrNull() ?: return
+        val stages = mutableListOf<PipelineStage>()
+
+        try {
 
             runCatching { roomSummaryService.refreshIfStale(roomTarget, SummaryRefreshTrigger.Message(trigger)) }
                 .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
             pipelineTraceService.begin()
-
-            val stages = mutableListOf<PipelineStage>()
 
             val commandDecision = commandGate.evaluate(trigger)
 
@@ -152,25 +158,16 @@ class BotMessageOrchestrator(
             }
 
             botTypingService.markTyping(roomTarget)
-            val generation = runCatching {
-                replyGenerator.generateTraced(
-                    roomTarget = roomTarget,
-                    trigger = trigger,
-                    completedStages = stages.toList(),
-                    configRevisionId = pipelineTraceService.currentConfigRevisionId(),
-                )
-            }.onFailure {
-                botTypingService.clearTyping(roomTarget)
-                throw it
-            }.getOrThrow()
+            val generation = replyGenerator.generateTraced(
+                roomTarget = roomTarget,
+                trigger = trigger,
+                completedStages = stages.toList(),
+                configRevisionId = pipelineTraceService.currentConfigRevisionId(),
+            )
             stages += generationStage(generation)
 
             val reply = generation.reply ?: run {
-                botTypingService.clearTyping(roomTarget)
-                pipelineTraceService.record(
-                    PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages,
-                    outcomeDetail = "generation produced no reply",
-                )
+                handleFailure(trigger, stages, "generation produced no reply")
                 return
             }
 
@@ -184,16 +181,56 @@ class BotMessageOrchestrator(
                 ),
             )
             botTypingService.clearTyping(roomTarget)
-            cooldownTracker.recordReply(roomTarget)
+            runCatching { cooldownTracker.recordReply(roomTarget) }
+                .onFailure { LOGGER.warn(it) { "Failed to record reply cooldown for $roomTarget" } }
             LOGGER.info { "Bot queued reply in $roomTarget to @${trigger.senderLogin}" }
             pipelineTraceService.record(
                 PipelineKeys.REPLY, trigger, PipelineOutcome.REPLIED, stages, outboundMessageId = saved.id,
             )
-        }.onFailure {
-            pipelineTraceService.discard()
-            LOGGER.warn(it) { "Bot pipeline failed for room $roomTarget" }
+        } catch (exception: Exception) {
+            val detail = exception.message?.takeIf { it.isNotBlank() }
+                ?: exception.javaClass.simpleName
+            stages += PipelineStage("error", "Pipeline error", PipelineStageStatus.STOP, detail)
+            handleFailure(trigger, stages, detail, exception)
         }
     }
+
+    private fun handleFailure(
+        trigger: ChatMessageEntity,
+        stages: List<PipelineStage>,
+        detail: String,
+        exception: Exception? = null,
+    ) {
+        botTypingService.clearTyping(trigger.roomTarget)
+        exception?.let { LOGGER.warn(it) { "Bot pipeline failed for room ${trigger.roomTarget}" } }
+        val pipelineId = pipelineTraceService.record(
+            PipelineKeys.REPLY,
+            trigger,
+            PipelineOutcome.FAILED,
+            stages,
+            outcomeDetail = detail,
+        )
+        val message = pipelineId?.let { "$FAILURE_MESSAGE Пайплайн: ${pipelineUrl(it)}" } ?: FAILURE_MESSAGE
+        runCatching {
+            outboundMessageRepository.save(
+                OutboundMessageEntity(
+                    roomTarget = trigger.roomTarget,
+                    messageText = message,
+                    replyToExternalId = trigger.dedupKey
+                        .takeIf { it.startsWith("ext:") }
+                        ?.removePrefix("ext:"),
+                ),
+            )
+            cooldownTracker.recordReply(trigger.roomTarget)
+        }.onFailure { LOGGER.warn(it) { "Failed to queue fallback reply in ${trigger.roomTarget}" } }
+    }
+
+    private fun pipelineUrl(pipelineId: String): String =
+        UriComponentsBuilder.fromUriString(appProperties.defaultSuccessUrl)
+            .replaceQueryParam("pipeline", pipelineId)
+            .build()
+            .encode()
+            .toUriString()
 
     private fun generationStage(generation: ReplyGeneration): PipelineStage {
         val alternatives = generation.candidates.map { candidate ->
@@ -220,7 +257,7 @@ class BotMessageOrchestrator(
         return PipelineStage(
             key = "generate",
             label = "Reply generation",
-            status = PipelineStageStatus.OK,
+            status = if (generation.reply == null) PipelineStageStatus.STOP else PipelineStageStatus.OK,
             summary = summary,
             fields = fields,
             alternatives = alternatives,

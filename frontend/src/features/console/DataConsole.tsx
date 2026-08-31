@@ -162,6 +162,7 @@ export default function DataConsole() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabKey>('messages')
+  const [pipelineId, setPipelineId] = useState<string | null>(null)
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set<TabKey>(['messages']))
 
   const selectTab = useCallback((next: TabKey) => {
@@ -187,6 +188,13 @@ export default function DataConsole() {
   useEffect(() => {
     void loadAccess()
   }, [loadAccess])
+
+  useEffect(() => {
+    const requestedPipelineId = new URLSearchParams(window.location.search).get('pipeline')
+    if (!requestedPipelineId) return
+    setPipelineId(requestedPipelineId)
+    selectTab('pipelines')
+  }, [selectTab])
 
   if (loading) {
     return (
@@ -327,7 +335,9 @@ export default function DataConsole() {
         </TabsContent>
 
         <TabsContent value="pipelines" className="pt-2" keepMounted>
-          {visited.has('pipelines') && <PipelinesTab onError={setError} />}
+          {visited.has('pipelines') && (
+            <PipelinesTab initialPipelineId={pipelineId} onError={setError} />
+          )}
         </TabsContent>
 
         <TabsContent value="summaries" className="pt-2" keepMounted>

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { checkBackendLiveness, fetchAuthenticatedUserStatus } from '@/lib/auth'
+import { checkBackendLiveness, fetchAuthenticatedUserStatus, safeLocalPath } from '@/lib/auth'
 import { DEFAULT_NETWORK_ERROR_MESSAGE, DEFAULT_TIMEOUT_ERROR_MESSAGE } from '@/lib/clientApi'
 
 vi.mock('@/lib/clientApi', () => ({
@@ -90,4 +90,17 @@ describe('auth api', () => {
       message: DEFAULT_NETWORK_ERROR_MESSAGE,
     })
   })
+})
+
+describe('safeLocalPath', () => {
+  it('keeps a local pipeline deep link', () => {
+    expect(safeLocalPath('/?pipeline=run-id')).toBe('/?pipeline=run-id')
+  })
+
+  it.each(['https://example.com', '//example.com', '/\\example.com', null])(
+    'rejects non-local path %s',
+    (value) => {
+      expect(safeLocalPath(value)).toBeNull()
+    },
+  )
 })

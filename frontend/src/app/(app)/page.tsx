@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { fetchAuthenticatedUserStatus, requestLogout } from '@/lib/auth'
+import {
+  fetchAuthenticatedUserStatus,
+  POST_LOGIN_PATH_KEY,
+  requestLogout,
+  safeLocalPath,
+} from '@/lib/auth'
 import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import { getCookie } from '@/lib/cookies'
 import ErrorNotification from '@/components/ErrorNotification'
@@ -25,9 +30,17 @@ export default function Home() {
       const result = await fetchAuthenticatedUserStatus()
 
       if (result.status === 'authenticated') {
+        const returnPath = safeLocalPath(sessionStorage.getItem(POST_LOGIN_PATH_KEY))
+        sessionStorage.removeItem(POST_LOGIN_PATH_KEY)
+        const currentPath = `${location.pathname}${location.search}${location.hash}`
+        if (returnPath && returnPath !== currentPath) {
+          location.replace(returnPath)
+          return
+        }
         setHello(result.data)
       } else if (result.status === 'unauthenticated') {
-        window.location.href = '/login'
+        const returnPath = `${location.pathname}${location.search}${location.hash}`
+        window.location.href = `/login?next=${encodeURIComponent(returnPath)}`
         return
       } else {
         setError(result.message)

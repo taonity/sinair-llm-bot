@@ -57,32 +57,32 @@ class PipelineTraceService(
         stages: List<PipelineStage>,
         outcomeDetail: String? = null,
         outboundMessageId: String? = null,
-    ) {
-        runCatching {
-            val llmUsage = pipelineLlmUsageTracker.drain()
-            val jsonFailures = jsonParseFailureTracker.drain()
-            val contextManifest = pipelineContextTracker.drain()
-            pipelineRunRepository.save(
-                PipelineRunEntity(
-                    pipelineKey = pipelineKey,
-                    roomTarget = trigger.roomTarget,
-                    triggerMessageId = trigger.id,
-                    triggerSenderLogin = trigger.senderLogin,
-                    triggerText = trigger.messageText.take(settings.bot().limits.traceTriggerTextMax),
-                    outcome = outcome,
-                    outcomeDetail = outcomeDetail,
-                    outboundMessageId = outboundMessageId,
-                    stagesJson = objectMapper.writeValueAsString(stages),
-                    totalTokens = llmUsage.sumOf { it.tokens },
-                    llmUsageJson = objectMapper.writeValueAsString(llmUsage),
-                    jsonParseFailureCount = jsonFailures.size,
-                    jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
-                    configRevisionId = contextManifest.configRevisionId,
-                    contextManifestJson = pipelineContextTracker.serialize(contextManifest),
-                ),
-            )
-        }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
-    }
+    ): String? = runCatching {
+        val llmUsage = pipelineLlmUsageTracker.drain()
+        val jsonFailures = jsonParseFailureTracker.drain()
+        val contextManifest = pipelineContextTracker.drain()
+        val saved = pipelineRunRepository.save(
+            PipelineRunEntity(
+                pipelineKey = pipelineKey,
+                roomTarget = trigger.roomTarget,
+                triggerMessageId = trigger.id,
+                triggerSenderLogin = trigger.senderLogin,
+                triggerText = trigger.messageText.take(settings.bot().limits.traceTriggerTextMax),
+                outcome = outcome,
+                outcomeDetail = outcomeDetail,
+                outboundMessageId = outboundMessageId,
+                stagesJson = objectMapper.writeValueAsString(stages),
+                totalTokens = llmUsage.sumOf { it.tokens },
+                llmUsageJson = objectMapper.writeValueAsString(llmUsage),
+                jsonParseFailureCount = jsonFailures.size,
+                jsonParseFailuresJson = objectMapper.writeValueAsString(jsonFailures),
+                configRevisionId = contextManifest.configRevisionId,
+                contextManifestJson = pipelineContextTracker.serialize(contextManifest),
+            ),
+        )
+        saved.id
+    }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
+        .getOrNull()
 
     fun recordSummary(
         roomTarget: String,

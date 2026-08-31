@@ -31,7 +31,7 @@ function outcomeBadge(outcome: string) {
       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
       : outcome === 'SILENT'
         ? 'text-muted-foreground'
-        : outcome === 'SUMMARY_FAILED'
+        : outcome === 'FAILED' || outcome === 'SUMMARY_FAILED'
           ? 'border-red-500/40 bg-red-500/10 text-red-600'
           : outcome === 'COOLDOWN' || outcome === 'MUTED'
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
@@ -715,8 +715,10 @@ function StageRow({ stage }: { stage: PipelineStage }) {
 }
 
 export function PipelinesTab({
+  initialPipelineId,
   onError,
 }: {
+  initialPipelineId?: string | null
   onError: (message: string) => void
 }) {
   return (
@@ -728,6 +730,10 @@ export function PipelinesTab({
       }
       locate={(r, size, direction) =>
         consoleApi.locatePipelineRun(r.id, size, direction).then((res) => res.page)
+      }
+      initialFocusId={initialPipelineId}
+      locateById={(id, size, direction) =>
+        consoleApi.locatePipelineRun(id, size, direction).then((res) => res.page)
       }
       expand={(r) => <PipelineDetail run={r} />}
       roomAccessor={(r) => r.roomTarget}
