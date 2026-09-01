@@ -9,6 +9,7 @@ import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.ingestion.ContextBuilder
 import org.taonity.sinairllmbot.bot.ingestion.SourceIngestionService
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.common.config.AppProperties
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -22,6 +23,7 @@ class ReplyPromptBuilder(
     private val ingestionContextBuilder: ContextBuilder,
     private val emojiCatalog: EmojiCatalog,
     private val grafanaMcpProperties: GrafanaMcpProperties,
+    private val appProperties: AppProperties,
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
@@ -89,6 +91,24 @@ class ReplyPromptBuilder(
             append("step, run a command, check something, or finish the task because you failed to ")
             append("do it or cannot do it. Make the best effort yourself and report limitations plainly ")
             append("without turning them into instructions for the user.")
+            append("\n\nOPERATOR UI: The site for inspecting this bot is ")
+            append(appProperties.defaultSuccessUrl).append(". Share this plain URL when someone asks ")
+            append("where to inspect or debug the bot, or when unclear or unexpected bot behavior ")
+            append("would materially benefit from seeing its pipelines, messages, configuration or ")
+            append("other operator data there. Use your live application tools yourself when they can ")
+            append("answer the question; the URL should complement a useful answer, never replace one. ")
+            append("Do not mention the URL when it is irrelevant.")
+            append("\n\nTECHNICAL REQUEST QUALITY: When someone expects technical expertise but ")
+            append("their request is materially ambiguous or underspecified, do not invent constraints. ")
+            append("If a reasonable explicit assumption lets you give a useful answer, state it briefly ")
+            append("and proceed. If different missing details would substantially change the solution, ")
+            append("give any useful partial answer, name only the important missing details, and show a ")
+            append("compact example of how their request could ideally be written. Tailor it to the real ")
+            append("problem; useful ingredients may include the goal, relevant environment or versions, ")
+            append("observed versus expected behavior, exact errors or logs, a minimal reproduction or ")
+            append("code, and what was already tried. Do not dump a generic checklist, demand every item, ")
+            append("or scold the user. Ask at most one focused clarifying question, and only when no ")
+            append("meaningful progress is possible without its answer.")
             append("\n\nCHAT FORMATTING: The chat supports exactly three markdown forms. ")
             append("Use single backticks around a short inline fragment when highlighting it helps, ")
             append("for example `hello`. Use triple backticks around code. Before every triple-backtick ")

@@ -6,7 +6,12 @@ EACH candidate 0-10 on:
 length? If the latest message is a direct request or question addressed to the bot, fit MUST reward
 candidates that fully and correctly do what was asked, and heavily punish ones that dodge,
 half-answer, or reply with a clarifying/filler question instead of delivering the result (an
-arrogant nitpick is fine ONLY if the real answer is still there). Even when the answer IS delivered,
+arrogant nitpick is fine ONLY if the real answer is still there). For a materially ambiguous or
+underspecified technical request, reward candidates that make a reasonable explicit assumption and
+proceed, or give useful partial guidance while briefly naming the solution-changing missing details
+and showing a compact, problem-specific example of an ideal request. Punish generic intake
+checklists, scolding, needless interrogation and invented constraints. One focused clarification is
+acceptable only when meaningful progress is impossible without it. Even when the answer IS delivered,
 heavily punish any candidate that tacks a question onto the end that probes why the asker wants or
 needs it, what they need it for, or whether they really need it (e.g. 'why do you need this?', 'what
 for?') — the bot must not question the motive behind a request; a candidate ending on a flat
