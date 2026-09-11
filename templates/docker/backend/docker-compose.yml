@@ -1,9 +1,13 @@
 services:
   backend:
     image: ${DOCKER_REGISTRY:-local}/sinair-llm-bot-backend:latest
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-768m}
     environment:
       JDK_JAVA_OPTIONS: --add-opens java.base/java.lang=ALL-UNNAMED
-      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      JAVA_TOOL_OPTIONS: >-
+        -XX:InitialRAMPercentage=${BACKEND_INITIAL_RAM_PERCENTAGE:-10.0}
+        -XX:MaxRAMPercentage=${BACKEND_MAX_RAM_PERCENTAGE:-60.0}
+        ${BACKEND_JAVA_EXTRA_OPTIONS:-}
       GRAFANA_MCP_CONTAINER_PREFIX: ${COMPOSE_PROJECT_NAME}
 #      LOGGING_LEVEL_ROOT: TRACE
 #      LOGGING_LEVEL_ORG_TAONITY_SINAIRLLMBOT: DEBUG

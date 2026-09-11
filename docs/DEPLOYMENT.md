@@ -53,6 +53,8 @@ Then:
 docker compose up -d
 ```
 
+The backend defaults to a 768 MiB container limit, with an initial heap target of 10% and a maximum heap of 60% of that limit. Override `BACKEND_MEMORY_LIMIT`, `BACKEND_INITIAL_RAM_PERCENTAGE`, or `BACKEND_MAX_RAM_PERCENTAGE` only after checking container memory and garbage collection metrics under representative load. To attach a debugger temporarily, set `BACKEND_JAVA_EXTRA_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005` and include `docker-compose.local.yml` to publish the debugger port on loopback.
+
 ## Service Architecture
 
 ```
@@ -91,3 +93,7 @@ Internet ──────────▶│  Frontend   │ :3000
 | `PUBLIC_BACKEND_URL` | Public backend URL (for OAuth redirects) | — |
 | `CSRF_COOKIE_NAME` | CSRF cookie name | `XSRF-TOKEN` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profiles | `postgres` |
+| `BACKEND_MEMORY_LIMIT` | Backend container memory limit | `768m` |
+| `BACKEND_INITIAL_RAM_PERCENTAGE` | Initial JVM heap target as a percentage of container memory | `10.0` |
+| `BACKEND_MAX_RAM_PERCENTAGE` | Maximum JVM heap as a percentage of container memory | `60.0` |
+| `BACKEND_JAVA_EXTRA_OPTIONS` | Optional additional JVM options, such as temporary JDWP configuration | — |
