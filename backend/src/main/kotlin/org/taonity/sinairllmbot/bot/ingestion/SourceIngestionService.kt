@@ -11,6 +11,7 @@ class SourceIngestionService(
     private val urlExtractor: UrlExtractor,
     private val sourceFetcher: SourceFetcher,
     private val settings: IngestionSettings,
+    private val cache: SourceCache,
 ) {
     private val properties get() = settings.ingestion()
 
@@ -25,7 +26,9 @@ class SourceIngestionService(
         if (urls.isEmpty()) return emptyList()
 
         return urls.mapNotNull { url ->
-            runCatching { sourceFetcher.fetch(url) }
+            val key = "$url|$properties"
+            cache.get(key)?.let { return@mapNotNull it }
+            runCatching { sourceFetcher.fetch(url).also { cache.put(key, it) } }
                 .onSuccess { LOGGER.info { "Ingested ${it.sourceType.wireName} source [${LogRedact.urlToken(url)}]" } }
                 .onFailure { LOGGER.info { "Ingestion skipped [${LogRedact.urlToken(url)}]: ${it.javaClass.simpleName}" } }
                 .getOrNull()

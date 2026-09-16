@@ -43,7 +43,6 @@ app:
       cooldown-seconds: 1
       max-replies-per-window: 20
       window-minutes: 30
-      spontaneous-probability: 0
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 1000

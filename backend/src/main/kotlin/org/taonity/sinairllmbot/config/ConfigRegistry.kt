@@ -123,14 +123,14 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(enabled = v as Boolean))) },
         )
         fields += ConfigField(
-            key = "app.llm.critic.candidate-count", group = "LLM · Critic", type = ConfigType.INT, min = 1.0, max = 8.0,
-            read = { it.llm.critic.candidateCount },
-            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(candidateCount = v as Int))) },
+            key = "app.llm.critic.review-min-chars", group = "LLM · Critic", type = ConfigType.INT, min = 0.0, max = 20000.0,
+            read = { it.llm.critic.reviewMinChars },
+            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(reviewMinChars = v as Int))) },
         )
         fields += ConfigField(
-            key = "app.llm.critic.candidate-temperature", group = "LLM · Critic", type = ConfigType.DOUBLE, min = 0.0, max = 2.0,
-            read = { it.llm.critic.candidateTemperature },
-            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(candidateTemperature = v as Double))) },
+            key = "app.llm.critic.review-min-tool-calls", group = "LLM · Critic", type = ConfigType.INT, min = 0.0, max = 100.0,
+            read = { it.llm.critic.reviewMinToolCalls },
+            apply = { c, v -> c.copy(llm = c.llm.copy(critic = c.llm.critic.copy(reviewMinToolCalls = v as Int))) },
         )
         fields += ConfigField(
             key = "app.llm.critic.repair-threshold", group = "LLM · Critic", type = ConfigType.INT, min = 0.0, max = 10.0,
@@ -153,6 +153,39 @@ class ConfigRegistry(
             key = "app.llm.tool-loop.max-rounds", group = "LLM · Tool loop", type = ConfigType.INT, min = 1.0, max = 20.0,
             read = { it.llm.toolLoop.maxRounds },
             apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(maxRounds = v as Int))) },
+        )
+        fields += listOf(
+            ConfigField(
+                key = "app.llm.tool-loop.final-max-tokens", group = "LLM · Tool loop", type = ConfigType.INT, min = 1000.0, max = 32000.0,
+                read = { it.llm.toolLoop.finalMaxTokens },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(finalMaxTokens = v as Int))) },
+            ),
+            ConfigField(
+                key = "app.llm.tool-loop.recovery-max-tokens", group = "LLM · Tool loop", type = ConfigType.INT, min = 1000.0, max = 32000.0,
+                read = { it.llm.toolLoop.recoveryMaxTokens },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(recoveryMaxTokens = v as Int))) },
+            ),
+            ConfigField(
+                key = "app.llm.tool-loop.max-context-chars", group = "LLM · Tool loop", type = ConfigType.INT, min = 10000.0, max = 500000.0,
+                read = { it.llm.toolLoop.maxContextChars },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(maxContextChars = v as Int))) },
+            ),
+            ConfigField(
+                key = "app.llm.tool-loop.max-tool-result-chars", group = "LLM · Tool loop", type = ConfigType.INT, min = 1000.0, max = 30000.0,
+                read = { it.llm.toolLoop.maxToolResultChars },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(maxToolResultChars = v as Int))) },
+            ),
+            ConfigField(
+                key = "app.llm.tool-loop.max-duration-seconds", group = "LLM · Tool loop", type = ConfigType.LONG, min = 10.0, max = 1800.0,
+                read = { it.llm.toolLoop.maxDurationSeconds },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(maxDurationSeconds = v as Long))) },
+            ),
+            ConfigField(
+                key = "app.llm.tool-loop.reasoning-effort", group = "LLM · Tool loop", type = ConfigType.ENUM,
+                enumValues = { listOf("low", "medium", "high") },
+                read = { it.llm.toolLoop.reasoningEffort },
+                apply = { c, v -> c.copy(llm = c.llm.copy(toolLoop = c.llm.toolLoop.copy(reasoningEffort = v as String))) },
+            ),
         )
 
         return fields
@@ -207,9 +240,19 @@ class ConfigRegistry(
             apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(windowMinutes = v as Long))) },
         )
         fields += ConfigField(
-            key = "app.bot.decision.spontaneous-probability", group = "Bot · Decision", type = ConfigType.DOUBLE, min = 0.0, max = 1.0,
-            read = { it.bot.decision.spontaneousProbability },
-            apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(spontaneousProbability = v as Double))) },
+            key = "app.bot.decision.open-question-delay-seconds", group = "Bot · Decision", type = ConfigType.LONG, min = 0.0, max = 300.0,
+            read = { it.bot.decision.openQuestionDelaySeconds },
+            apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(openQuestionDelaySeconds = v as Long))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.decision.requested-cooldown-seconds", group = "Bot · Decision", type = ConfigType.LONG, min = 0.0, max = 60.0,
+            read = { it.bot.decision.requestedCooldownSeconds },
+            apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(requestedCooldownSeconds = v as Long))) },
+        )
+        fields += ConfigField(
+            key = "app.bot.decision.max-requested-replies-per-window", group = "Bot · Decision", type = ConfigType.INT, min = 1.0, max = 1000.0,
+            read = { it.bot.decision.maxRequestedRepliesPerWindow },
+            apply = { c, v -> c.copy(bot = c.bot.copy(decision = c.bot.decision.copy(maxRequestedRepliesPerWindow = v as Int))) },
         )
 
         fields += ConfigField(

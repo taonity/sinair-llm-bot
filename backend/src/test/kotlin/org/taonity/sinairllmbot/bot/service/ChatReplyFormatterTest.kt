@@ -2,144 +2,71 @@ package org.taonity.sinairllmbot.bot.service
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import tools.jackson.module.kotlin.jacksonObjectMapper
 
 class ChatReplyFormatterTest {
+    private val mapper = jacksonObjectMapper()
+    private val renderer = ReplyDocumentRenderer(mapper)
+
     @Test
-    fun `removes unsupported bold markers`() {
-        assertThat(ChatReplyFormatter.normalize("this is **important**"))
-            .isEqualTo("this is important")
+    fun `strips unsupported bold outside code only`() {
+        assertThat(ChatReplyFormatter.normalize("**Important**\n```\nvalue = 2 ** 3\n```"))
+            .isEqualTo("Important```value = 2 ** 3```")
     }
 
     @Test
-    fun `preserves double asterisks inside fenced code`() {
-        val response = "outside **bold**\n```\nvalue = 2 ** 3\n```"
-
-        assertThat(ChatReplyFormatter.normalize(response))
-            .isEqualTo("outside bold```value = 2 ** 3```")
+    fun `preserves blank lines and first line inside code`() {
+        val code = "fun example() {\n\n    println(1)\n}"
+        assertThat(renderer.render("```\n$code\n```" )).isEqualTo("Подробности:```$code```")
     }
 
     @Test
-    fun `collapses blank lines without joining quote and reply lines`() {
-        val response = "> first quote\r\n\r\nreply\r\n> second quote\r\nnext reply"
-
-        assertThat(ChatReplyFormatter.normalize(response))
-            .isEqualTo("> first quote\nreply\n> second quote\nnext reply")
+    fun `both long prose and short existing blocks have an outside lead`() {
+        assertThat(renderer.render("a".repeat(811))).startsWith("Подробности:```")
+        assertThat(renderer.render("```short details```" )).startsWith("Подробности:```")
     }
 
     @Test
-    fun `leaves a six line response unchanged`() {
-        val response = "a".repeat(810)
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
-    }
-
-    @Test
-    fun `wraps a long line that would render beyond six lines`() {
-        val response = "a".repeat(811)
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response))
-            .isEqualTo("```$response```")
-    }
-
-    @Test
-    fun `leaves a single-line wrapped response unchanged when no description can be separated`() {
-        val response = "```\n${"a".repeat(811)}\n```"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
-    }
-
-    @Test
-    fun `moves a description out of a whole-message fenced block`() {
+    fun `extracts a prose lead without moving a code line`() {
         val details = (1..7).joinToString("\n") { "- detail $it" }
-        val response = "```\nBrief description of the structured details.\n$details\n```"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
-            "Brief description of the structured details.```$details```",
-        )
+        assertThat(renderer.render("My conclusion.\n$details")).isEqualTo("My conclusion.```$details```")
     }
 
     @Test
-    fun `keeps a brief description outside its long response block`() {
-        val response = "Brief description of the structured details below.\n```\n${"a".repeat(811)}\n```"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    fun `renders typed blocks without guessing where the header ends`() {
+        val code = "fun example() {\n\n    println(1)\n}"
+        val response = mapper.writeValueAsString(mapOf(
+            "lead" to "Working example.",
+            "blocks" to listOf(mapOf("kind" to "code", "text" to code)),
+        ))
+        assertThat(renderer.render(response)).isEqualTo("Working example.```$code```")
     }
 
     @Test
-    fun `preserves a fenced block with surrounding prose`() {
-        val response = "Description of the details.\n```\n${"a".repeat(811)}\n```\nShort conclusion."
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    fun `quotes remain outside detail blocks`() {
+        val response = mapper.writeValueAsString(mapOf(
+            "lead" to "The distinction matters.",
+            "blocks" to listOf(mapOf("kind" to "quote", "text" to "original"), mapOf("kind" to "prose", "text" to "explanation")),
+        ))
+        assertThat(renderer.render(response)).contains("\n> original\n").contains("Подробности:```explanation```")
     }
 
     @Test
-    fun `keeps a necessary short conclusion outside the block`() {
-        val response = "Description.```- detail 1\n- detail 2```Required conclusion."
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(response)
+    fun `short replies stay short and malformed JSON is not leaked`() {
+        assertThat(renderer.render("short answer")).isEqualTo("short answer")
+        assertThat(renderer.render("{\"lead\":\"unfinished")).doesNotContain("{", "lead")
     }
 
     @Test
-    fun `moves an oversized conclusion inside after a double newline`() {
-        val conclusion = "c".repeat(135)
-        val response = "Description.```- detail 1\n- detail 2```$conclusion"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
-            "Description.```- detail 1\n- detail 2\n\n$conclusion```",
-        )
+    fun `closes an unfinished legacy block`() {
+        assertThat(renderer.render("Description.```details")).isEqualTo("Description.```details```")
     }
 
     @Test
-    fun `removes blank lines around a fenced block and conclusion`() {
-        val response = "Description.\n\n```\n${"a".repeat(811)}\n```\n\nConclusion."
-
-        assertThat(ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(response))).isEqualTo(
-            "Description.```${"a".repeat(811)}```Conclusion.",
-        )
-    }
-
-    @Test
-    fun `moves blank-line-delimited description outside block before conclusion`() {
-        val details = (1..7).joinToString("\n") { "- detail $it" }
-        val response = "```\nDescription of the details.\n\n$details\n```\nConclusion."
-
-        assertThat(ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(response))).isEqualTo(
-            "Description of the details.```$details```Conclusion.",
-        )
-    }
-
-    @Test
-    fun `appends a closing fence to a long response with one fence`() {
-        val response = "intro\n```\n${"a".repeat(811)}\noutro"
-
-        val formatted = ChatReplyFormatter.wrapLongReply(response)
-
-        assertThat(formatted).isEqualTo("$response```")
-        assertThat(formatted.windowed(3).count { it == "```" }).isEqualTo(2)
-    }
-
-    @Test
-    fun `appends a closing fence to a short response with one fence`() {
-        val response = "Description.```short details"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo("$response```")
-    }
-
-    @Test
-    fun `wraps seven short logical lines`() {
-        val response = (1..7).joinToString("\n") { "line $it" }
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response))
-            .isEqualTo("```$response```")
-    }
-
-    @Test
-    fun `keeps multiple quotes functional in a long response`() {
-        val response = "> first quote\nreply one\nreply two\n> second quote\nreply three\nreply four\nreply five"
-
-        assertThat(ChatReplyFormatter.wrapLongReply(response)).isEqualTo(
-            "> first quote\n```reply one\nreply two```\n" +
-                "> second quote\n```reply three\nreply four\nreply five```",
-        )
+    fun `chat size limit never leaves partial executable code`() {
+        val code = "println(1)\n".repeat(100)
+        val rendered = ChatReplyFormatter.limit("Example.```$code```", 100)
+        assertThat(rendered).hasSizeLessThanOrEqualTo(100).contains("не поместилась").doesNotContain("println", "```")
+        assertThat(ChatReplyFormatter.limit("Example.```println(1)```", 100)).isEqualTo("Example.```println(1)```")
     }
 }

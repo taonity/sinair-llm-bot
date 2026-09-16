@@ -12,7 +12,10 @@ data class ChatCompletionRequest(
     @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("response_format") val responseFormat: ResponseFormat? = null,
     val tools: List<Tool>? = null,
+    val reasoning: Reasoning? = null,
 )
+
+data class Reasoning(val effort: String)
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class Tool(
@@ -56,6 +59,7 @@ data class ChatMessage(
     val annotations: List<Annotation>? = null,
     @JsonProperty("tool_calls") val toolCalls: List<ToolCall>? = null,
     @JsonProperty("tool_call_id") val toolCallId: String? = null,
+    @JsonProperty("reasoning_details") val reasoningDetails: Any? = null,
 ) {
     companion object {
         fun system(content: String) = ChatMessage("system", content)

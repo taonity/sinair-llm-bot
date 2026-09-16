@@ -28,6 +28,11 @@ spring:
             user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo
 
 app:
+  ingestion:
+    cache:
+      ttl-seconds: 300
+      max-entries: 100
+      max-entry-chars: 60000
   minimised-http-servlet-logging: false
   default-success-url: /
   login-url: /
@@ -93,6 +98,16 @@ app:
     active-reply-tier: cheap
     gate-tier: gate
     critic-tier: critic
+    reply-web-search: false
+    tool-loop:
+      tier: ""
+      max-rounds: 2
+      final-max-tokens: 1000
+      recovery-max-tokens: 2000
+      max-context-chars: 120000
+      max-tool-result-chars: 12000
+      max-duration-seconds: 60
+      reasoning-effort: low
     retry:
       max-attempts: 3
       backoff-millis: 0
@@ -100,10 +115,10 @@ app:
     json-retry-attempts: 1
     critic:
       enabled: false
-      candidate-count: 3
-      candidate-temperature: 0.9
       repair-threshold: 7
       prompt: classpath:prompts/reply-critic-test.txt
+      review-min-chars: 1200
+      review-min-tool-calls: 3
     tiers:
       gate:
         model: test/gate-model
@@ -143,7 +158,9 @@ app:
       cooldown-seconds: 45
       max-replies-per-window: 8
       window-minutes: 30
-      spontaneous-probability: 0.15
+      open-question-delay-seconds: 45
+      requested-cooldown-seconds: 0
+      max-requested-replies-per-window: 40
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40

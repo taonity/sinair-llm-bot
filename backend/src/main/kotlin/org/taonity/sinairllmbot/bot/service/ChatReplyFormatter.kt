@@ -1,113 +1,54 @@
 package org.taonity.sinairllmbot.bot.service
 
 internal object ChatReplyFormatter {
-    private const val TRIPLE_BACKTICKS = "```"
-    private const val MAX_VISIBLE_LINES = 6
-    private const val APPROXIMATE_CHARS_PER_LINE = 135
-    private const val MAX_OUTSIDE_CONCLUSION_CHARS = 134
-    private val BLANK_LINES = Regex("\n[ \t]*\n+")
+    private const val FENCE = "```"
+    private const val DEFAULT_LEAD = "Подробности:"
 
-    fun normalize(text: String): String = text
-        .replace("\r\n", "\n")
-        .replace('\r', '\n')
-        .extractBlankLineDelimitedDescription()
-        .removeUnsupportedBold()
-        .replace(BLANK_LINES, "\n")
-        .compactFenceBoundaries()
+    fun normalize(text: String): String = text.replace("\r\n", "\n").replace('\r', '\n')
+        .split(FENCE).mapIndexed { index, part ->
+            if (index % 2 == 1) part.trim('\n')
+            else part.replace("**", "").replace(Regex("\n[ \t]*\n+"), "\n").trim('\n')
+        }.joinToString(FENCE)
 
     fun wrapLongReply(text: String): String {
-        val fenceCount = text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS }
-        if (fenceCount == 1) return "$text$TRIPLE_BACKTICKS"
-        moveLongConclusionInsideBlock(text)?.let { return it }
-
-        val visibleLines = text.lineSequence().sumOf { line ->
-            maxOf(1, (line.length + APPROXIMATE_CHARS_PER_LINE - 1) / APPROXIMATE_CHARS_PER_LINE)
+        if (text.contains(FENCE)) {
+            val balanced = if (text.split(FENCE).size % 2 == 0) "$text$FENCE" else text
+            return if (balanced.startsWith(FENCE)) "$DEFAULT_LEAD$balanced" else balanced
         }
-        if (visibleLines <= MAX_VISIBLE_LINES) return text
-        extractDescriptionFromWholeBlock(text)?.let { return it }
-        if (fenceCount > 0 && fenceCount % 2 == 0) {
-            return text
-        }
-        if (text.lineSequence().any { it.startsWith("> ") }) {
-            return wrapTextBetweenQuotes(text)
-        }
-        val content = text.replace(TRIPLE_BACKTICKS, "").trim()
-        return "$TRIPLE_BACKTICKS$content$TRIPLE_BACKTICKS"
-    }
-
-    private fun moveLongConclusionInsideBlock(text: String): String? {
-        if (text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return null
-        val openingFence = text.indexOf(TRIPLE_BACKTICKS)
-        val closingFence = text.indexOf(TRIPLE_BACKTICKS, openingFence + TRIPLE_BACKTICKS.length)
-        if (openingFence < 0 || closingFence < 0) return null
-
-        val conclusion = text.substring(closingFence + TRIPLE_BACKTICKS.length).trim()
-        if (conclusion.length <= MAX_OUTSIDE_CONCLUSION_CHARS) return null
-
-        val prefix = text.substring(0, openingFence).trimEnd()
-        val content = text.substring(openingFence + TRIPLE_BACKTICKS.length, closingFence).trim('\n')
-        return "$prefix$TRIPLE_BACKTICKS$content\n\n$conclusion$TRIPLE_BACKTICKS"
-    }
-
-    private fun extractDescriptionFromWholeBlock(text: String): String? {
-        if (!text.startsWith(TRIPLE_BACKTICKS) || !text.endsWith(TRIPLE_BACKTICKS)) return null
-        if (text.windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return null
-
-        val lines = text
-            .removePrefix(TRIPLE_BACKTICKS)
-            .removeSuffix(TRIPLE_BACKTICKS)
-            .trim('\n')
-            .lines()
-        if (lines.size < 2) return null
-
-        val description = lines.first().trim()
-        val details = lines.drop(1).joinToString("\n").trim()
-        if (description.isEmpty() || details.isEmpty()) return null
-        return "$description$TRIPLE_BACKTICKS$details$TRIPLE_BACKTICKS"
-    }
-
-    private fun String.extractBlankLineDelimitedDescription(): String {
-        if (!startsWith("$TRIPLE_BACKTICKS\n")) return this
-        if (windowed(TRIPLE_BACKTICKS.length).count { it == TRIPLE_BACKTICKS } != 2) return this
-
-        val closingFence = indexOf(TRIPLE_BACKTICKS, TRIPLE_BACKTICKS.length)
-        if (closingFence < 0) return this
-        val blockContent = substring(TRIPLE_BACKTICKS.length, closingFence).trim('\n')
-        val delimiter = BLANK_LINES.find(blockContent) ?: return this
-        val description = blockContent.substring(0, delimiter.range.first).trim()
-        val details = blockContent.substring(delimiter.range.last + 1).trim()
-        if (description.isEmpty() || details.isEmpty()) return this
-
-        val conclusion = substring(closingFence + TRIPLE_BACKTICKS.length).trim()
-        return buildString {
-            append(description).append(TRIPLE_BACKTICKS).append(details).append(TRIPLE_BACKTICKS)
-            if (conclusion.isNotEmpty()) append(conclusion)
-        }
-    }
-
-    private fun String.compactFenceBoundaries(): String = split(TRIPLE_BACKTICKS)
-        .joinToString(TRIPLE_BACKTICKS) { part -> part.trim('\n') }
-
-    private fun String.removeUnsupportedBold(): String = split(TRIPLE_BACKTICKS)
-        .mapIndexed { index, part -> if (index % 2 == 0) part.replace("**", "") else part }
-        .joinToString(TRIPLE_BACKTICKS)
-
-    private fun wrapTextBetweenQuotes(text: String): String = buildList {
-        val textLines = mutableListOf<String>()
-        fun flushText() {
-            if (textLines.isEmpty()) return
-            add("$TRIPLE_BACKTICKS${textLines.joinToString("\n")}$TRIPLE_BACKTICKS")
-            textLines.clear()
-        }
-
-        text.replace(TRIPLE_BACKTICKS, "").lineSequence().forEach { line ->
-            if (line.startsWith("> ")) {
-                flushText()
-                add(line)
-            } else {
-                textLines += line
+        if (visibleLines(text) <= 6) return text
+        val lines = text.lines()
+        if (lines.any { it.startsWith("> ") }) {
+            return lines.joinToString("\n") { line ->
+                if (line.startsWith("> ") || visibleLines(line) <= 6) line else "$DEFAULT_LEAD$FENCE$line$FENCE"
             }
         }
-        flushText()
-    }.joinToString("\n")
+        val firstLine = lines.first()
+        val sentenceEnd = Regex("[.!?:](?:\\s|$)").find(text)?.range?.last?.plus(1)
+        val leadLength = when {
+            lines.size > 1 && firstLine.length in 1..180 -> firstLine.length
+            sentenceEnd != null && sentenceEnd in 1..180 -> sentenceEnd
+            else -> 0
+        }
+        val lead = text.take(leadLength).trim().ifEmpty { DEFAULT_LEAD }
+        val details = text.drop(leadLength).trim()
+        return "$lead$FENCE$details$FENCE"
+    }
+
+    fun visibleLines(text: String): Int = text.lineSequence().sumOf { maxOf(1, (it.length + 134) / 135) }
+
+    fun limit(text: String, maxChars: Int): String {
+        if (text.length <= maxChars) return text
+        val notice = "\nЧасть ответа не поместилась в лимит чата."
+        val available = (maxChars - notice.length).coerceAtLeast(0)
+        val result = StringBuilder()
+        for ((index, part) in text.split(FENCE).withIndex()) {
+            val segment = if (index % 2 == 1) "$FENCE$part$FENCE" else part
+            if (result.length + segment.length > available) {
+                if (index % 2 == 0) result.append(segment.take(available - result.length).trimEnd())
+                break
+            }
+            result.append(segment)
+        }
+        return (result.toString().trimEnd() + notice).take(maxChars)
+    }
 }

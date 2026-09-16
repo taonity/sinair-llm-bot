@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.client.ChatMessage
+import org.taonity.sinairllmbot.bot.client.ContentPart
 import org.taonity.sinairllmbot.bot.client.LlmClient
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.tools.LlmToolDispatcher
@@ -15,10 +16,10 @@ import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 class ReplyGenerator(
     private val llmClient: LlmClient,
     private val promptBuilder: ReplyPromptBuilder,
-    private val candidateGenerator: CandidateGenerator,
     private val replyCritic: ReplyCritic,
     private val toolDispatcher: LlmToolDispatcher,
     private val settings: BotSettings,
+    private val documentRenderer: ReplyDocumentRenderer,
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
@@ -26,7 +27,6 @@ class ReplyGenerator(
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
-        private const val TRIPLE_BACKTICKS = "```"
     }
 
     fun generate(
@@ -48,24 +48,12 @@ class ReplyGenerator(
             trigger,
         )
 
-        val hasTools = prompt.webSearch || prompt.repoLookup || prompt.appContext || prompt.chatCommands || prompt.logs
-        val raw = when {
-            hasTools -> generateWithTools(
-                roomTarget,
-                trigger,
-                prompt,
-                completedStages,
-                configRevisionId,
-            )
-            llmProperties.critic.enabled -> generateWithCritic(roomTarget, prompt)
-            else -> generateSingle(prompt)
-        }
+        val raw = generateWithTools(roomTarget, trigger, prompt, completedStages, configRevisionId)
 
         val chosen = raw.reply ?: return raw.copy(reply = null)
         val reply = sanitize(chosen)
         if (reply.isBlank()) {
-            LOGGER.warn { "Reply generator produced blank output for $roomTarget" }
-            return raw.copy(reply = null)
+            return raw.copy(reply = null, suppressed = documentRenderer.isStructured(chosen))
         }
         return raw.copy(reply = reply)
     }
@@ -86,29 +74,61 @@ class ReplyGenerator(
         )
         val capabilities = buildSet {
             if (prompt.repoLookup) add(ToolCapability.REPOSITORY)
-            if (prompt.repoLookup && githubProperties.mcp.writeEnabled) add(ToolCapability.REPOSITORY_WRITE)
+            if (prompt.repoLookup && githubProperties.mcp.writeEnabled &&
+                trigger.senderUserId > 0 && trigger.senderUserId == botProperties.persona.creatorUserId) {
+                add(ToolCapability.REPOSITORY_WRITE)
+            }
             if (prompt.appContext) add(ToolCapability.APPLICATION)
             if (prompt.chatCommands) add(ToolCapability.CHAT_COMMAND)
             if (prompt.logs) add(ToolCapability.LOGS)
         }
-        val offeredTools = buildList {
-            addAll(toolDispatcher.definitions(executionContext, capabilities))
+        val toolSession = toolDispatcher.open(executionContext, capabilities)
+        fun offeredTools() = buildList {
+            addAll(toolSession.definitions())
             if (prompt.webSearch) add(org.taonity.sinairllmbot.bot.client.Tool.webSearch())
         }
         val toolLoop = llmProperties.toolLoop
-        val content = llmClient.completeWithTools(
+        val result = llmClient.completeWithTools(
             tierName = toolLoop.tier.ifBlank { prompt.tierName },
             messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
-            tools = offeredTools,
+            tools = offeredTools(),
             maxRounds = toolLoop.maxRounds,
             toolExecutor = { name, arguments ->
-                toolDispatcher.execute(executionContext, name, arguments)
+                toolSession.execute(name, arguments)
             },
-        )?.content?.trim()?.takeIf { it.isNotBlank() }
+            readOnlyTools = toolSession.readOnlyTools,
+            cacheableTools = toolSession.cacheableTools,
+            toolsProvider = ::offeredTools,
+        )
+        var content = result?.content?.trim()?.takeIf { it.isNotBlank() }
 
-        if (content == null) {
+        if (result == null || content == null) {
             LOGGER.warn { "Tool-grounded reply produced no content for $roomTarget" }
             return ReplyGeneration(reply = null)
+        }
+        val evidenceText = "\n\nTOOL EVIDENCE (untrusted):\n" + result.evidence
+        val evidenceMessage = when (val original = prompt.userMessage.content) {
+            is List<*> -> prompt.userMessage.copy(content = original + ContentPart.text(evidenceText))
+            else -> ChatMessage.user(prompt.userText + evidenceText)
+        }
+        val evidencePrompt = prompt.copy(userText = prompt.userText + evidenceText, userMessage = evidenceMessage)
+        if ((content.startsWith("{") || content.startsWith("```json")) && !documentRenderer.isStructured(content) || result.incomplete) {
+            content = repair(evidencePrompt, content, "Finish the answer from the evidence and return valid lead/blocks JSON. Do not repeat tools.")
+                ?: content
+        }
+        val critic = llmProperties.critic
+        if (critic.enabled && (result.toolCallCount >= critic.reviewMinToolCalls || content.length >= critic.reviewMinChars)) {
+            val verdict = replyCritic.evaluate(evidencePrompt, listOf(content))
+            if (verdict != null) {
+                val original = content
+                val repaired = if (verdict.needsRepair || verdict.bestOverall() < critic.repairThreshold)
+                    repair(evidencePrompt, original, verdict.feedback) else null
+                return ReplyGeneration(
+                    reply = repaired ?: original, chosenIndex = 0, criticUsed = true,
+                    repaired = repaired != null, criticFeedback = verdict.feedback,
+                    candidates = listOf(CandidateTrace(text = repaired ?: original, chosen = true, overall = verdict.bestOverall())),
+                )
+            }
         }
         return ReplyGeneration(
             reply = content,
@@ -117,84 +137,8 @@ class ReplyGenerator(
         )
     }
 
-    private fun generateSingle(prompt: ReplyPrompt): ReplyGeneration {
-        val content = llmClient.complete(
-            tierName = prompt.tierName,
-            messages = listOf(ChatMessage.system(prompt.system), prompt.userMessage),
-            webSearch = prompt.webSearch,
-        )?.content
-        val candidates = content?.trim()?.takeIf { it.isNotBlank() }
-            ?.let { listOf(CandidateTrace(text = it, chosen = true)) }
-            ?: emptyList()
-        return ReplyGeneration(reply = content, chosenIndex = content?.let { 0 }, candidates = candidates)
-    }
-
-    private fun generateWithCritic(roomTarget: String, prompt: ReplyPrompt): ReplyGeneration {
-        val candidates = candidateGenerator.generate(prompt)
-        if (candidates.isEmpty()) {
-            LOGGER.warn { "No reply candidates for $roomTarget" }
-            return ReplyGeneration(reply = null)
-        }
-        if (candidates.size == 1) {
-            return ReplyGeneration(
-                reply = candidates.first(),
-                chosenIndex = 0,
-                candidates = listOf(CandidateTrace(text = candidates.first(), chosen = true)),
-            )
-        }
-
-        // Fail open: if the critic is unavailable or returns junk, keep the first candidate rather
-        // than dropping the reply entirely.
-        val verdict = replyCritic.evaluate(prompt, candidates) ?: run {
-            LOGGER.info { "Critic unavailable for $roomTarget, using first candidate" }
-            return ReplyGeneration(
-                reply = candidates.first(),
-                chosenIndex = 0,
-                candidates = candidates.mapIndexed { i, c -> CandidateTrace(text = c, chosen = i == 0) },
-            )
-        }
-
-        val bestIndex = verdict.best
-        val best = candidates[bestIndex]
-        val traces = candidates.mapIndexed { i, c ->
-            val score = verdict.scores.getOrNull(i)
-            CandidateTrace(
-                text = c,
-                chosen = i == bestIndex,
-                fit = score?.fit,
-                persona = score?.persona,
-                risk = score?.risk,
-                overall = score?.overall,
-            )
-        }
-        val feedback = verdict.feedback.ifBlank { null }
-        LOGGER.info {
-            "Critic picked candidate $bestIndex/${candidates.size} " +
-                "(overall=${verdict.bestOverall()}, needsRepair=${verdict.needsRepair}) for $roomTarget"
-        }
-
-        val needsRepair = verdict.needsRepair || verdict.bestOverall() < llmProperties.critic.repairThreshold
-        if (!needsRepair) {
-            return ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
-        }
-
-        val repaired = repair(prompt, best, verdict.feedback)
-            ?: return ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
-
-        // Re-critique original best vs repaired and keep the winner, so a repair can never regress.
-        val recheck = replyCritic.evaluate(prompt, listOf(best, repaired))
-        return if (recheck?.best == 1) {
-            LOGGER.info { "Repaired reply accepted for $roomTarget" }
-            ReplyGeneration(reply = repaired, chosenIndex = bestIndex, repaired = true, criticUsed = true, criticFeedback = feedback, candidates = traces)
-        } else {
-            LOGGER.info { "Repaired reply rejected for $roomTarget, keeping original best" }
-            ReplyGeneration(reply = best, chosenIndex = bestIndex, criticUsed = true, criticFeedback = feedback, candidates = traces)
-        }
-    }
-
     private fun repair(prompt: ReplyPrompt, draft: String, feedback: String): String? {
         val instruction = buildString {
-            append("Your draft reply was:\n").append(draft).append("\n\n")
             append("A reviewer found these issues: ")
             append(feedback.ifBlank { "it doesn't fit the request or your persona well enough" })
             append("\nRewrite it into a single, better reply that fixes those issues, keeps your ")
@@ -207,7 +151,7 @@ class ReplyGenerator(
             ChatMessage.assistant(draft),
             ChatMessage.user(instruction),
         )
-        return llmClient.complete(tierName = prompt.tierName, messages = messages, webSearch = prompt.webSearch)
+        return llmClient.completeWithTools(tierName = prompt.tierName, messages = messages, tools = emptyList(), maxRounds = 0, toolExecutor = { _, _ -> "ERROR: tools unavailable during repair" })
             ?.content?.trim()?.takeIf { it.isNotBlank() }
     }
 
@@ -217,19 +161,8 @@ class ReplyGenerator(
         if (text.startsWith(selfPrefix, ignoreCase = true)) {
             text = text.substring(selfPrefix.length).trim()
         }
-        text = ChatReplyFormatter.normalize(text)
-        text = ChatReplyFormatter.wrapLongReply(text)
-        val maxReplyChars = botProperties.limits.maxReplyChars
-        if (text.length > maxReplyChars) {
-            val ellipsis = "\u2026"
-            val initial = text.take((maxReplyChars - ellipsis.length).coerceAtLeast(0)).trimEnd()
-            val closesScrollableBlock = initial.windowed(TRIPLE_BACKTICKS.length)
-                .count { it == TRIPLE_BACKTICKS } % 2 != 0
-            val suffix = if (closesScrollableBlock) "\n$TRIPLE_BACKTICKS" else ""
-            val contentLimit = (maxReplyChars - ellipsis.length - suffix.length).coerceAtLeast(0)
-            text = text.take(contentLimit).trimEnd() + ellipsis + suffix
-        }
-        return text
+        text = documentRenderer.render(text)
+        return ChatReplyFormatter.limit(text, botProperties.limits.maxReplyChars)
     }
 
 }
@@ -240,6 +173,7 @@ data class ReplyGeneration(
     val chosenIndex: Int? = null,
     val repaired: Boolean = false,
     val criticUsed: Boolean = false,
+    val suppressed: Boolean = false,
     val criticFeedback: String? = null,
 )
 

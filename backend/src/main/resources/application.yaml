@@ -76,20 +76,26 @@ app:
     gate-tier: gate
     critic-tier: critic
     retry:
-      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:20}
+      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:3}
       backoff-millis: ${LLM_RETRY_BACKOFF_MILLIS:1000}
       retry-provider-errors: ${LLM_RETRY_PROVIDER_ERRORS:true}
     reply-web-search: ${LLM_REPLY_WEB_SEARCH:true}
     tool-loop:
       tier: ""
-      max-rounds: 35
+      max-rounds: 20
+      final-max-tokens: 6000
+      recovery-max-tokens: 12000
+      max-context-chars: 120000
+      max-tool-result-chars: 12000
+      max-duration-seconds: 240
+      reasoning-effort: low
     json-retry-attempts: 3
     critic:
       enabled: ${LLM_CRITIC_ENABLED:true}
-      candidate-count: 2
-      candidate-temperature: 0.35
       repair-threshold: 7
       prompt: classpath:prompts/reply-critic.txt
+      review-min-chars: 1200
+      review-min-tool-calls: 3
     tiers:
       gate:
         model: google/gemini-2.5-flash-lite
@@ -117,6 +123,10 @@ app:
         temperature: 0.7
         max-tokens: 500
   ingestion:
+    cache:
+      ttl-seconds: 300
+      max-entries: 100
+      max-entry-chars: 60000
     enabled: ${INGESTION_ENABLED:true}
     max-urls-per-message: 3
     fetch-timeout-seconds: 8
@@ -156,7 +166,9 @@ app:
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      spontaneous-probability: 0
+      open-question-delay-seconds: 120
+      requested-cooldown-seconds: 2
+      max-requested-replies-per-window: 40
     context:
       recent-message-count: 25
       summary-refresh-every-messages: 40
@@ -169,7 +181,7 @@ app:
       # Auto-clears stalled reply generation that would otherwise leave typing stuck on.
       ttl-seconds: 120
     limits:
-      max-reply-chars: 4000
+      max-reply-chars: 8000
       trace-trigger-text-max: 2000
       event-scan-limit: 120
       summary-history-versions: 9

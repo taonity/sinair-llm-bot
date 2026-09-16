@@ -43,7 +43,6 @@ class LlmClient(
 
     private val llmProperties get() = settings.llm()
     private val restClient: RestClient = buildRestClient()
-    private val prettyWriter = objectMapper.writerWithDefaultPrettyPrinter()
 
     fun complete(
         tierName: String,
@@ -98,53 +97,66 @@ class LlmClient(
         tools: List<Tool>,
         maxRounds: Int,
         toolExecutor: (name: String, argumentsJson: String) -> String,
+        readOnlyTools: Set<String> = emptySet(),
+        cacheableTools: Set<String> = readOnlyTools,
+        toolsProvider: (() -> List<Tool>)? = null,
     ): LlmResult? {
         val tier = llmProperties.tier(tierName)
+        val budget = llmProperties.toolLoop
         val conversation = messages.toMutableList()
         var totalTokens = 0
-        val totalIterations = maxRounds + 1
+        val totalIterations = maxRounds + 4
+        val startedAt = System.nanoTime()
+        val cachedResults = mutableMapOf<Pair<String, String>, String>()
+        val citationUrls = linkedSetOf<String>()
+        var finalizing = false
+        var recovery = false
+        var partial: String? = null
+        var finalInstructionAdded = false
+        var executedTools = 0
+        var toolRounds = 0
+        var boosted = false
+        val evidenceExcerpts = mutableListOf<String>()
+        fun result(content: String, incomplete: Boolean = false) = LlmResult(
+            content, totalTokens, citationUrls.toList(), executedTools,
+            evidenceExcerpts.takeLast(8).joinToString("\n") { it.take(budget.maxContextChars / 32) },
+            incomplete,
+        )
 
-        for (round in 0..maxRounds) {
+        for (round in 0 until totalIterations) {
             val iteration = round + 1
-            val offerTools = round < maxRounds
+            val compacted = ToolConversationBudget.compact(conversation, budget.maxContextChars)
+            if (ToolConversationBudget.size(conversation) > budget.maxContextChars) {
+                LOGGER.warn { "Original prompt exceeds the configured context safety budget" }
+                return partial?.let { result(it, incomplete = true) }
+            }
+            val expired = (System.nanoTime() - startedAt) / 1_000_000_000 >= budget.maxDurationSeconds
+            finalizing = finalizing || toolRounds >= maxRounds || compacted || expired
+            val offerTools = !finalizing
             LOGGER.info {
                 "Agentic tier '$tierName' iteration $iteration/$totalIterations " +
                     "(${if (offerTools) "tools enabled" else "final answer"})"
             }
-            if (!offerTools) {
+            if (!offerTools && !finalInstructionAdded) {
+                finalInstructionAdded = true
                 conversation += ChatMessage.user(
-                    "The investigation has reached its tool-call limit. Now wrap up " +
-                        "the answer for the user in the chat format, using only single-backtick inline " +
-                        "highlights, triple-backtick scroll/code blocks, or quote lines starting with `> `. " +
-                        "Keep each quote on its own line, outside scroll blocks, and continue on a new line. " +
-                        "Never use `**` bold outside literal code. If the response exceeds six " +
-                        "visible lines of about 135 characters each, write one brief sentence of about 130 " +
-                        "characters describing the details outside the fence, then put the opening fence " +
-                        "immediately after it with no newline or space. Put the content immediately after " +
-                        "the opening fence and the closing fence immediately after the content, also with no " +
-                        "newline or space. Never put the " +
-                        "description inside the fence. Structure non-code details as short numbered or " +
-                        "dash-prefixed lines whenever they can be described as a list. Put every entry on " +
-                        "its own line with exactly one newline between consecutive entries; never put two " +
-                        "entries on the same line. Otherwise use plain text, and keep literal code " +
-                        "unchanged. Add a conclusion only when actually required. Keep it under 135 characters " +
-                        "and place it immediately after the closing fence with no newline or space. If it needs " +
-                        "135 characters or more, put it inside the block after exactly two newline characters " +
-                        "following the main content. Never put a smiley inside a triple-backtick block. Be concise: say " +
-                        "which tools, application records, repositories, files or search terms you " +
-                        "checked; what you found; distinguish current state from historical snapshots; " +
-                        "and, when relevant, what was close or inconclusive. Never claim that a file, " +
-                        "record, feature or behavior does not exist merely because you did not find it. Say " +
-                        "that you did not find enough evidence, or that the search was inconclusive, " +
-                        "and state where you looked.",
+                    "Finish the user's request now using the evidence already collected. " +
+                        "No more tools are available. Give the useful result first, distinguish evidence " +
+                        "from inference, and state unresolved limitations briefly. An unsuccessful or " +
+                        "bounded search is not proof of absence. Follow the final-answer format in your brief.",
                 )
             }
             val request = ChatCompletionRequest(
                 model = tier.model,
                 messages = conversation.toList(),
                 temperature = tier.temperature,
-                maxTokens = tier.maxTokens,
-                tools = if (offerTools) tools else null,
+                maxTokens = when {
+                    recovery -> maxOf(tier.maxTokens, budget.recoveryMaxTokens)
+                    finalizing || boosted -> maxOf(tier.maxTokens, budget.finalMaxTokens)
+                    else -> tier.maxTokens
+                },
+                tools = if (offerTools) toolsProvider?.invoke() ?: tools else null,
+                reasoning = Reasoning(budget.reasoningEffort),
             )
             val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
             val transport = postChatCompletion(
@@ -153,7 +165,13 @@ class LlmClient(
                 request = request,
                 iteration = iteration,
                 totalIterations = totalIterations,
-            ) ?: return null
+            ) ?: run {
+                if (recovery) return partial?.let { result(it, incomplete = true) }
+                ToolConversationBudget.compact(conversation, budget.maxContextChars / 4)
+                finalizing = true
+                recovery = true
+                continue
+            }
             val rawResponse = transport.rawResponse
             val response = runCatching { objectMapper.readValue(rawResponse, ChatCompletionResponse::class.java) }
                 .getOrNull()
@@ -161,19 +179,29 @@ class LlmClient(
             val message = choice?.message
             val toolCalls = message?.toolCalls.orEmpty()
             totalTokens += response?.usage?.totalTokens ?: 0
+            citationUrls += message?.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
+            val truncated = choice?.finishReason?.lowercase() in TRUNCATION_FINISH_REASONS ||
+                choice?.nativeFinishReason?.contains("MALFORMED", ignoreCase = true) == true
 
             // Execute each tool call the model asked for and capture a structured entry (name, args,
             // result) so the console can render the full tool-call exchange without raw-payload digging.
             val toolCallEntries = mutableListOf<ToolCallEntry>()
-            if (offerTools && toolCalls.isNotEmpty()) {
+            if (offerTools && toolCalls.isNotEmpty() && !truncated) {
                 // Echo the assistant's tool-call turn (without response-only annotations), then append
                 // each tool result so the model can read them on the next round.
-                conversation += ChatMessage(role = "assistant", content = message?.content, toolCalls = message?.toolCalls)
+                conversation += message!!.copy(annotations = null)
                 toolCalls.forEach { call ->
                     val name = call.function?.name.orEmpty()
                     val args = call.function?.arguments.orEmpty()
-                    val execution = executeToolWithRetry(name, args, toolExecutor)
-                    val result = execution.result
+                    val cacheKey = name to runCatching { objectMapper.readTree(args).toString() }.getOrDefault(args)
+                    val cached = cachedResults[cacheKey].takeIf { name in cacheableTools }
+                    val execution = if (cached != null) ToolExecution(cached, emptyList(), 1)
+                        else executeToolWithRetry(name, args, toolExecutor, name in readOnlyTools)
+                    val result = ToolConversationBudget.boundResult(execution.result, budget.maxToolResultChars)
+                    if (name != "discover_tools") evidenceExcerpts += "$name:\n$result"
+                    if (name in cacheableTools && !result.startsWith("ERROR:")) cachedResults[cacheKey] = result
+                    if (name !in readOnlyTools) cachedResults.clear()
+                    if (name != "discover_tools") executedTools++
                     val isError = result.startsWith("ERROR:")
                     conversation += ChatMessage.tool(call.id.orEmpty(), result)
                     toolCallEntries += ToolCallEntry(
@@ -187,7 +215,7 @@ class LlmClient(
                     if (isError) {
                         LOGGER.warn {
                             "Agentic tier '$tierName' iteration $iteration/$totalIterations: " +
-                                "tool '$name' returned error (${result.take(500)})"
+                                "tool '$name' returned an error"
                         }
                     } else {
                         LOGGER.info {
@@ -207,33 +235,28 @@ class LlmClient(
                 totalIterations = totalIterations,
             )
 
-            if (offerTools && toolCalls.isNotEmpty()) {
+            if (offerTools && toolCalls.isNotEmpty() && !truncated) {
+                toolRounds++
                 continue
             }
 
             val content = (message?.content as? String)?.trim()
-            if (!content.isNullOrBlank()) {
-                val citationUrls = message?.annotations?.mapNotNull { it.urlCitation?.url }.orEmpty()
-                return LlmResult(content = content, totalTokens = totalTokens, citationUrls = citationUrls)
+            if (!content.isNullOrBlank() && !truncated) {
+                return result(content)
             }
-
-            // No tool call and no text. A truncated/malformed tool call lands here: e.g. Gemini's
-            // MALFORMED_FUNCTION_CALL (tool JSON cut off) or a `length` cap hit mid-output — usually
-            // the tier's max-tokens is too small (thinking models spend it on hidden reasoning).
-            // Retry the same round while tool rounds remain; the final tool-free round forces text.
-            val finishReason = choice?.finishReason
-            val nativeFinishReason = choice?.nativeFinishReason
-            val truncated = finishReason?.lowercase() in TRUNCATION_FINISH_REASONS ||
-                nativeFinishReason?.contains("MALFORMED", ignoreCase = true) == true
+            if (!content.isNullOrBlank()) partial = content
             LOGGER.warn {
-                "Agentic tier '$tierName' produced no usable output on iteration " +
-                    "$iteration/$totalIterations " +
-                    "(finish=$finishReason native=$nativeFinishReason)"
+                "Agentic tier '$tierName' needs finalization (iteration=$iteration, finish=${choice?.finishReason})"
             }
-            if (offerTools && truncated) continue
-            return null
+            if (offerTools && truncated && !boosted) {
+                boosted = true
+                continue
+            }
+            if (recovery) break
+            recovery = finalizing
+            finalizing = true
         }
-        return null
+        return partial?.let { result(it, incomplete = true) }
     }
 
     private fun postChatCompletion(
@@ -246,7 +269,7 @@ class LlmClient(
         val iterationLabel = iteration?.let { "iteration $it/${totalIterations ?: "?"}" }
         val callLabel = "tier=$tierName" + iterationLabel?.let { ", $it" }.orEmpty()
         val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
-        LOGGER.debug { "OpenRouter request ($callLabel):\n${prettyJson(request)}" }
+        LOGGER.debug { "OpenRouter request ($callLabel): ${requestJson.length} chars" }
         return try {
             val retry = llmProperties.retry
             var attempt = 0
@@ -296,7 +319,7 @@ class LlmClient(
                     throw exception
                 }
             }
-            LOGGER.debug { "OpenRouter response ($callLabel):\n${prettyJson(rawResponse)}" }
+            LOGGER.debug { "OpenRouter response ($callLabel): ${rawResponse?.length ?: 0} chars" }
             LlmTransportResult(rawResponse.orEmpty(), attempt, retry.maxAttempts)
         } catch (exception: Exception) {
             LOGGER.warn(exception) { "LLM call failed ($callLabel, model=${tier.model})" }
@@ -335,13 +358,14 @@ class LlmClient(
         name: String,
         argumentsJson: String,
         toolExecutor: (name: String, argumentsJson: String) -> String,
+        readOnly: Boolean,
     ): ToolExecution {
         val retry = llmProperties.retry
         val attempts = mutableListOf<ToolCallAttempt>()
         val result = try {
             RetryExecutor.execute(
                 name = "tool-$name",
-                maxAttempts = retry.maxAttempts,
+                maxAttempts = if (readOnly) retry.maxAttempts else 1,
                 backoffMillis = retry.backoffMillis,
                 shouldRetryResult = ::isRetryableToolResult,
                 onRetry = { nextAttempt, cause ->
@@ -359,7 +383,7 @@ class LlmClient(
         } catch (exception: Exception) {
             attempts.lastOrNull()?.result ?: toolFailureResult(name, exception)
         }
-        return ToolExecution(result, attempts, retry.maxAttempts)
+        return ToolExecution(result, attempts, if (readOnly) retry.maxAttempts else 1)
     }
 
     private fun toolFailureResult(name: String, exception: Exception?): String =
@@ -370,7 +394,7 @@ class LlmClient(
         val normalized = result.lowercase()
         val retryable = RETRYABLE_TOOL_ERROR_MARKERS.any(normalized::contains)
         if (retryable) {
-            LOGGER.warn { "Tool returned retryable error: ${result.take(500)}" }
+            LOGGER.warn { "Tool returned a retryable error" }
         }
         return retryable
     }
@@ -442,18 +466,6 @@ class LlmClient(
         )
     }
 
-    private fun prettyJson(value: Any?): String = try {
-        prettyWriter.writeValueAsString(value)
-    } catch (exception: Exception) {
-        "<unserializable: ${exception.message}>"
-    }
-
-    private fun prettyJson(json: String?): String = try {
-        if (json.isNullOrBlank()) "<empty>" else prettyWriter.writeValueAsString(objectMapper.readTree(json))
-    } catch (exception: Exception) {
-        json ?: "<null>"
-    }
-
     private fun buildRestClient(): RestClient {
         val factory = SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(10))
@@ -471,4 +483,7 @@ data class LlmResult(
     val content: String,
     val totalTokens: Int,
     val citationUrls: List<String> = emptyList(),
+    val toolCallCount: Int = 0,
+    val evidence: String = "",
+    val incomplete: Boolean = false,
 )

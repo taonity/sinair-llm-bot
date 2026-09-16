@@ -16,6 +16,7 @@ import org.taonity.sinairllmbot.bot.repository.RoomSummaryHistoryRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
+import org.springframework.data.domain.PageRequest
 
 @Service
 class RoomSummaryService(
@@ -51,13 +52,16 @@ class RoomSummaryService(
     private fun refreshInternal(roomTarget: String, force: Boolean, trigger: SummaryRefreshTrigger) {
         val existing = roomSummaryRepository.findByRoomTarget(roomTarget)
         val totalMessages = chatMessageRepository.countByRoomTarget(roomTarget).toInt()
-        val sinceLast = totalMessages - (existing?.messageCount ?: 0)
+        val watermarkTime = existing?.lastMessageReceivedAt ?: Instant.EPOCH
+        val watermarkId = existing?.lastMessageId.orEmpty()
+        val sinceLast = chatMessageRepository.countAfterWatermark(roomTarget, watermarkTime, watermarkId).toInt()
         if (!force && existing != null && sinceLast < botProperties.context.summaryRefreshEveryMessages) {
             return
         }
         if (sinceLast == 0) return
 
-        val transcript = contextBuilder.recentTranscript(roomTarget, limit = 60)
+        val messages = chatMessageRepository.findAfterWatermark(roomTarget, watermarkTime, watermarkId, PageRequest.of(0, 60))
+        val transcript = contextBuilder.formatTranscript(messages)
         if (transcript.isBlank()) return
 
         val previousSummary = existing?.summary
@@ -100,6 +104,8 @@ class RoomSummaryService(
             existing.updatedAt = Instant.now()
             existing
         }
+        current.lastMessageReceivedAt = messages.last().receivedAt
+        current.lastMessageId = messages.last().id
         roomSummaryRepository.save(current)
         val runId = pipelineTraceService.recordSummary(
             roomTarget = roomTarget,

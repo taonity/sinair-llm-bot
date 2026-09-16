@@ -18,6 +18,7 @@ import org.taonity.sinairllmbot.config.entity.BotConfigOverrideEntity
 import org.taonity.sinairllmbot.config.repository.BotConfigOverrideRepository
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
+import org.springframework.data.domain.PageRequest
 
 @Service
 class ChatCommandToolService(
@@ -242,14 +243,17 @@ class ChatCommandToolService(
         val commandText = "/$command $rawArgs".trimEnd()
 
         pipelineContextTracker.recordSource("chat-command://$command")
-        LOGGER.info { "Executing chat command: $commandText in room ${context.roomTarget}" }
+        LOGGER.info { "Executing chat command '$command' in room ${context.roomTarget}" }
+        val memberId = chatEventRepository.findByRoomTargetOrderByEventTimeDesc(context.roomTarget, PageRequest.of(0, settings.bot().limits.eventScanLimit))
+            .firstOrNull { it.memberName.equals(context.botName, ignoreCase = true) }?.memberId
 
         // Phase 1: persist the command as an outbound message (in its own transaction so the
         // collector can pick it up and the polling loop below can see the echo).
         val outboundId = persistOutbound(context.roomTarget, commandText, command, rawArgs)
 
         // Phase 2: poll for the server's response (outside the transaction — no DB connection held).
-        val response = pollForResponse(context.roomTarget, outboundId, command, rawArgs)
+        val response = pollForResponse(context.roomTarget, outboundId, command, rawArgs, memberId)
+        if (command == "nick" && rawArgs.isNotBlank() && response.startsWith("CONFIRMED:")) syncNickConfig(rawArgs.trim())
         return response
     }
 
@@ -276,12 +280,6 @@ class ChatCommandToolService(
             ),
         )
 
-        // When the bot changes its own nick, sync the persona.name config override so all
-        // internal mechanisms stay in sync immediately — no manual console edit needed.
-        if (command == "nick" && rawArgs.isNotBlank()) {
-            syncNickConfig(rawArgs.trim())
-        }
-
         return saved.id ?: throw RuntimeException("Failed to persist outbound message")
     }
 
@@ -290,6 +288,7 @@ class ChatCommandToolService(
         outboundId: String,
         command: String,
         rawArgs: String,
+        memberId: Int?,
     ): String {
         val deadline = System.currentTimeMillis() + POLL_TIMEOUT_MS
         val commandText = "/$command $rawArgs".trimEnd()
@@ -300,8 +299,7 @@ class ChatCommandToolService(
             val echo = chatMessageRepository.findBySourceOutboundMessageId(outboundId)
             if (echo != null) {
                 val echoText = echo.messageText
-                LOGGER.info { "Command echo received for $outboundId: $echoText" }
-                return "SUCCESS: $commandText — server responded: $echoText"
+                return "CONFIRMED: linked server echo for $commandText: $echoText"
             }
 
             // 2. Check for recent events in the room (system messages from commands, or
@@ -310,20 +308,9 @@ class ChatCommandToolService(
             val recentEvents = chatEventRepository
                 .findByRoomTargetAndReceivedAtAfterOrderByReceivedAtDesc(roomTarget, pollStartedAt)
             for (event in recentEvents) {
-                LOGGER.info { "Command event detected for $outboundId: status=${event.status} name=${event.memberName} data=${event.eventData}" }
-                val detail = buildString {
-                    when (event.status) {
-                        "system" -> {
-                            val msg = event.eventData ?: "command executed"
-                            append("SUCCESS: $commandText — $msg")
-                        }
-                        "nick_change" -> append("SUCCESS: $commandText — nick changed to '${event.memberName}'")
-                        "color_change" -> append("SUCCESS: $commandText — color changed to '${event.memberColor}'")
-                        "gender_change" -> append("SUCCESS: $commandText — gender changed")
-                        else -> append("SUCCESS: $commandText — event: ${event.status} (${event.memberName})")
-                    }
+                if (ChatCommandConfirmation.matches(event, memberId, command, rawArgs)) {
+                    return "CONFIRMED: $commandText; matching ${event.status} event"
                 }
-                return detail
             }
 
             // 3. Check if the outbound message was sent (collector delivered it).
@@ -344,19 +331,18 @@ class ChatCommandToolService(
         // Timeout — check one last time for an echo or events.
         val echo = chatMessageRepository.findBySourceOutboundMessageId(outboundId)
         if (echo != null) {
-            return "SUCCESS: $commandText — server responded: ${echo.messageText}"
+            return "CONFIRMED: linked server echo for $commandText: ${echo.messageText}"
         }
         val lateEvents = chatEventRepository
             .findByRoomTargetAndReceivedAtAfterOrderByReceivedAtDesc(roomTarget, pollStartedAt)
-        if (lateEvents.isNotEmpty()) {
-            val event = lateEvents.first()
-            val msg = if (event.status == "system") event.eventData ?: "command executed" else event.status
-            return "SUCCESS: $commandText — $msg"
+        if (lateEvents.any { ChatCommandConfirmation.matches(it, memberId, command, rawArgs) }) {
+            return "CONFIRMED: $commandText; matching identity-change event"
         }
 
-        LOGGER.warn { "Command $commandText timed out waiting for echo (outboundId=$outboundId)" }
-        return "SUCCESS: $commandText — command was sent to the chat server but no response was " +
-            "received within the timeout. The command may still have been executed."
+        LOGGER.warn { "Command '$command' has no confirmation (outboundId=$outboundId)" }
+        val sent = outboundMessageRepository.findById(outboundId).orElse(null)?.status == OutboundStatus.SENT
+        return if (sent) "UNCONFIRMED: command delivered but execution was not confirmed. Do not claim success or repeat it automatically."
+        else "PENDING: command is queued; delivery and execution are not confirmed. Do not repeat it."
     }
 
     private fun parseCommand(argumentsJson: String): String? {

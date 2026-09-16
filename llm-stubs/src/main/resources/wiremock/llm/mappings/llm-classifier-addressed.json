@@ -5,7 +5,7 @@
     "urlPath": "/v1/chat/completions",
     "bodyPatterns": [
       { "matchesJsonPath": "$.response_format" },
-      { "contains": "@segfault" }
+      { "matchesJsonPath": { "expression": "$.messages[-1].content", "matches": "(?s)^TARGET.*@segfault.*" } }
     ]
   },
   "response": {
@@ -18,7 +18,7 @@
       "choices": [
         {
           "index": 0,
-          "message": { "role": "assistant", "content": "{\"respond\": true, \"reason\": \"stub-addressed\"}" },
+          "message": { "role": "assistant", "content": "{\"respond\": true, \"category\": \"direct_address\"}" },
           "finish_reason": "stop"
         }
       ],

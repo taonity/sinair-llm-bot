@@ -30,7 +30,9 @@ data class BotProperties(
         val cooldownSeconds: Long,
         val maxRepliesPerWindow: Int,
         val windowMinutes: Long,
-        val spontaneousProbability: Double,
+        val openQuestionDelaySeconds: Long,
+        val requestedCooldownSeconds: Long,
+        val maxRequestedRepliesPerWindow: Int,
     )
 
     data class Context(

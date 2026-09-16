@@ -6,6 +6,8 @@ import org.taonity.sinairllmbot.config.BotSettings
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.Executors
+import jakarta.annotation.PreDestroy
 
 @Component
 class BotDebouncer(
@@ -20,16 +22,34 @@ class BotDebouncer(
     }
 
     private val pending = ConcurrentHashMap<String, ScheduledFuture<*>>()
+    private val workers = Executors.newFixedThreadPool(4)
+    private val running = ConcurrentHashMap.newKeySet<String>()
+    private val versions = ConcurrentHashMap<String, Any>()
 
-    fun schedule(roomTarget: String, action: Runnable) {
+    fun schedule(roomTarget: String, delaySeconds: Long = botProperties.decision.debounceSeconds, action: Runnable) {
         synchronized(pending) {
             pending.remove(roomTarget)?.cancel(false)
-            val runAt = Instant.now().plusSeconds(botProperties.decision.debounceSeconds)
+            val version = Any()
+            versions[roomTarget] = version
+            val runAt = Instant.now().plusSeconds(delaySeconds)
             val future = scheduler.schedule({
-                pending.remove(roomTarget)
-                action.run()
+                if (versions.remove(roomTarget, version) && running.add(roomTarget)) {
+                    workers.execute {
+                        try {
+                            action.run()
+                        } finally {
+                            running.remove(roomTarget)
+                        }
+                    }
+                }
             }, runAt)
             pending[roomTarget] = future
         }
+    }
+
+    @PreDestroy
+    fun close() {
+        scheduler.shutdown()
+        workers.shutdownNow()
     }
 }

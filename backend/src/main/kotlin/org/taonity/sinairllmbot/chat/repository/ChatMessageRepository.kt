@@ -23,6 +23,12 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, String> {
 
     fun countByRoomTarget(roomTarget: String): Long
 
+    @Query("select count(message) from ChatMessageEntity message where message.roomTarget = :room and (message.receivedAt > :receivedAt or (message.receivedAt = :receivedAt and message.id > :id))")
+    fun countAfterWatermark(room: String, receivedAt: Instant, id: String): Long
+
+    @Query("select message from ChatMessageEntity message where message.roomTarget = :room and (message.receivedAt > :receivedAt or (message.receivedAt = :receivedAt and message.id > :id)) order by message.receivedAt, message.id")
+    fun findAfterWatermark(room: String, receivedAt: Instant, id: String, pageable: Pageable): List<ChatMessageEntity>
+
     @Query(
         """
         SELECT m FROM ChatMessageEntity m

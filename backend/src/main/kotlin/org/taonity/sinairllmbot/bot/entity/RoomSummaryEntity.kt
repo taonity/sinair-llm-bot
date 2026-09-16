@@ -25,4 +25,6 @@ class RoomSummaryEntity(
     var messageCount: Int = 0,
     var updatedAt: Instant = Instant.now(),
     var pipelineRunId: String? = null,
+    var lastMessageReceivedAt: Instant? = null,
+    var lastMessageId: String? = null,
 )

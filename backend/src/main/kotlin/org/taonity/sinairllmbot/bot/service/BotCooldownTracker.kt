@@ -13,17 +13,18 @@ class BotCooldownTracker(
     private val botProperties get() = settings.bot()
     private val replyTimestamps = ConcurrentHashMap<String, MutableList<Instant>>()
 
-    fun canReply(roomTarget: String, now: Instant = Instant.now()): Boolean {
+    fun canReply(roomTarget: String, now: Instant = Instant.now(), requested: Boolean = false): Boolean {
         val decision = botProperties.decision
         val window = Duration.ofMinutes(decision.windowMinutes)
         val timestamps = replyTimestamps.computeIfAbsent(roomTarget) { mutableListOf() }
         synchronized(timestamps) {
             timestamps.removeIf { Duration.between(it, now) > window }
             val last = timestamps.maxOrNull()
-            if (last != null && Duration.between(last, now).seconds < decision.cooldownSeconds) {
+            val cooldown = if (requested) decision.requestedCooldownSeconds else decision.cooldownSeconds
+            if (last != null && Duration.between(last, now).seconds < cooldown) {
                 return false
             }
-            return timestamps.size < decision.maxRepliesPerWindow
+            return timestamps.size < if (requested) decision.maxRequestedRepliesPerWindow else decision.maxRepliesPerWindow
         }
     }
 

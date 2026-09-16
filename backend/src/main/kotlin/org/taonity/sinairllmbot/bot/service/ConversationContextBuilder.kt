@@ -8,6 +8,7 @@ import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Duration
 import java.time.Instant
+import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 
 @Component
 class ConversationContextBuilder(
@@ -22,12 +23,15 @@ class ConversationContextBuilder(
     }
 
     fun recentTranscript(roomTarget: String, limit: Int = botProperties.context.recentMessageCount): String {
-        val maxChars = botProperties.context.maxMessageChars
-        val gapThreshold = Duration.ofMinutes(botProperties.context.sessionGapMinutes)
         val messages = chatMessageRepository
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
             .asReversed()
+        return formatTranscript(messages)
+    }
 
+    fun formatTranscript(messages: List<ChatMessageEntity>): String {
+        val maxChars = botProperties.context.maxMessageChars
+        val gapThreshold = Duration.ofMinutes(botProperties.context.sessionGapMinutes)
         val builder = StringBuilder()
         var previousSentAt: Instant? = null
         for (msg in messages) {
@@ -39,9 +43,11 @@ class ConversationContextBuilder(
                 }
             }
             if (builder.isNotEmpty()) builder.append('\n')
-            val text = msg.messageText.let { if (it.length > maxChars) it.take(maxChars) + "…" else it }
+            val text = msg.messageText.let {
+                if (it.length > maxChars) it.take(maxChars / 2) + "\n[earlier detail omitted]\n" + it.takeLast(maxChars / 2) else it
+            }
             val userIdTag = if (msg.senderUserId > 0) "[uid:${msg.senderUserId}]" else ""
-            builder.append("${msg.senderLogin}$userIdTag: ${text.replace("\n", " ")}")
+            builder.append("[id:${msg.id} at:${msg.sentAt}] ${msg.senderLogin}$userIdTag:\n$text")
             previousSentAt = msg.sentAt
         }
         return builder.toString()

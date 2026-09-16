@@ -1,23 +1,20 @@
 package org.taonity.sinairllmbot.bot.service
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Async
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.web.util.UriComponentsBuilder
 import org.taonity.sinairllmbot.config.BotSettings
-import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineAlternative
 import org.taonity.sinairllmbot.bot.pipeline.PipelineField
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
-import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
-import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import org.taonity.sinairllmbot.common.config.AppProperties
-import kotlin.random.Random
+import java.time.Instant
 
 @Service
 class BotMessageOrchestrator(
@@ -33,9 +30,8 @@ class BotMessageOrchestrator(
     private val botSleepService: BotSleepService,
     private val botTypingService: BotTypingService,
     private val roomProcessingGuard: RoomProcessingGuard,
-    private val outboundMessageRepository: OutboundMessageRepository,
-    private val chatMessageRepository: ChatMessageRepository,
     private val pipelineTraceService: PipelineTraceService,
+    private val pendingMessages: PendingBotMessages,
 ) {
     private val botProperties get() = settings.bot()
 
@@ -50,29 +46,61 @@ class BotMessageOrchestrator(
         if (!botProperties.enabled || storedMessages.isEmpty()) return
 
         val allowedRooms = settings.botRooms().toSet()
-        storedMessages
+        val eligible = storedMessages
             .filter { it.roomTarget in allowedRooms }
+            .filterNot { botSleepService.isAsleep(it.roomTarget) }
             .filterNot { it.senderLogin.equals(botProperties.persona.name, ignoreCase = true) }
+            .filter { it.sourceOutboundMessageId == null }
+        pendingMessages.enqueue(eligible, botProperties.decision.debounceSeconds)
+        eligible
             .map { it.roomTarget }
             .distinct()
             .filterNot { botSleepService.isAsleep(it) }
             .forEach { roomTarget ->
                 botDebouncer.schedule(roomTarget) {
-                    roomProcessingGuard.runExclusive(roomTarget) { evaluateRoom(roomTarget) }
+                    roomProcessingGuard.runExclusive(roomTarget) { drainRoom(roomTarget) }
                 }
             }
     }
 
-    private fun evaluateRoom(roomTarget: String) {
-        val trigger = runCatching { latestNonBotMessage(roomTarget) }
+    @Scheduled(fixedDelay = 5000)
+    fun resumePending() {
+        if (!botProperties.enabled) return
+        pendingMessages.dueRooms()
+            .filter { it in settings.botRooms() && !botSleepService.isAsleep(it) }
+            .forEach { room ->
+                botDebouncer.schedule(room, 0) {
+                    roomProcessingGuard.runExclusive(room) { drainRoom(room) }
+                }
+            }
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    fun refreshSummaries() {
+        if (!botProperties.enabled) return
+        settings.botRooms().forEach { room ->
+            botDebouncer.schedule("summary:$room", 0) {
+                runCatching { roomSummaryService.refreshIfStale(room, SummaryRefreshTrigger.Job("background")) }
+                    .onFailure { LOGGER.warn { "Background summary refresh failed: ${it.javaClass.simpleName}" } }
+            }
+        }
+    }
+
+    private fun drainRoom(roomTarget: String) {
+        repeat(20) {
+            if (pendingMessages.next(roomTarget) == null || botSleepService.isAsleep(roomTarget)) return
+            evaluateRoom(roomTarget)
+        }
+    }
+
+    internal fun evaluateRoom(roomTarget: String) {
+        val trigger = runCatching { pendingMessages.next(roomTarget) }
             .onFailure { LOGGER.warn(it) { "Failed to find the trigger message for room $roomTarget" } }
             .getOrNull() ?: return
         val stages = mutableListOf<PipelineStage>()
+        var generationStarted = false
 
         try {
-
-            runCatching { roomSummaryService.refreshIfStale(roomTarget, SummaryRefreshTrigger.Message(trigger)) }
-                .onFailure { LOGGER.debug(it) { "Summary refresh skipped for $roomTarget" } }
 
             pipelineTraceService.begin()
 
@@ -80,6 +108,7 @@ class BotMessageOrchestrator(
 
             if (commandDecision == CommandDecision.STOP_BOT) {
                 mutedRoomRegistry.mute(roomTarget)
+                pendingMessages.finish(trigger)
                 LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
                 stages += PipelineStage("command", "Command gate", PipelineStageStatus.STOP, "mute command")
                 pipelineTraceService.record(
@@ -90,6 +119,7 @@ class BotMessageOrchestrator(
             }
             if (commandDecision == CommandDecision.START_BOT) {
                 val wasRemoved = mutedRoomRegistry.unmute(roomTarget)
+                pendingMessages.finish(trigger)
                 if (wasRemoved) {
                     LOGGER.info { "Bot un-muted in $roomTarget by @${trigger.senderLogin}" }
                 }
@@ -103,20 +133,12 @@ class BotMessageOrchestrator(
             stages += PipelineStage("command", "Command gate", PipelineStageStatus.PASS, "no command")
 
             if (mutedRoomRegistry.isMuted(roomTarget)) {
+                pendingMessages.finish(trigger)
                 stages += PipelineStage("mute", "Mute check", PipelineStageStatus.STOP, "room muted")
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.MUTED, stages)
                 return
             }
-            if (!cooldownTracker.canReply(roomTarget)) {
-                LOGGER.debug { "Skip $roomTarget: on cooldown (@${trigger.senderLogin})" }
-                stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.STOP, "on cooldown")
-                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.COOLDOWN, stages)
-                return
-            }
-            stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.PASS, "ready")
-
-
-            val triage = messageTriageService.assess(roomTarget, trigger.messageText)
+            val triage = messageTriageService.assess(roomTarget, trigger)
             stages += PipelineStage(
                 key = "triage",
                 label = "Triage",
@@ -128,12 +150,9 @@ class BotMessageOrchestrator(
                 ),
             )
 
-            val spontaneous = !triage.respond &&
-                Random.nextDouble() < botProperties.decision.spontaneousProbability
-            val shouldReply = triage.respond || spontaneous
+            val shouldReply = triage.respond
             val driver = when {
                 triage.respond -> "triage"
-                spontaneous -> "spontaneous"
                 else -> "none"
             }
             stages += PipelineStage(
@@ -151,12 +170,31 @@ class BotMessageOrchestrator(
                     "driver=$driver (respond=${triage.respond}, category=${triage.loggableCategory})"
             }
             if (!shouldReply) {
+                pendingMessages.finish(trigger)
                 pipelineTraceService.record(
                     PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "driver=$driver",
                 )
                 return
             }
 
+            val requested = triage.loggableCategory in setOf("direct_address", "indirect_address")
+            val graceUntil = trigger.receivedAt.plusSeconds(botProperties.decision.openQuestionDelaySeconds)
+            if (!requested && Instant.now().isBefore(graceUntil)) {
+                pendingMessages.defer(trigger, graceUntil)
+                stages += PipelineStage("grace", "Conversation grace period", PipelineStageStatus.STOP, "waiting for human replies")
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "deferred contribution")
+                return
+            }
+            if (!cooldownTracker.canReply(roomTarget, requested = requested)) {
+                pendingMessages.defer(trigger, Instant.now().plusSeconds(30))
+                stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.STOP, "request retained")
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.COOLDOWN, stages)
+                return
+            }
+            stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.PASS, "ready")
+
+            generationStarted = true
+            val contextVersion = pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name)
             botTypingService.markTyping(roomTarget)
             val generation = replyGenerator.generateTraced(
                 roomTarget = roomTarget,
@@ -166,20 +204,28 @@ class BotMessageOrchestrator(
             )
             stages += generationStage(generation)
 
+            val superseded = contextVersion != pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name) &&
+                runCatching { !messageTriageService.assess(roomTarget, trigger).respond }.getOrDefault(false)
+            if (superseded) {
+                botTypingService.clearTyping(roomTarget)
+                pendingMessages.finish(trigger)
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "superseded during generation")
+                return
+            }
+
+            if (generation.suppressed) {
+                botTypingService.clearTyping(roomTarget)
+                pendingMessages.finish(trigger)
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "no remaining contribution")
+                return
+            }
+
             val reply = generation.reply ?: run {
                 handleFailure(trigger, stages, "generation produced no reply")
                 return
             }
 
-            val saved = outboundMessageRepository.save(
-                OutboundMessageEntity(
-                    roomTarget = roomTarget,
-                    messageText = reply,
-                    replyToExternalId = trigger.dedupKey
-                        .takeIf { it.startsWith("ext:") }
-                        ?.removePrefix("ext:"),
-                ),
-            )
+            val saved = pendingMessages.reply(trigger, reply)
             botTypingService.clearTyping(roomTarget)
             runCatching { cooldownTracker.recordReply(roomTarget) }
                 .onFailure { LOGGER.warn(it) { "Failed to record reply cooldown for $roomTarget" } }
@@ -188,6 +234,12 @@ class BotMessageOrchestrator(
                 PipelineKeys.REPLY, trigger, PipelineOutcome.REPLIED, stages, outboundMessageId = saved.id,
             )
         } catch (exception: Exception) {
+            if (!generationStarted) {
+                pendingMessages.defer(trigger, Instant.now().plusSeconds(30))
+                stages += PipelineStage("triage_error", "Assessment deferred", PipelineStageStatus.STOP, exception.javaClass.simpleName)
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages, outcomeDetail = "assessment failed; request retained")
+                return
+            }
             val detail = exception.message?.takeIf { it.isNotBlank() }
                 ?: exception.javaClass.simpleName
             stages += PipelineStage("error", "Pipeline error", PipelineStageStatus.STOP, detail)
@@ -212,15 +264,7 @@ class BotMessageOrchestrator(
         )
         val message = pipelineId?.let { "$FAILURE_MESSAGE Пайплайн: ${pipelineUrl(it)}" } ?: FAILURE_MESSAGE
         runCatching {
-            outboundMessageRepository.save(
-                OutboundMessageEntity(
-                    roomTarget = trigger.roomTarget,
-                    messageText = message,
-                    replyToExternalId = trigger.dedupKey
-                        .takeIf { it.startsWith("ext:") }
-                        ?.removePrefix("ext:"),
-                ),
-            )
+            pendingMessages.reply(trigger, message)
             cooldownTracker.recordReply(trigger.roomTarget)
         }.onFailure { LOGGER.warn(it) { "Failed to queue fallback reply in ${trigger.roomTarget}" } }
     }
@@ -264,8 +308,4 @@ class BotMessageOrchestrator(
         )
     }
 
-    private fun latestNonBotMessage(roomTarget: String): ChatMessageEntity? =
-        chatMessageRepository
-            .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, 5))
-            .firstOrNull { !it.senderLogin.equals(botProperties.persona.name, ignoreCase = true) }
 }

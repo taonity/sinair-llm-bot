@@ -13,10 +13,10 @@ data class LlmProperties(
     val criticTier: String,
     val tiers: Map<String, Tier>,
     val retry: Retry,
-    val replyWebSearch: Boolean = false,
+    val replyWebSearch: Boolean,
     val jsonRetryAttempts: Int,
     val critic: Critic,
-    val toolLoop: ToolLoop = ToolLoop(),
+    val toolLoop: ToolLoop,
 ) {
     data class Retry(
         val maxAttempts: Int,
@@ -32,15 +32,21 @@ data class LlmProperties(
 
     data class Critic(
         val enabled: Boolean,
-        val candidateCount: Int,
-        val candidateTemperature: Double,
         val repairThreshold: Int,
         val prompt: Prompt,
+        val reviewMinChars: Int,
+        val reviewMinToolCalls: Int,
     )
 
     data class ToolLoop(
-        val tier: String = "",
-        val maxRounds: Int = 8,
+        val tier: String,
+        val maxRounds: Int,
+        val finalMaxTokens: Int,
+        val recoveryMaxTokens: Int,
+        val maxContextChars: Int,
+        val maxToolResultChars: Int,
+        val maxDurationSeconds: Long,
+        val reasoningEffort: String,
     )
 
     fun tier(name: String): Tier =
