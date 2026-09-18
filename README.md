@@ -208,7 +208,6 @@ Configured per the profile set you run.
 ### PostgreSQL database ERD diagram
 
 <!-- mermerd-start -->
-
 ```mermaid
 erDiagram
     app_user {
@@ -256,7 +255,7 @@ erDiagram
 
     chat_event {
         character_varying dedup_key UK "{NOT_NULL}"
-        character_varying event_data 
+        text event_data 
         timestamp_without_time_zone event_time "{NOT_NULL}"
         character_varying id PK "{NOT_NULL}"
         boolean is_girl "{NOT_NULL}"
@@ -306,6 +305,13 @@ erDiagram
         character_varying status "{NOT_NULL}"
     }
 
+    pending_bot_message {
+        timestamp_with_time_zone available_at "{NOT_NULL}"
+        timestamp_with_time_zone created_at "{NOT_NULL}"
+        character_varying message_id PK,FK "{NOT_NULL}"
+        character_varying room_target "{NOT_NULL}"
+    }
+
     pipeline_run {
         character_varying config_revision_id 
         text context_manifest_json "{NOT_NULL}"
@@ -335,6 +341,8 @@ erDiagram
 
     room_summary {
         character_varying id PK "{NOT_NULL}"
+        character_varying last_message_id 
+        timestamp_with_time_zone last_message_received_at 
         integer message_count "{NOT_NULL}"
         character_varying pipeline_run_id 
         character_varying room_target UK "{NOT_NULL}"
@@ -367,9 +375,9 @@ erDiagram
         character session_primary_id PK,FK "{NOT_NULL}"
     }
 
+    pending_bot_message |o--|| chat_message : "message_id"
     spring_session_attributes }o--|| spring_session : "session_primary_id"
 ```
-
 <!-- mermerd-end -->
 
 ## Deployment
