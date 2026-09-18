@@ -266,6 +266,117 @@ class ConsoleDataService(
         return prettyJson(payload)
     }
 
+    fun exportPipelineRun(principal: GoogleUserPrincipal, id: String): String {
+        accessGuard.requireView(principal)
+        val entity = pipelineRunRepository.findById(id)
+            .orElseThrow { ConsoleNotFoundException("Pipeline run not found") }
+        val stages = parseStages(entity.stagesJson)
+        val usage = parseLlmUsage(entity.llmUsageJson)
+        val failures = parseJsonFailures(entity.jsonParseFailuresJson)
+        val contextSources = parseContextSources(entity.contextManifestJson)
+
+        return buildString {
+            appendLine("# Pipeline debug bundle")
+            appendLine()
+            appendLine("- Run ID: ${entity.id}")
+            appendLine("- Pipeline: ${entity.pipelineKey}")
+            appendLine("- Created: ${entity.createdAt}")
+            appendLine("- Room: ${entity.roomTarget}")
+            appendLine("- Trigger message ID: ${entity.triggerMessageId.orEmpty()}")
+            appendLine("- Trigger sender: ${entity.triggerSenderLogin}")
+            appendLine("- Outcome: ${entity.outcome}")
+            appendLine("- Outcome detail: ${entity.outcomeDetail.orEmpty()}")
+            appendLine("- Outbound message ID: ${entity.outboundMessageId.orEmpty()}")
+            appendLine("- Config revision ID: ${entity.configRevisionId.orEmpty()}")
+            appendLine("- Total tokens: ${entity.totalTokens}")
+            appendLine()
+            appendTextSection("Trigger text", entity.triggerText)
+
+            appendLine("## Context sources")
+            appendLine()
+            if (contextSources.isEmpty()) appendLine("_None stored._")
+            else contextSources.forEach { appendLine("- $it") }
+            appendLine()
+
+            appendLine("## Pipeline stages")
+            appendLine()
+            if (stages.isEmpty()) appendLine("_None stored._")
+            stages.forEachIndexed { index, stage ->
+                appendLine("### ${index + 1}. ${stage.label} [${stage.status}]")
+                appendLine()
+                appendLine("- Key: ${stage.key}")
+                appendLine("- Summary: ${stage.summary}")
+                stage.fields.forEach { appendLine("- ${it.label}: ${it.value}") }
+                stage.alternatives.forEachIndexed { alternativeIndex, alternative ->
+                    appendLine()
+                    appendLine("#### Alternative ${alternativeIndex + 1}${if (alternative.chosen) " (chosen)" else ""}")
+                    alternative.fields.forEach { appendLine("- ${it.label}: ${it.value}") }
+                    appendTextBlock(alternative.text)
+                }
+                appendLine()
+            }
+
+            appendLine("## JSON parse failures")
+            appendLine()
+            if (failures.isEmpty()) appendLine("_None stored._")
+            failures.forEachIndexed { index, failure ->
+                appendLine("### ${index + 1}. ${failure.label}, attempt ${failure.attempt}")
+                appendLine()
+                appendTextBlock(failure.payload)
+            }
+            appendLine()
+
+            appendLine("## LLM calls")
+            appendLine()
+            if (usage.isEmpty()) appendLine("_None stored._")
+            usage.forEachIndexed { index, call ->
+                appendLine("### Call ${index + 1}: ${call.tier} / ${call.model}")
+                appendLine()
+                appendLine("- Status: ${call.status}")
+                appendLine("- Attempt: ${call.attempt}/${call.maxAttempts}")
+                appendLine("- Iteration: ${call.iteration?.let { "$it/${call.totalIterations ?: "?"}" }.orEmpty()}")
+                appendLine("- Tokens: ${call.tokens} total, ${call.promptTokens} prompt, ${call.completionTokens} completion")
+                appendLine("- Tools: ${call.tools.joinToString(", ")}")
+                appendLine("- Error: ${call.error.orEmpty()}")
+                call.toolCalls.forEachIndexed { toolIndex, tool ->
+                    appendLine()
+                    appendLine("#### Tool ${toolIndex + 1}: ${tool.name}")
+                    appendLine("- Error: ${tool.error}")
+                    appendLine("- Attempts: ${tool.attempts.size}/${tool.maxAttempts}")
+                    appendTextSection("Arguments", prettyJson(tool.arguments))
+                    appendTextSection("Result", prettyJson(tool.result))
+                    tool.attempts.forEach { attempt ->
+                        appendLine("##### Attempt ${attempt.attempt}${if (attempt.error) " (failed)" else " (succeeded)"}")
+                        appendLine()
+                        appendTextBlock(prettyJson(attempt.result))
+                    }
+                }
+                appendTextSection("Request payload", prettyJson(call.requestPayload))
+                appendTextSection("Response payload", prettyJson(call.responsePayload))
+            }
+
+            appendLine("## Raw persisted records")
+            appendLine()
+            appendTextSection("Stages JSON", prettyJson(entity.stagesJson))
+            appendTextSection("LLM usage JSON", prettyJson(entity.llmUsageJson))
+            appendTextSection("JSON parse failures JSON", prettyJson(entity.jsonParseFailuresJson))
+            appendTextSection("Context manifest JSON", prettyJson(entity.contextManifestJson))
+        }
+    }
+
+    private fun StringBuilder.appendTextSection(title: String, value: String) {
+        appendLine("## $title")
+        appendLine()
+        appendTextBlock(value)
+        appendLine()
+    }
+
+    private fun StringBuilder.appendTextBlock(value: String) {
+        appendLine("````text")
+        appendLine(value)
+        appendLine("````")
+    }
+
     private fun parseStages(json: String): List<PipelineStageDto> = runCatching {
         val type = objectMapper.typeFactory.constructCollectionType(List::class.java, PipelineStageDto::class.java)
         val stages: List<PipelineStageDto> = objectMapper.readValue(json, type)

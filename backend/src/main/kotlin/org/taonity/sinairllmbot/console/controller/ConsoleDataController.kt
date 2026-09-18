@@ -2,6 +2,7 @@ package org.taonity.sinairllmbot.console.controller
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -132,6 +133,14 @@ class ConsoleDataController(
         @PathVariable index: Int,
         @PathVariable kind: String,
     ): String = consoleDataService.pipelineRunLlmPayload(principal, id, index, kind)
+
+    @GetMapping("/pipeline-runs/{id}/export", produces = ["text/markdown;charset=UTF-8"])
+    fun exportPipelineRun(
+        @AuthenticationPrincipal principal: GoogleUserPrincipal,
+        @PathVariable id: String,
+    ): ResponseEntity<String> = ResponseEntity.ok()
+        .header("Content-Disposition", "attachment; filename=\"pipeline-$id.md\"")
+        .body(consoleDataService.exportPipelineRun(principal, id))
 
     @DeleteMapping("/pipeline-runs/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -1,9 +1,9 @@
 'use client'
 
 import { Fragment, useEffect, useState } from 'react'
-import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Maximize2, Minimize2, Wrench } from 'lucide-react'
+import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Download, Maximize2, Minimize2, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
@@ -537,6 +537,16 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
   const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <a
+          href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/export`}
+          download
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          <Download />
+          Export debug bundle
+        </a>
+      </div>
       {run.outcomeDetail && (
         <div className="text-xs text-muted-foreground">
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
