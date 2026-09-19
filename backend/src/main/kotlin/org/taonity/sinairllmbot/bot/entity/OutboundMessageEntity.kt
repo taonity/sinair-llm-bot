@@ -23,6 +23,7 @@ class OutboundMessageEntity(
     val createdAt: Instant = Instant.now(),
     var claimedAt: Instant? = null,
     var sentAt: Instant? = null,
+    val triggerMessageId: String? = null,
 )
 
 enum class OutboundStatus {

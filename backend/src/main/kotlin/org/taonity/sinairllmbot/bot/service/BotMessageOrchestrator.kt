@@ -205,7 +205,7 @@ class BotMessageOrchestrator(
             stages += generationStage(generation)
 
             val superseded = contextVersion != pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name) &&
-                runCatching { !messageTriageService.assess(roomTarget, trigger).respond }.getOrDefault(false)
+                runCatching { !messageTriageService.assess(roomTarget, trigger, verifyStillNeeded = true).respond }.getOrDefault(false)
             if (superseded) {
                 botTypingService.clearTyping(roomTarget)
                 pendingMessages.finish(trigger)

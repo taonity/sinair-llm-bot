@@ -2,6 +2,9 @@ package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
+import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.entity.OutboundStatus
+import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
@@ -15,6 +18,7 @@ class ConversationContextBuilder(
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
     private val settings: BotSettings,
+    private val outboundMessageRepository: OutboundMessageRepository,
 ) {
     private val botProperties get() = settings.bot()
 
@@ -23,32 +27,69 @@ class ConversationContextBuilder(
     }
 
     fun recentTranscript(roomTarget: String, limit: Int = botProperties.context.recentMessageCount): String {
+        val outbound = outboundMessageRepository.findRecentUnechoedReplies(
+            roomTarget,
+            Instant.now().minus(Duration.ofMinutes(botProperties.context.sessionGapMinutes)),
+            PageRequest.of(0, limit),
+        )
         val messages = chatMessageRepository
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
             .asReversed()
-        return formatTranscript(messages)
+        val echoedIds = messages.mapNotNull { it.sourceOutboundMessageId }.toSet()
+        val unechoed = outbound.filter { it.id !in echoedIds }
+        val entries = (messages.map(::chatEntry) + unechoed.map(::outboundEntry))
+            .sortedBy { it.at }.takeLast(limit)
+        val transcript = render(entries)
+        return if (unechoed.isEmpty()) transcript else
+            "BOT OUTPUT CONTEXT: bot=self marks your own output, even under an older nickname. " +
+                "Local outbound entries are replies already prepared for their reply-to target; do not queue " +
+                "the same answer again. PENDING/CLAIMED are not proof that anyone has seen the reply. " +
+                "SENT means collector acknowledgement, not a confirmed chat echo. New follow-ups still need assessment.\n" + transcript
     }
 
-    fun formatTranscript(messages: List<ChatMessageEntity>): String {
+    fun formatTranscript(messages: List<ChatMessageEntity>): String = render(messages.map(::chatEntry))
+
+    private data class TranscriptEntry(val at: Instant, val header: String, val text: String)
+
+    private fun chatEntry(message: ChatMessageEntity): TranscriptEntry {
+        val userIdTag = if (message.senderUserId > 0) "[uid:${message.senderUserId}]" else ""
+        val selfTag = message.sourceOutboundMessageId?.let { "[bot=self outbound:$it]" }.orEmpty()
+        return TranscriptEntry(message.sentAt, "[id:${message.id} at:${message.sentAt}] ${message.senderLogin}$userIdTag$selfTag:", message.messageText)
+    }
+
+    private fun outboundEntry(message: OutboundMessageEntity): TranscriptEntry {
+        val delivery = when (message.status) {
+            OutboundStatus.PENDING -> "queued; delivery not confirmed"
+            OutboundStatus.CLAIMED -> "claimed by collector; delivery not confirmed"
+            OutboundStatus.SENT -> "collector acknowledged; chat echo not yet ingested"
+        }
+        return TranscriptEntry(
+            message.createdAt,
+            "[outbound:${message.id} at:${message.createdAt} reply-to:${message.triggerMessageId}] " +
+                "BOT [bot=self status:${message.status} $delivery]:",
+            message.messageText,
+        )
+    }
+
+    private fun render(entries: List<TranscriptEntry>): String {
         val maxChars = botProperties.context.maxMessageChars
         val gapThreshold = Duration.ofMinutes(botProperties.context.sessionGapMinutes)
         val builder = StringBuilder()
         var previousSentAt: Instant? = null
-        for (msg in messages) {
+        for (entry in entries) {
             previousSentAt?.let { prev ->
-                val gap = Duration.between(prev, msg.sentAt)
+                val gap = Duration.between(prev, entry.at)
                 if (gap >= gapThreshold) {
                     if (builder.isNotEmpty()) builder.append('\n')
                     builder.append("--- ").append(describeGap(gap)).append(" later ---")
                 }
             }
             if (builder.isNotEmpty()) builder.append('\n')
-            val text = msg.messageText.let {
+            val text = entry.text.let {
                 if (it.length > maxChars) it.take(maxChars / 2) + "\n[earlier detail omitted]\n" + it.takeLast(maxChars / 2) else it
             }
-            val userIdTag = if (msg.senderUserId > 0) "[uid:${msg.senderUserId}]" else ""
-            builder.append("[id:${msg.id} at:${msg.sentAt}] ${msg.senderLogin}$userIdTag:\n$text")
-            previousSentAt = msg.sentAt
+            builder.append(entry.header).append('\n').append(text)
+            previousSentAt = entry.at
         }
         return builder.toString()
     }

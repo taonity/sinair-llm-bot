@@ -30,18 +30,25 @@ class MessageTriageService(
 
         private fun buildAliasPattern(name: String, aliases: List<String>): Regex {
             val words = (listOf(name) + aliases)
+                .filter { it.isNotBlank() }
                 .map { Regex.escape(it) }
                 .joinToString("|")
             return Regex("(?:^|\\s)@?(?:$words)(?:[\\s.,!?;:\"')\\]»]|\$)", RegexOption.IGNORE_CASE)
         }
     }
 
-    fun assess(roomTarget: String, trigger: ChatMessageEntity): TriageVerdict {
+    fun assess(roomTarget: String, trigger: ChatMessageEntity, verifyStillNeeded: Boolean = false): TriageVerdict {
         val triggerMessageText = trigger.messageText
-        val transcript = contextBuilder.recentTranscript(roomTarget, limit = 25)
-        if (transcript.isBlank()) return TriageVerdict(respond = false)
-
         val person = botProperties.persona
+        val names = (listOf(person.name) + person.aliases).filter { it.isNotBlank() }
+        val startsWithBotMention = names.any { name ->
+            Regex("^@${Regex.escape(name)}(?=[\\s.,!?;:]|$)", RegexOption.IGNORE_CASE)
+                .containsMatchIn(triggerMessageText.trimStart())
+        }
+        if (startsWithBotMention && !verifyStillNeeded) {
+            return TriageVerdict(respond = true, category = "direct_address")
+        }
+        val transcript = contextBuilder.recentTranscript(roomTarget, limit = 25)
         val aliasPattern = buildAliasPattern(person.name, person.aliases)
         val mention = triggerMessageText.let { text ->
             aliasPattern.find(text)?.value?.trim()
@@ -58,8 +65,16 @@ class MessageTriageService(
             append("You are the gatekeeper for a chat bot in a ").append(person.language)
             append(" group chat. The bot's nick is '").append(person.name)
             append("' (also called: ").append(aliases).append("). In the transcript the bot's own ")
-            append("messages appear under that nick. Judge the TARGET message, using later messages ")
+            append("messages appear under that nick or are marked bot=self, including replies under older nicknames. ")
+            append("Judge the TARGET message, using later messages ")
             append("to check whether it was answered, withdrawn, or superseded. Do not answer twice.\n\n")
+            if (verifyStillNeeded) {
+                append("A draft has already been prepared for this TARGET. This is a freshness check, ")
+                append("not a new participation decision. For a request addressed to the bot, return ")
+                append("respond=false only when later messages clearly withdraw, replace or fully resolve ")
+                append("it, or it is actually directed only to someone else. Unrelated later chatter does ")
+                append("not cancel it. If resolution is uncertain, keep respond=true.\n\n")
+            }
             append("RECIPIENT EXCLUSION (takes precedence over every positive rule below): If the ")
             append("TARGET question or request is explicitly addressed to another participant, return ")
             append("respond=false and category=not_addressed unless the bot is ALSO explicitly invited ")
@@ -88,7 +103,11 @@ class MessageTriageService(
             append("Say FALSE for everything else: small talk between other people, answered questions, ")
             append("bare acknowledgements without pending action, noise. Outside an active exchange with the bot, ")
             append("do NOT respond just to add an opinion or joke, to be helpful, or to seem present. ")
-            append("When in doubt, say FALSE.\n")
+            append("For a plausible direct request or active follow-up to the bot, prefer respond=true ")
+            append("when uncertain; the reply model can inspect the context and choose silence. A short ")
+            append("request to answer, continue or retry is an actionable request, not noise. A previous ")
+            append("bot reply on the same topic does not necessarily answer this new request. Remain ")
+            append("conservative for unsolicited contributions and other people's exchanges.\n")
             append("Also classify the decision with category (string) = exactly one of: ")
             append("direct_address (the message actually asks the bot to answer or act, not merely mentions it), ")
             append("indirect_address (an unmistakable direct follow-up or reply to the bot's OWN last ")
@@ -110,7 +129,7 @@ class MessageTriageService(
             append("able to look something up is never evidence that a person-directed request is for the bot.\n")
             append("Respond with ONLY a JSON object: ")
             append("{\"respond\": boolean, \"category\": string}. ")
-            append("Default respond=false.")
+            append("Default respond=false for unsolicited participation, not for plausible bot-directed requests.")
         }
         val messages = listOf(
             ChatMessage.system(system),

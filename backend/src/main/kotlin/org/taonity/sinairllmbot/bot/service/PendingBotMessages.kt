@@ -54,6 +54,7 @@ class PendingBotMessages(
             roomTarget = message.roomTarget,
             messageText = text,
             replyToExternalId = message.dedupKey.takeIf { it.startsWith("ext:") }?.removePrefix("ext:"),
+            triggerMessageId = message.id,
         ))
         pendingRepository.deleteById(message.id!!)
         return saved

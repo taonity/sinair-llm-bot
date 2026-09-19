@@ -9,6 +9,12 @@ is serialized within a backend process; deployments should run one active bot wo
 distributed exactly-once execution for external tool side effects.
 
 Triage judges an identified target against the current transcript, including later messages.
+An explicit leading `@` mention of the current bot nickname or an alias is handed straight to
+generation without a gate-model call. Matching is case-insensitive with a nickname boundary;
+quoted mentions, mentions elsewhere, and names that merely share a prefix still go through the gate.
+Generation checks the actual recipient and may choose silence before using tools. For ambiguous
+direct requests and active follow-ups, the gate prefers handing off rather than rejecting them;
+unsolicited participation remains conservative.
 Direct requests and active continuations use a two-second cooldown and a 40-reply/20-minute
 window by default. Open questions and material unsolicited contributions wait 45 seconds, then
 are reassessed. Existing ordinary limits (30 seconds, eight replies/20 minutes) still apply to
@@ -20,6 +26,8 @@ the named recipient. It does not build speculative expertise profiles. After a l
 new human messages trigger a final relevance check before delivery. Both triage and generation
 can choose silence when the target is already resolved. A triage outage retains work without
 posting an unsolicited error.
+The final relevance check does not use the direct-mention shortcut: it asks specifically whether
+later messages withdraw, replace or resolve the target, not whether participation was worthwhile.
 
 ## Generation and budgets
 
@@ -69,13 +77,25 @@ the effective cap. An oversized fenced block is omitted with an explicit size-li
 than publishing partial executable code. The full draft remains in the pipeline trace.
 
 Transcripts retain message IDs, times, line breaks, and both the beginning and end of long messages.
+Triage and generation merge recent locally queued replies into the transcript before their chat
+echo arrives. These replies have `trigger_message_id` provenance, a `bot=self` marker and an explicit
+PENDING, CLAIMED or SENT state; sent here means collector acknowledgement, not confirmed visibility
+to participants. Command outbounds, including private-message commands, have no reply provenance
+and are excluded. The overlay is room-scoped, limited to the configured session-gap interval and
+shares the transcript's message-count limit. It includes completed replies, never in-progress drafts.
+Once ingestion links an echo through `source_outbound_message_id`, the actual chat message replaces
+the local entry. A second ID-based check handles an echo arriving between the two context reads.
+Linked bot messages remain recognizable as self-authored under older nicknames. Summaries continue
+to use ingested chat messages only, rather than treating unconfirmed local output as delivered speech.
 Summary refresh runs in the background and advances a received-time/message-ID watermark rather
 than subtracting retained row counts. Retention cleanup cannot make that watermark move backwards.
 Sources and prior summaries remain reference data, not authority or unfinished tasks.
 
 ## Rollout
 
-Apply Flyway migrations V100018 and V100019 before starting the new backend. No frontend rebuild
+Apply Flyway migrations V100018, V100019 and V100020 before starting the new backend. V100020 adds
+outbound reply provenance for the context overlay; existing outbounds are not backfilled and still
+become visible through normal echo ingestion. No frontend rebuild
 is required for the dynamic config schema beyond normal deployment.
 
 Saved console overrides and environment values still win over deployed defaults. Review/reset
@@ -94,6 +114,8 @@ the effective production prompt before selecting new models or lowering budgets:
 | Scenario | Expected behavior |
 | --- | --- |
 | Direct follow-up within 30 seconds | Answer or retain it; never silently drop it |
+| Leading current bot nickname or alias | Hand off without a gate call; generation may suppress an inapplicable request |
+| Next request arrives before the previous reply's echo | Include the queued reply once, labeled with its delivery state |
 | Short acceptance of a pending action | Carry out the action, without asking permission again |
 | Open question followed by a human answer | Stay silent after the grace period |
 | Unanswered open question | Give a substantive answer after the grace period |

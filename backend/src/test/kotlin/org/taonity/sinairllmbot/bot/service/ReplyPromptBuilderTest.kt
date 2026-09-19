@@ -10,6 +10,7 @@ import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.config.GithubProperties
 import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.bot.config.Prompt
+import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.grafana.GrafanaMcpProperties
 import org.taonity.sinairllmbot.bot.ingestion.ContextBuilder
 import org.taonity.sinairllmbot.bot.ingestion.SourceIngestionService
@@ -33,7 +34,8 @@ class ReplyPromptBuilderTest {
         val githubProperties = mock(GithubProperties::class.java)
         val chatMessageRepository = mock(ChatMessageRepository::class.java)
         val chatEventRepository = mock(ChatEventRepository::class.java)
-        val contextBuilder = ConversationContextBuilder(chatMessageRepository, chatEventRepository, settings)
+        val contextBuilder = ConversationContextBuilder(chatMessageRepository, chatEventRepository, settings,
+            mock(OutboundMessageRepository::class.java))
 
         `when`(settings.bot()).thenReturn(botProperties)
         `when`(settings.llm()).thenReturn(llmProperties)
@@ -120,6 +122,8 @@ class ReplyPromptBuilderTest {
             .contains("discover_tools")
             .doesNotContain("130 characters", "just another person", "list_repos first")
         assertThat(prompt.userText).contains("TARGET REQUEST", "Do not recap established points")
+            .contains("without an LLM gate decision", "Check the actual recipient and context before using tools")
+            .contains("addressed only to another person", "fulfill a direct request to answer, continue or retry")
         val brief = prompt.system.replace(Regex("\\s+"), " ")
         assertThat(brief).contains(
             "You may judge a request by its intelligence",

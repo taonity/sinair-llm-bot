@@ -89,7 +89,12 @@ class ReplyPromptBuilder(
             append("TARGET REQUEST id=").append(trigger.id).append(" from @").append(trigger.senderLogin)
                 .append(" at ").append(trigger.sentAt).append(":\n").append(trigger.messageText)
             append("\n\nAnswer this target in light of subsequent messages. Do not recap established points. ")
-            append("If it has already been fully answered, withdrawn or superseded, return {\"lead\":\"\",\"blocks\":[]}.")
+            append("A leading bot mention can hand the request directly to you without an LLM gate decision; ")
+            append("it is not an obligation to speak. Check the actual recipient and context before using tools. ")
+            append("If the message is only discussing or quoting the bot, addressed only to another person, ")
+            append("or already fully answered, withdrawn or superseded, return {\"lead\":\"\",\"blocks\":[]}. ")
+            append("Otherwise fulfill a direct request to answer, continue or retry; do not treat it as noise ")
+            append("or assume that any earlier reply on the topic resolved this new request.")
         }
         val userMessage = if (hasImages) ChatMessage.userParts(buildList {
             add(ContentPart.text(userText))

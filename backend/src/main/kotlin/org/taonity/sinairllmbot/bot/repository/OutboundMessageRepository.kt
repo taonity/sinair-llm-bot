@@ -16,6 +16,20 @@ interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, Strin
 
     @Query(
         """
+        SELECT outbound FROM OutboundMessageEntity outbound
+        WHERE outbound.roomTarget = :roomTarget AND outbound.triggerMessageId IS NOT NULL
+          AND outbound.createdAt >= :since
+          AND NOT EXISTS (
+              SELECT echo.id FROM ChatMessageEntity echo
+              WHERE echo.roomTarget = outbound.roomTarget AND echo.sourceOutboundMessageId = outbound.id
+          )
+        ORDER BY outbound.createdAt DESC, outbound.id DESC
+        """,
+    )
+    fun findRecentUnechoedReplies(roomTarget: String, since: Instant, pageable: Pageable): List<OutboundMessageEntity>
+
+    @Query(
+        """
         SELECT m FROM OutboundMessageEntity m
         WHERE ((:field = 'all' OR :field = 'messageText') AND LOWER(m.messageText) LIKE LOWER(CONCAT('%', :q, '%')))
            OR ((:field = 'all' OR :field = 'status') AND LOWER(string(m.status)) LIKE LOWER(CONCAT('%', :q, '%')))
