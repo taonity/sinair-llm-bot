@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode, SyntheticEvent } from 'react'
-import { AlertTriangle, Check, ChevronLeft, Copy, Eye, EyeOff, Maximize2, Minimize2, WrapText } from 'lucide-react'
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import { AlertTriangle, Braces, Check, ChevronLeft, Copy, Eye, EyeOff, Maximize2, Minimize2, Pilcrow, WrapText } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { fetchAuthenticatedUserStatus } from '@/lib/auth'
+import { applyNewlineEffect, findEmbeddedJson } from './formatting'
 
 interface PayloadViewerProps {
   runId: string
@@ -127,6 +129,8 @@ function highlightJsonLine(
   lineOffset: number,
   activePair: BracketPair | null,
   activeWord: string | null,
+  expandNewlines: boolean,
+  expandEmbeddedJson: boolean,
 ): ReactNode[] {
   const tokens: ReactNode[] = []
   const tokenPattern = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g
@@ -158,11 +162,52 @@ function highlightJsonLine(
     const className = stringValue
       ? colon ? 'text-emerald-700 dark:text-[#7ee787]' : 'text-sky-700 dark:text-[#a5d6ff]'
       : match[3] ? 'text-blue-700 dark:text-[#79c0ff]' : 'text-violet-700 dark:text-[#d2a8ff]'
-    tokens.push(
-      <span className={className} key={`${match.index}-${token}`}>
-        {highlightWordOccurrences(token, activeWord, `token-${lineOffset + match.index}`)}
-      </span>,
-    )
+    const embeddedJson = expandEmbeddedJson && stringValue && !colon ? findEmbeddedJson(token) : null
+    if (embeddedJson) {
+      const embeddedLines = embeddedJson.formatted.split('\n')
+      const tokenOffset = lineOffset + match.index
+      let embeddedLineOffset = tokenOffset
+      tokens.push(
+        <span key={`${match.index}-${token}`}>
+          {embeddedJson.prefix && (
+            <span className="text-sky-700 dark:text-[#a5d6ff]">
+              {highlightWordOccurrences(embeddedJson.prefix, activeWord, `embedded-prefix-${tokenOffset}`)}
+            </span>
+          )}
+          {'\n'}
+          {embeddedLines.map((embeddedLine, embeddedIndex) => {
+            const highlightedLine = highlightJsonLine(embeddedLine, embeddedLineOffset, null, activeWord, expandNewlines, false)
+            embeddedLineOffset += embeddedLine.length + 1
+            return (
+              <span key={`${tokenOffset}-embedded-${embeddedIndex}`}>
+                <span className="inline-block h-[22px] bg-cyan-500/10 leading-[22px] [text-indent:0] dark:bg-cyan-400/10" data-embedded-json-line>
+                  {highlightedLine}
+                </span>
+                {embeddedIndex < embeddedLines.length - 1 ? '\n' : null}
+              </span>
+            )
+          })}
+          {embeddedJson.suffix && (
+            <span>
+              {'\n'}
+              <span className="text-sky-700 dark:text-[#a5d6ff]">
+                {highlightWordOccurrences(embeddedJson.suffix, activeWord, `embedded-suffix-${tokenOffset}`)}
+              </span>
+            </span>
+          )}
+        </span>,
+      )
+    } else {
+      tokens.push(
+        <span className={className} key={`${lineOffset + match.index}-${token}`}>
+          {highlightWordOccurrences(
+            expandNewlines && stringValue && !colon ? applyNewlineEffect(token) : token,
+            activeWord,
+            `token-${lineOffset + match.index}`,
+          )}
+        </span>,
+      )
+    }
     lastIndex = match.index + token.length
   }
 
@@ -170,7 +215,7 @@ function highlightJsonLine(
   return tokens
 }
 
-function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: boolean }) {
+function JsonCodeViewer({ expandEmbeddedJson, expandNewlines, payload, wrapLines }: { expandEmbeddedJson: boolean, expandNewlines: boolean, payload: Payload, wrapLines: boolean }) {
   const [activePair, setActivePair] = useState<BracketPair | null>(null)
   const [activeLineStart, setActiveLineStart] = useState<number | null>(null)
   const [activeWord, setActiveWord] = useState<string | null>(null)
@@ -181,7 +226,7 @@ function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: b
 
   const updateActivePair = useCallback(() => {
     const selection = window.getSelection()
-    if (!selection?.rangeCount) return
+    if (!selection?.rangeCount || !selection.isCollapsed) return
 
     const range = selection.getRangeAt(0)
     const source = range.startContainer.nodeType === Node.ELEMENT_NODE
@@ -201,29 +246,13 @@ function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: b
     setActiveWord(/^[\p{L}\p{N}]{2,}$/u.test(selectedWord) ? selectedWord : wordAt(payload.formatted, cursor))
   }, [pairs, payload.formatted])
 
-  const preventMutation = useCallback((event: SyntheticEvent) => event.preventDefault(), [])
-  const preventEditingKeys = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key.length === 1 || ['Backspace', 'Delete', 'Enter'].includes(event.key)) event.preventDefault()
-    if ((event.ctrlKey || event.metaKey) && ['v', 'x'].includes(event.key.toLowerCase())) event.preventDefault()
-  }, [])
-
   return (
     <div
       aria-label="Read-only JSON payload"
-      aria-multiline="true"
       className={`${wrapLines ? 'w-full min-w-0' : 'min-w-fit'} cursor-text py-2 pr-3 outline-none`}
-      contentEditable
-      onBeforeInput={preventMutation}
-      onCut={preventMutation}
-      onDrop={preventMutation}
-      onKeyDown={preventEditingKeys}
-      onKeyUp={updateActivePair}
       onMouseUp={updateActivePair}
-      onPaste={preventMutation}
-      onSelect={updateActivePair}
-      role="textbox"
-      spellCheck={false}
-      suppressContentEditableWarning
+      role="region"
+      tabIndex={0}
     >
       {lines.map((line, index) => {
         const currentLineOffset = lineOffset
@@ -251,7 +280,7 @@ function JsonCodeViewer({ payload, wrapLines }: { payload: Payload, wrapLines: b
                   style={{ left: `calc(0.75rem + ${guide * 2}ch)` }}
                 />
               ))}
-              {highlightJsonLine(line, currentLineOffset, activePair, activeWord)}
+              {highlightJsonLine(line, currentLineOffset, activePair, activeWord, expandNewlines, expandEmbeddedJson)}
             </code>
           </div>
         )
@@ -275,13 +304,15 @@ function JsonViewSkeleton() {
 
 interface PayloadPanelProps {
   copied: boolean
+  expandEmbeddedJson: boolean
+  expandNewlines: boolean
   label: 'Request' | 'Response'
   onCopy: () => void
   payload: Payload | null
   wrapLines: boolean
 }
 
-function PayloadPanel({ copied, label, onCopy, payload, wrapLines }: PayloadPanelProps) {
+function PayloadPanel({ copied, expandEmbeddedJson, expandNewlines, label, onCopy, payload, wrapLines }: PayloadPanelProps) {
   const isRequest = label === 'Request'
 
   return (
@@ -303,7 +334,7 @@ function PayloadPanel({ copied, label, onCopy, payload, wrapLines }: PayloadPane
         )}
       </div>
       <div className="flex-1 overflow-auto bg-background font-mono text-[13px] leading-[22px]">
-        {payload ? <JsonCodeViewer payload={payload} wrapLines={wrapLines} /> : <div className="p-3 italic text-muted-foreground">No {label.toLowerCase()} data</div>}
+        {payload ? <JsonCodeViewer expandEmbeddedJson={expandEmbeddedJson} expandNewlines={expandNewlines} payload={payload} wrapLines={wrapLines} /> : <div className="p-3 italic text-muted-foreground">No {label.toLowerCase()} data</div>}
       </div>
     </div>
   )
@@ -345,6 +376,8 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
   const [showReq, setShowReq] = useState(true)
   const [showRes, setShowRes] = useState(true)
   const [copied, setCopied] = useState<'request' | 'response' | null>(null)
+  const [expandEmbeddedJson, setExpandEmbeddedJson] = useState(true)
+  const [expandNewlines, setExpandNewlines] = useState(true)
   const [wrapLines, setWrapLines] = useState(true)
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizing, setIsResizing] = useState(false)
@@ -354,6 +387,18 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
     let cancelled = false
     async function load() {
       try {
+        const auth = await fetchAuthenticatedUserStatus()
+        if (cancelled) return
+        if (auth.status === 'unauthenticated') {
+          const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
+          window.location.replace(`/login?next=${encodeURIComponent(returnPath)}`)
+          return
+        }
+        if (auth.status === 'error') {
+          setState({ request: null, response: null, error: auth.message, loading: false })
+          return
+        }
+
         const base = `/api/console/pipeline-runs/${encodeURIComponent(runId)}/llm-usage/${encodeURIComponent(index)}`
         const [request, response] = await Promise.all([fetchPayload(`${base}/request`), fetchPayload(`${base}/response`)])
         if (!cancelled) setState({ request, response, error: null, loading: false })
@@ -417,6 +462,8 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={() => setShowReq((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showReq ? 'Hide request' : 'Show request'}>{showReq ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Req</button>
           <button type="button" onClick={() => setShowRes((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showRes ? 'Hide response' : 'Show response'}>{showRes ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Res</button>
+          <button type="button" onClick={() => setExpandNewlines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandNewlines ? 'text-foreground' : 'text-muted-foreground'}`} title={expandNewlines ? 'Show escaped newline characters as plain text' : 'Render escaped newline characters as line breaks'}><Pilcrow className="size-3" />Newlines</button>
+          <button type="button" onClick={() => setExpandEmbeddedJson((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandEmbeddedJson ? 'text-foreground' : 'text-muted-foreground'}`} title={expandEmbeddedJson ? 'Show embedded JSON as an escaped string' : 'Pretty print embedded JSON strings'}><Braces className="size-3" />Nested JSON</button>
           <button type="button" onClick={() => setWrapLines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${wrapLines ? 'text-foreground' : 'text-muted-foreground'}`} title={wrapLines ? 'Disable line wrapping' : 'Wrap long lines'}><WrapText className="size-3" />Wrap</button>
           <span className="h-3 w-px bg-border" />
           <ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-accent-foreground" />
@@ -430,9 +477,9 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
         <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-2"><JsonViewSkeleton /><JsonViewSkeleton /></div>
       ) : (
         <div className="grid flex-1 overflow-hidden" ref={panelsRef} style={{ gridTemplateColumns: bothPanelsVisible ? `${splitPercent}fr 6px ${100 - splitPercent}fr` : '1fr' }}>
-          {showReq && <PayloadPanel label="Request" payload={state.request} copied={copied === 'request'} onCopy={() => state.request && copyPayload('request', state.request)} wrapLines={wrapLines} />}
+          {showReq && <PayloadPanel label="Request" payload={state.request} copied={copied === 'request'} expandEmbeddedJson={expandEmbeddedJson} expandNewlines={expandNewlines} onCopy={() => state.request && copyPayload('request', state.request)} wrapLines={wrapLines} />}
           {bothPanelsVisible && <ResizeHandle isResizing={isResizing} onKeyDown={handleResizeKeyDown} onPointerDown={handleResizeStart} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} splitPercent={splitPercent} />}
-          {showRes && <PayloadPanel label="Response" payload={state.response} copied={copied === 'response'} onCopy={() => state.response && copyPayload('response', state.response)} wrapLines={wrapLines} />}
+          {showRes && <PayloadPanel label="Response" payload={state.response} copied={copied === 'response'} expandEmbeddedJson={expandEmbeddedJson} expandNewlines={expandNewlines} onCopy={() => state.response && copyPayload('response', state.response)} wrapLines={wrapLines} />}
         </div>
       )}
     </div>

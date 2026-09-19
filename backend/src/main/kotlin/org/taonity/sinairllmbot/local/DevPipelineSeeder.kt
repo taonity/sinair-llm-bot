@@ -313,12 +313,15 @@ class DevPipelineSeeder(
                 "context": "context context context",
                 "contextual": "contextual contextually recontextualized",
                 "subcontext": "subcontext context subcontext",
+                                "embeddedObject": "Tool request: {\"query\":\"context\",\"limit\":3} ready for review",
+                                "embeddedArray": "Candidates => [1,{\"text\":\"brace } stays quoted\"}] <= complete",
+                                "invalidEmbeddedJson": "This {not valid JSON} stays plain text",
                 "labels": ["context", "contextual", "subcontext", "context"]
               },
               "messages": [
                 {
                   "role": "system",
-                  "content": "Use the supplied context. Keep context, contextual detail, and subcontext distinct."
+                                    "content": "Use the supplied context.\nKeep context, contextual detail, and subcontext distinct.\nReturn a concise answer."
                 },
                 {
                   "role": "user",
@@ -372,14 +375,14 @@ class DevPipelineSeeder(
                 {
                   "message": {
                     "role": "assistant",
-                    "content": "The context is repeated in each subcontext so contextual comparisons can be tested.",
+                                        "content": "Summary:\nThe context is repeated in each subcontext.\nContextual comparisons can now be tested across lines.",
                     "tool_calls": [
                       {
                         "id": "call_context_001",
                         "type": "function",
                         "function": {
                           "name": "store_context",
-                          "arguments": "{\\"context\\":\\"context context context\\",\\"subcontext\\":\\"nested contextual subcontext\\",\\"contextual\\":true}"
+                                                    "arguments": "{\"context\":\"context context context\",\"subcontext\":\"nested contextual subcontext\",\"contextual\":true}"
                         }
                       }
                     ]
