@@ -5,6 +5,26 @@ let pollTimer = null;
 const appliedStatus = new Map();
 const appliedNick = new Map();
 
+export async function loadPresences() {
+    const response = await fetch(`${config.outboundUrl}/presence`, { method: 'GET' });
+    if (!response.ok) {
+        throw new Error(`Presence request failed ${response.status}: ${await response.text()}`);
+    }
+    const presences = await response.json();
+    return Array.isArray(presences) ? presences : [];
+}
+
+export async function persistNickname(nickname) {
+    const response = await fetch(`${config.outboundUrl}/presence/nickname`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname }),
+    });
+    if (!response.ok) {
+        throw new Error(`Nickname update failed ${response.status}: ${await response.text()}`);
+    }
+}
+
 export function startPresence(setRoomPresence, setRoomNick) {
     if (!config.botSendEnabled) {
         logger.debug('[presence] Bot presence disabled (BOT_SEND_ENABLED=false)');
@@ -15,13 +35,7 @@ export function startPresence(setRoomPresence, setRoomNick) {
 
     const poll = async () => {
         try {
-            const response = await fetch(presenceUrl, { method: 'GET' });
-            if (!response.ok) {
-                logger.error(`[presence] Poll failed ${response.status}: ${await response.text()}`);
-                return;
-            }
-            const presences = await response.json();
-            if (!Array.isArray(presences)) return;
+            const presences = await loadPresences();
 
             for (const item of presences) {
                 const desired = String(item.presence).toLowerCase();

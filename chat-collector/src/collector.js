@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './batcher.js';
 import { startSender, stopSender } from './sender.js';
-import { startPresence, stopPresence } from './presence.js';
+import { loadPresences, persistNickname, startPresence, stopPresence } from './presence.js';
 import { startTyping, stopTyping } from './typing.js';
 import { estimateServerNowMs, isOlderThan, normalizeUnixTime } from './history.js';
 
@@ -138,6 +138,48 @@ function setRoomNick(target, nick) {
     if (!room) return false;
     room.sendMessage(`/nick ${nick}`);
     return true;
+}
+
+export function chooseAvailableNickname(desiredNickname, rooms) {
+    const isUsed = (nickname) => rooms.some((room) =>
+        (room.members || []).some((member) =>
+            member.member_id !== room.memberId &&
+            String(member.name || '').localeCompare(nickname, undefined, { sensitivity: 'accent' }) === 0,
+        ),
+    );
+    if (!isUsed(desiredNickname)) return desiredNickname;
+
+    let suffix = 2;
+    while (isUsed(`${desiredNickname}_${suffix}`)) suffix += 1;
+    return `${desiredNickname}_${suffix}`;
+}
+
+function baseNickname(presences) {
+    const presence = presences.find((item) => item?.nickname);
+    if (!presence) return config.botNick;
+    const nickname = String(presence.nickname);
+    const suffix = String(presence.nickSuffix || '');
+    return suffix && nickname.endsWith(suffix) ? nickname.slice(0, -suffix.length) : nickname;
+}
+
+async function applyInitialNickname() {
+    let desiredNickname = config.botNick;
+    try {
+        desiredNickname = baseNickname(await loadPresences());
+    } catch (err) {
+        logger.warn(`[collector] Could not load database-backed nickname; using '${desiredNickname}': ${err?.message || err}`);
+    }
+    if (!desiredNickname) return;
+
+    const rooms = [...roomsByTarget.values()];
+    const availableNickname = chooseAvailableNickname(desiredNickname, rooms);
+    if (availableNickname !== desiredNickname) {
+        await persistNickname(availableNickname);
+        logger.warn(`[collector] Nick '${desiredNickname}' is occupied; switched permanently to '${availableNickname}'`);
+    }
+    for (const room of rooms) {
+        if (room.memberNick !== availableNickname) room.sendMessage(`/nick ${availableNickname}`);
+    }
 }
 
 function setRoomTyping(target, isTyping) {
@@ -311,7 +353,7 @@ export async function startCollector() {
         for (const roomTarget of config.chatRooms) {
             if (roomsByTarget.has(roomTarget)) continue;
             logger.info(`[collector] Joining room ${roomTarget}...`);
-            const room = await client.joinRoom(roomTarget, { autoLogin: true, loadHistory: true });
+            const room = await client.joinRoom(roomTarget, { autoLogin: false, loadHistory: true });
             onRoomReady(room);
         }
 
@@ -320,6 +362,7 @@ export async function startCollector() {
             throw new Error(`Room membership incomplete; missing=${missingRooms.join(',')}`);
         }
         logger.info(`[collector] Room membership established; joinedRooms=${formatRoomTargets()}`);
+        await applyInitialNickname();
 
         initializationPhase = 'starting background workers';
         startFlushTimer();

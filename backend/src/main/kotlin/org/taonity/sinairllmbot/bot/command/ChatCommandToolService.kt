@@ -8,24 +8,23 @@ import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
 import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
+import org.taonity.sinairllmbot.bot.service.BotNicknameService
 import org.taonity.sinairllmbot.bot.tools.LlmToolContributor
 import org.taonity.sinairllmbot.bot.tools.ToolCapability
 import org.taonity.sinairllmbot.bot.tools.ToolExecutionContext
 import org.taonity.sinairllmbot.chat.repository.ChatEventRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import org.taonity.sinairllmbot.config.BotSettings
-import org.taonity.sinairllmbot.config.entity.BotConfigOverrideEntity
-import org.taonity.sinairllmbot.config.repository.BotConfigOverrideRepository
 import tools.jackson.databind.ObjectMapper
-import java.time.Instant
 import org.springframework.data.domain.PageRequest
+import java.time.Instant
 
 @Service
 class ChatCommandToolService(
     private val objectMapper: ObjectMapper,
     private val pipelineContextTracker: PipelineContextTracker,
     private val settings: BotSettings,
-    private val overrideRepository: BotConfigOverrideRepository,
+    private val botNicknameService: BotNicknameService,
     private val outboundMessageRepository: OutboundMessageRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val chatEventRepository: ChatEventRepository,
@@ -253,7 +252,9 @@ class ChatCommandToolService(
 
         // Phase 2: poll for the server's response (outside the transaction — no DB connection held).
         val response = pollForResponse(context.roomTarget, outboundId, command, rawArgs, memberId)
-        if (command == "nick" && rawArgs.isNotBlank() && response.startsWith("CONFIRMED:")) syncNickConfig(rawArgs.trim())
+        if (command == "nick" && rawArgs.isNotBlank() && response.startsWith("CONFIRMED:")) {
+            botNicknameService.update(rawArgs, "bot")
+        }
         return response
     }
 
@@ -357,27 +358,6 @@ class ChatCommandToolService(
         return (args["arguments"] as? String)?.trim() ?: ""
     }
 
-    private fun syncNickConfig(newNick: String) {
-        val now = Instant.now()
-        val existing = overrideRepository.findById("app.bot.persona.name").orElse(null)
-        if (existing != null) {
-            existing.valueJson = objectMapper.writeValueAsString(newNick)
-            existing.updatedAt = now
-            existing.updatedBy = "bot"
-            overrideRepository.save(existing)
-        } else {
-            overrideRepository.save(
-                BotConfigOverrideEntity(
-                    configKey = "app.bot.persona.name",
-                    valueJson = objectMapper.writeValueAsString(newNick),
-                    updatedAt = now,
-                    updatedBy = "bot",
-                ),
-            )
-        }
-        settings.reload()
-        LOGGER.info { "Synced app.bot.persona.name config to '$newNick'" }
-    }
 }
 
 data class CommandDef(

@@ -7,6 +7,10 @@ data class RoomPresenceDto(
     val nickSuffix: String = "",
 )
 
+data class NicknameUpdateRequest(
+    val nickname: String,
+)
+
 enum class BotPresence {
     BACK,
 

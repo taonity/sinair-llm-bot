@@ -2,12 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
     const clients = [];
+    const roomMembers = [];
+    const joinedRooms = [];
+    const loadPresences = vi.fn(async () => []);
+    const persistNickname = vi.fn(async () => {});
+    let failFirstOpen = true;
 
     class MockWsChat {
         constructor() {
             this.handlers = new Map();
             this.connected = false;
             this.joinedTargets = [];
+            this.joinOptions = [];
             this.i = {
                 OPEN: 1,
                 readyState: 1,
@@ -27,7 +33,7 @@ const mocks = vi.hoisted(() => {
         }
 
         async open() {
-            if (clients.indexOf(this) === 0) throw new Error('server unavailable');
+            if (failFirstOpen && clients.indexOf(this) === 0) throw new Error('server unavailable');
             this.connected = true;
             this.emit('open');
         }
@@ -36,14 +42,19 @@ const mocks = vi.hoisted(() => {
             return { user_id: 42, token: 'new-token' };
         }
 
-        async joinRoom(target) {
+        async joinRoom(target, options) {
             this.joinedTargets.push(target);
-            return {
+            this.joinOptions.push(options);
+            const room = {
                 target,
-                members: [],
+                memberId: 10,
+                memberNick: 'anonymous',
+                members: [...roomMembers],
                 sendMessage: vi.fn(),
                 changeStatus: vi.fn(),
             };
+            joinedRooms.push(room);
+            return room;
         }
 
         async close() {
@@ -53,6 +64,13 @@ const mocks = vi.hoisted(() => {
 
     return {
         clients,
+        roomMembers,
+        joinedRooms,
+        loadPresences,
+        persistNickname,
+        setFailFirstOpen(value) {
+            failFirstOpen = value;
+        },
         MockWsChat,
         logger: {
             debug: vi.fn(),
@@ -111,14 +129,24 @@ vi.mock('./batcher.js', () => ({
     stopFlushTimer: vi.fn(),
 }));
 vi.mock('./sender.js', () => ({ startSender: vi.fn(), stopSender: vi.fn() }));
-vi.mock('./presence.js', () => ({ startPresence: vi.fn(), stopPresence: vi.fn() }));
+vi.mock('./presence.js', () => ({
+    loadPresences: mocks.loadPresences,
+    persistNickname: mocks.persistNickname,
+    startPresence: vi.fn(),
+    stopPresence: vi.fn(),
+}));
 vi.mock('./typing.js', () => ({ startTyping: vi.fn(), stopTyping: vi.fn() }));
 
 describe('collector reconnect lifecycle', () => {
     beforeEach(() => {
+        vi.resetModules();
         vi.useFakeTimers();
         vi.clearAllMocks();
         mocks.clients.length = 0;
+        mocks.roomMembers.length = 0;
+        mocks.joinedRooms.length = 0;
+        mocks.setFailFirstOpen(true);
+        mocks.loadPresences.mockResolvedValue([]);
     });
 
     afterEach(() => {
@@ -160,5 +188,23 @@ describe('collector reconnect lifecycle', () => {
         await vi.advanceTimersByTimeAsync(10000);
         expect(mocks.clients).toHaveLength(3);
         expect(mocks.clients[2].joinedTargets).toEqual(['#room']);
+    });
+
+    it('joins without the saved nick and persists an available suffix when it is occupied', async () => {
+        mocks.setFailFirstOpen(false);
+        mocks.roomMembers.push(
+            { member_id: 20, name: 'database-nick' },
+            { member_id: 21, name: 'database-nick_2' },
+        );
+        mocks.loadPresences.mockResolvedValue([
+            { roomTarget: '#room', nickname: 'database-nick', nickSuffix: '' },
+        ]);
+        const { startCollector } = await import('./collector.js');
+
+        await startCollector();
+
+        expect(mocks.clients[0].joinOptions).toEqual([{ autoLogin: false, loadHistory: true }]);
+        expect(mocks.persistNickname).toHaveBeenCalledWith('database-nick_3');
+        expect(mocks.joinedRooms[0].sendMessage).toHaveBeenCalledWith('/nick database-nick_3');
     });
 });

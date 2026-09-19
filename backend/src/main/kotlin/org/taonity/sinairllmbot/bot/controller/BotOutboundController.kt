@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RestController
 import org.taonity.sinairllmbot.bot.dto.OutboundAckRequest
 import org.taonity.sinairllmbot.bot.dto.OutboundAckResponse
 import org.taonity.sinairllmbot.bot.dto.OutboundMessageDto
+import org.taonity.sinairllmbot.bot.dto.NicknameUpdateRequest
 import org.taonity.sinairllmbot.bot.dto.RoomPresenceDto
+import org.taonity.sinairllmbot.bot.service.BotNicknameService
 import org.taonity.sinairllmbot.bot.service.BotPresenceService
 import org.taonity.sinairllmbot.bot.service.BotTypingService
 import org.taonity.sinairllmbot.bot.service.OutboundMessageService
@@ -20,6 +22,7 @@ import org.taonity.sinairllmbot.observability.logging.LogLevel
 @RequestMapping("/api/chat/outbound")
 class BotOutboundController(
     private val outboundMessageService: OutboundMessageService,
+    private val botNicknameService: BotNicknameService,
     private val botPresenceService: BotPresenceService,
     private val botTypingService: BotTypingService,
 ) {
@@ -38,6 +41,11 @@ class BotOutboundController(
     @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/presence")
     fun presence(): List<RoomPresenceDto> = botPresenceService.allPresences()
+
+    @EndpointLogLevel(LogLevel.TRACE)
+    @PostMapping("/presence/nickname")
+    fun updateNickname(@RequestBody request: NicknameUpdateRequest) =
+        botNicknameService.update(request.nickname, "collector")
 
     @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping("/typing")
