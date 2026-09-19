@@ -36,7 +36,7 @@ export type Column<T> = {
   key: string
   label: string
   value: (row: T) => string
-  render?: (row: T) => React.ReactNode
+  render?: (row: T, actions: { expand: () => void }) => React.ReactNode
   cellClassName?: string
   headClassName?: string
   skeleton?: string
@@ -56,6 +56,7 @@ type DataTabProps<T> = {
   onDelete?: (row: T) => Promise<unknown>
   emptyLabel: string
   sortLabel?: string
+  tableClassName?: string
   onError: (message: string) => void
 }
 
@@ -87,6 +88,7 @@ export function DataTab<T>({
   onDelete,
   emptyLabel,
   sortLabel = 'time',
+  tableClassName,
   onError,
 }: DataTabProps<T>) {
   const [page, setPage] = useState(0)
@@ -313,7 +315,7 @@ export function DataTab<T>({
       </div>
 
       <div className="overflow-hidden rounded-lg border">
-        <Table className="min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50">
+        <Table className={cn('min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50', tableClassName)}>
           <TableHeader>
             <TableRow className="bg-muted/40">
               {expand && <TableHead className="w-[40px]" />}
@@ -370,7 +372,7 @@ export function DataTab<T>({
                         if (element) rowRefs.current.set(id, element)
                         else rowRefs.current.delete(id)
                       }}
-                      className={cn(highlightId === id && 'bg-primary/10')}
+                      className={cn('group/data-row', highlightId === id && 'bg-primary/10')}
                     >
                       {expand && (
                         <TableCell className="w-[40px]">
@@ -388,7 +390,9 @@ export function DataTab<T>({
                       )}
                       {columns.map((c) => (
                         <TableCell key={c.key} className={c.cellClassName}>
-                          {c.render ? c.render(row) : c.value(row)}
+                          {c.render
+                            ? c.render(row, { expand: () => setExpandedIds((previous) => new Set(previous).add(id)) })
+                            : c.value(row)}
                         </TableCell>
                       ))}
                       {locate && (

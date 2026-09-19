@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Cpu, Download, Maximize2, Minimize2, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { formatTime, formatTokens } from './format'
+import { pipelineDiagnostics, pipelineOutcomeReason, type PipelineDiagnostic } from './pipelineDiagnostics'
 import type {
   JsonParseFailure,
   LlmCallUsage,
@@ -25,7 +26,7 @@ const STATUS_DOT: Record<PipelineStageStatus, string> = {
   SKIP: 'bg-muted-foreground/50',
   INFO: 'bg-slate-400',
 }
-function outcomeBadge(outcome: string) {
+function outcomeBadge(outcome: string, clarification?: string | null) {
   const tone =
     outcome === 'REPLIED' || outcome === 'SUMMARY_REFRESHED'
       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
@@ -37,31 +38,10 @@ function outcomeBadge(outcome: string) {
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
             : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
   return (
-    <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)}>
+    <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)} title={clarification ?? undefined}>
       {outcome}
     </Badge>
   )
-}
-
-function PipelineFlow({ stages }: { stages: PipelineStage[] }) {
-  if (stages.length === 0) return <span className="text-muted-foreground">—</span>
-  return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-      {stages.map((stage, i) => (
-        <Fragment key={`${stage.key}-${i}`}>
-          {i > 0 && <span className="text-border">›</span>}
-          <span className="inline-flex items-center gap-1" title={stage.summary || stage.label}>
-            <span className={cn('size-1.5 rounded-full', STATUS_DOT[stage.status] ?? 'bg-muted-foreground')} />
-            <span className="text-xs text-muted-foreground">{stage.label}</span>
-          </span>
-        </Fragment>
-      ))}
-    </div>
-  )
-}
-
-function fieldsSummary(stages: PipelineStage[]): string {
-  return stages.map((s) => s.label).join(' › ')
 }
 
 function shortModel(model: string): string {
@@ -98,7 +78,9 @@ function TokenSplit({
   )
 }
 
-const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
+const pipelineColumns = (
+  onDiagnostic: (run: PipelineRun, diagnostic: PipelineDiagnostic) => void,
+): Column<PipelineRun>[] => [
   {
     key: 'createdAt',
     label: 'When',
@@ -128,34 +110,85 @@ const PIPELINE_COLUMNS: Column<PipelineRun>[] = [
     key: 'outcome',
     label: 'Outcome',
     value: (r) => r.outcome,
-    render: (r) => (
-      <div className="flex flex-wrap items-center gap-1">
-        {outcomeBadge(r.outcome)}
-        {r.jsonParseFailures.length > 0 && (
-          <Badge
-            variant="outline"
-            className="gap-1 border-amber-500/40 bg-amber-500/10 font-normal text-amber-600"
-            title={`${r.jsonParseFailures.length} JSON parse failure(s) — the model returned unparseable JSON and the prompt was retried. Expand the row to inspect the payloads.`}
-          >
-            <AlertTriangle className="size-3" />
-            {r.jsonParseFailures.length}
-          </Badge>
-        )}
+    render: (run) => (
+      <div className="flex items-center gap-1">
+        {outcomeBadge(run.outcome, pipelineOutcomeReason(run))}
+        <a
+          href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/export`}
+          download
+          title="Export debug bundle"
+          aria-label="Export debug bundle"
+          className={cn(
+            buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
+            'shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/data-row:opacity-100 group-focus-within/data-row:opacity-100 focus-visible:opacity-100',
+          )}
+        >
+          <Download />
+        </a>
       </div>
     ),
-    headClassName: 'w-[160px]',
+    cellClassName: 'whitespace-normal',
+    headClassName: 'w-[200px]',
     skeleton: 'h-5 w-16 rounded-full',
     searchKey: 'outcome',
   },
   {
-    key: 'flow',
-    label: 'Flow',
-    value: (r) => fieldsSummary(r.stages),
-    render: (r) => <PipelineFlow stages={r.stages} />,
+    key: 'diagnostics',
+    label: 'Diagnostics',
+    value: (run) => pipelineDiagnostics(run).map((diagnostic) => diagnostic.label).join(', '),
+    render: (run, actions) => (
+      <div className="flex flex-col items-start gap-1">
+        {pipelineDiagnostics(run).map((diagnostic) => (
+          <button
+            key={diagnostic.kind}
+            type="button"
+            title={`Inspect ${diagnostic.label}`}
+            onClick={() => {
+              actions.expand()
+              onDiagnostic(run, diagnostic)
+            }}
+            className={cn(
+              'inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs leading-snug hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
+              diagnostic.kind === 'tool-error' ? 'bg-red-500/10 text-red-600' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+            )}
+          >
+            <AlertTriangle className="size-3 shrink-0" />
+            <span>{diagnostic.label}</span>
+          </button>
+        ))}
+      </div>
+    ),
     cellClassName: 'whitespace-normal',
-    headClassName: 'w-[34%]',
+    headClassName: 'w-[185px]',
   },
 ]
+
+interface DiagnosticFocus {
+  runId: string
+  diagnostic: PipelineDiagnostic
+  revision: number
+}
+
+function DiagnosticEvidence({ focusRevision, children }: {
+  focusRevision?: number
+  children: React.ReactNode
+}) {
+  const evidenceRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focusRevision == null) return
+    evidenceRef.current?.focus({ preventScroll: true })
+    evidenceRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [focusRevision])
+  return (
+    <div
+      ref={evidenceRef}
+      tabIndex={focusRevision == null ? undefined : -1}
+      className="min-w-0 outline-none"
+    >
+      {children}
+    </div>
+  )
+}
 
 function JsonFailures({ failures }: { failures: JsonParseFailure[] }) {
   return (
@@ -348,13 +381,17 @@ function ToolCallRow({ entry, responseCommand }: { entry: ToolCallEntry; respons
   )
 }
 
-function ToolCalls({ calls, callCommand, responseCommand }: {
+function ToolCalls({ calls, callCommand, responseCommand, focusRevision }: {
   calls: ToolCallEntry[]
   callCommand: ExpansionCommand
   responseCommand: ExpansionCommand
+  focusRevision?: number
 }) {
   const [open, setOpen] = useState(callCommand.expanded)
   useEffect(() => setOpen(callCommand.expanded), [callCommand.expanded, callCommand.revision])
+  useEffect(() => {
+    if (focusRevision != null) setOpen(true)
+  }, [focusRevision])
   if (calls.length === 0) return null
   const errorCount = calls.filter((c) => c.error).length
   const retryFailureCount = calls.reduce(
@@ -394,11 +431,12 @@ function ToolCalls({ calls, callCommand, responseCommand }: {
   )
 }
 
-function UsageChip({ runId, entry, callCommand, responseCommand }: {
+function UsageChip({ runId, entry, callCommand, responseCommand, focusRevision }: {
   runId: string
   entry: UsageEntry
   callCommand: ExpansionCommand
   responseCommand: ExpansionCommand
+  focusRevision?: number
 }) {
   const { call, index } = entry
   const hasToolCalls = call.toolCalls.length > 0
@@ -430,21 +468,26 @@ function UsageChip({ runId, entry, callCommand, responseCommand }: {
         <CallLinks runId={runId} index={index} call={call} />
       </span>
       {hasToolCalls && (
-        <ToolCalls calls={call.toolCalls} callCommand={callCommand} responseCommand={responseCommand} />
+        <ToolCalls calls={call.toolCalls} callCommand={callCommand} responseCommand={responseCommand} focusRevision={focusRevision} />
       )}
     </div>
   )
 }
 
-function UsageGroup({ runId, tier, entries, callCommand, responseCommand }: {
+function UsageGroup({ runId, tier, entries, callCommand, responseCommand, focus }: {
   runId: string
   tier: string
   entries: UsageEntry[]
   callCommand: ExpansionCommand
   responseCommand: ExpansionCommand
+  focus?: DiagnosticFocus
 }) {
   const [open, setOpen] = useState(callCommand.expanded)
   useEffect(() => setOpen(callCommand.expanded), [callCommand.expanded, callCommand.revision])
+  const focusRevision = focus && entries.some((entry) => focus.diagnostic.callIndexes.includes(entry.index)) ? focus.revision : undefined
+  useEffect(() => {
+    if (focusRevision != null) setOpen(true)
+  }, [focusRevision])
   const tokens = entries.reduce((sum, e) => sum + e.call.tokens, 0)
   const promptTokens = entries.reduce((sum, e) => sum + e.call.promptTokens, 0)
   const completionTokens = entries.reduce((sum, e) => sum + e.call.completionTokens, 0)
@@ -501,27 +544,32 @@ function UsageGroup({ runId, tier, entries, callCommand, responseCommand }: {
         <ol className="ml-4 flex flex-col gap-1.5 border-l pl-2">
           {entries.map((e, i) => (
             <li key={e.index} className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="tabular-nums text-foreground/50">#{i + 1}</span>
-                {models.length > 1 && <span>{e.call.model}</span>}
-                <AttemptLabels call={e.call} />
-                <TokenSplit
-                  prompt={e.call.promptTokens}
-                  completion={e.call.completionTokens}
-                  total={e.call.tokens}
-                />
-                {e.call.tools.length > 0 && (
-                  <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
+              <DiagnosticEvidence
+                focusRevision={focus?.diagnostic.callIndexes[0] === e.index ? focus.revision : undefined}
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="tabular-nums text-foreground/50">#{i + 1}</span>
+                  {models.length > 1 && <span>{e.call.model}</span>}
+                  <AttemptLabels call={e.call} />
+                  <TokenSplit
+                    prompt={e.call.promptTokens}
+                    completion={e.call.completionTokens}
+                    total={e.call.tokens}
+                  />
+                  {e.call.tools.length > 0 && (
+                    <span className="rounded bg-sky-500/10 px-1 text-sky-600">{e.call.tools.join(', ')}</span>
+                  )}
+                  <CallLinks runId={runId} index={e.index} call={e.call} />
+                </div>
+                {e.call.toolCalls.length > 0 && (
+                  <ToolCalls
+                    calls={e.call.toolCalls}
+                    callCommand={callCommand}
+                    responseCommand={responseCommand}
+                    focusRevision={focus?.diagnostic.callIndexes.includes(e.index) ? focus.revision : undefined}
+                  />
                 )}
-                <CallLinks runId={runId} index={e.index} call={e.call} />
-              </div>
-              {e.call.toolCalls.length > 0 && (
-                <ToolCalls
-                  calls={e.call.toolCalls}
-                  callCommand={callCommand}
-                  responseCommand={responseCommand}
-                />
-              )}
+              </DiagnosticEvidence>
             </li>
           ))}
         </ol>
@@ -530,23 +578,13 @@ function UsageGroup({ runId, tier, entries, callCommand, responseCommand }: {
   )
 }
 
-function PipelineDetail({ run }: { run: PipelineRun }) {
+function PipelineDetail({ run, focus }: { run: PipelineRun; focus?: DiagnosticFocus }) {
   const [callCommand, setCallCommand] = useState<ExpansionCommand>({ expanded: false, revision: 0 })
   const [responseCommand, setResponseCommand] = useState<ExpansionCommand>({ expanded: false, revision: 0 })
   const totalPrompt = run.llmUsage.reduce((s, u) => s + u.promptTokens, 0)
   const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
-        <a
-          href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/export`}
-          download
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          <Download />
-          Export debug bundle
-        </a>
-      </div>
       {run.outcomeDetail && (
         <div className="text-xs text-muted-foreground">
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}
@@ -586,7 +624,11 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
           )}
         </div>
       )}
-      {run.jsonParseFailures.length > 0 && <JsonFailures failures={run.jsonParseFailures} />}
+      {run.jsonParseFailures.length > 0 && (
+        <DiagnosticEvidence focusRevision={focus?.diagnostic.kind === 'json' ? focus.revision : undefined}>
+          <JsonFailures failures={run.jsonParseFailures} />
+        </DiagnosticEvidence>
+      )}
       {run.llmUsage.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
@@ -621,13 +663,18 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
           <div className="flex flex-wrap gap-1.5">
             {groupUsage(run.llmUsage).map((group, gi) =>
               group.entries.length === 1 ? (
-                <UsageChip
+                <DiagnosticEvidence
                   key={gi}
-                  runId={run.id}
-                  entry={group.entries[0]!}
-                  callCommand={callCommand}
-                  responseCommand={responseCommand}
-                />
+                  focusRevision={focus?.diagnostic.callIndexes[0] === group.entries[0]!.index ? focus.revision : undefined}
+                >
+                  <UsageChip
+                    runId={run.id}
+                    entry={group.entries[0]!}
+                    callCommand={callCommand}
+                    responseCommand={responseCommand}
+                    focusRevision={focus?.diagnostic.callIndexes.includes(group.entries[0]!.index) ? focus.revision : undefined}
+                  />
+                </DiagnosticEvidence>
               ) : (
                 <UsageGroup
                   key={gi}
@@ -636,6 +683,7 @@ function PipelineDetail({ run }: { run: PipelineRun }) {
                   entries={group.entries}
                   callCommand={callCommand}
                   responseCommand={responseCommand}
+                  focus={focus}
                 />
               ),
             )}
@@ -731,9 +779,15 @@ export function PipelinesTab({
   initialPipelineId?: string | null
   onError: (message: string) => void
 }) {
+  const [diagnosticFocus, setDiagnosticFocus] = useState<DiagnosticFocus>()
   return (
     <DataTab<PipelineRun>
-      columns={PIPELINE_COLUMNS}
+      columns={pipelineColumns((run, diagnostic) => setDiagnosticFocus((previous) => ({
+        runId: run.id,
+        diagnostic,
+        revision: (previous?.revision ?? 0) + 1,
+      })))}
+      tableClassName="min-w-[1000px]"
       rowKey={(r) => r.id}
       load={(page, size, q, field, direction) =>
         consoleApi.listPipelineRuns(page, size, q, field, direction)
@@ -745,7 +799,7 @@ export function PipelinesTab({
       locateById={(id, size, direction) =>
         consoleApi.locatePipelineRun(id, size, direction).then((res) => res.page)
       }
-      expand={(r) => <PipelineDetail run={r} />}
+      expand={(r) => <PipelineDetail run={r} focus={diagnosticFocus?.runId === r.id ? diagnosticFocus : undefined} />}
       roomAccessor={(r) => r.roomTarget}
       emptyLabel="No pipeline runs yet."
       sortLabel="created time"
