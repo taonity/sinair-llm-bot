@@ -15,6 +15,13 @@ quoted mentions, mentions elsewhere, and names that merely share a prefix still 
 Generation checks the actual recipient and may choose silence before using tools. For ambiguous
 direct requests and active follow-ups, the gate prefers handing off rather than rejecting them;
 unsolicited participation remains conservative.
+Direct address works anywhere in the message, with or without `@`, and includes greetings and
+jokes. A name is treated as a mere mention only when context clearly shows discussion or quotation
+about the bot rather than speech to it, or an exclusive human recipient. Bare acknowledgements,
+including thanks addressed to the bot, do not require a reply; accepting a pending action does.
+Open factual questions and opinion/recommendation requests need no bot mention or question mark.
+They remain `open_question` even when already answered and skipped; `noise` is reserved for bare
+acknowledgements, empty filler and unintelligible fragments. Being helpful is not a rejection rule.
 Direct requests and active continuations use a two-second cooldown and a 40-reply/20-minute
 window by default. Open questions and material unsolicited contributions wait 45 seconds, then
 are reassessed. Existing ordinary limits (30 seconds, eight replies/20 minutes) still apply to
@@ -28,6 +35,11 @@ can choose silence when the target is already resolved. A triage outage retains 
 posting an unsolicited error.
 The final relevance check does not use the direct-mention shortcut: it asks specifically whether
 later messages withdraw, replace or resolve the target, not whether participation was worthwhile.
+Gate verdicts include `respond`, `category`, and a one-sentence `reason` of at most 30 words.
+The reason identifies decisive recipient/context evidence and appears in the pipeline's triage
+and freshness-check fields, as well as the raw model response. It is a model-provided justification,
+not an internal reasoning trace. Direct-mention bypasses and malformed-response recovery have
+explicit application-generated reasons; older responses without a reason remain supported.
 
 ## Generation and budgets
 

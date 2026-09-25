@@ -17,7 +17,7 @@
       "choices": [
         {
           "index": 0,
-          "message": { "role": "assistant", "content": "{\"respond\": false, \"reason\": \"stub-ignore\"}" },
+          "message": { "role": "assistant", "content": "{\"respond\": false, \"category\": \"not_addressed\", \"reason\": \"Stub fallback: no addressed-message fixture matched.\"}" },
           "finish_reason": "stop"
         }
       ],

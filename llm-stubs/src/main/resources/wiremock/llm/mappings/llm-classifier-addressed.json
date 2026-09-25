@@ -18,7 +18,7 @@
       "choices": [
         {
           "index": 0,
-          "message": { "role": "assistant", "content": "{\"respond\": true, \"category\": \"direct_address\"}" },
+          "message": { "role": "assistant", "content": "{\"respond\": true, \"category\": \"direct_address\", \"reason\": \"Stub addressed-message fixture matched the target's bot mention.\"}" },
           "finish_reason": "stop"
         }
       ],

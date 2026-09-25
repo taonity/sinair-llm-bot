@@ -124,6 +124,12 @@ class ReplyPromptBuilderTest {
         assertThat(prompt.userText).contains("TARGET REQUEST", "Do not recap established points")
             .contains("without an LLM gate decision", "Check the actual recipient and context before using tools")
             .contains("addressed only to another person", "fulfill a direct request to answer, continue or retry")
+            .contains("bare acknowledgement with no pending action", "answer genuine direct address, including greetings and jokes")
+            .contains("with or without @", "the subject does not make them the recipient")
+            .contains("silence merely because a response is social, subjective, simple or helpful")
+            .contains("including opinions and recommendations", "A question need not name you or have a question mark")
+            .contains("Accepting your offer to act is not a bare acknowledgement")
+            .doesNotContain("it is not an obligation to speak")
         val brief = prompt.system.replace(Regex("\\s+"), " ")
         assertThat(brief).contains(
             "You may judge a request by its intelligence",

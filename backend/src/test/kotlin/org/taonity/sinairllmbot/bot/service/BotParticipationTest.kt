@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.common.config.AppProperties
 import org.taonity.sinairllmbot.config.BotSettings
@@ -56,7 +57,8 @@ class BotParticipationTest {
         val orchestrator = orchestrator()
         canReply = true
         `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "direct_address"))
-        `when`(triage.assess("#room", trigger, verifyStillNeeded = true)).thenReturn(TriageVerdict(false, "not_addressed"))
+        `when`(triage.assess("#room", trigger, verifyStillNeeded = true))
+            .thenReturn(TriageVerdict(false, "direct_address", "The user withdrew the request during generation."))
         `when`(pending.latestHumanMessageId("#room", "segfault")).thenReturn("before", "after")
 
         orchestrator.evaluateRoom("#room")
@@ -64,6 +66,7 @@ class BotParticipationTest {
         verify(triage).assess("#room", trigger, verifyStillNeeded = true)
         verify(pending).finish(trigger)
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("reply", "defer")
+        assertStageReason("freshness", "The user withdrew the request during generation.")
     }
 
     @Test
@@ -78,20 +81,31 @@ class BotParticipationTest {
     @Test
     fun `answered questions are discarded without generation`() {
         val orchestrator = orchestrator()
-        `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(false, "not_addressed"))
+        `when`(triage.assess("#room", trigger))
+            .thenReturn(TriageVerdict(false, "open_question", "Alice already answered the room's question."))
         orchestrator.evaluateRoom("#room")
         verify(pending).finish(trigger)
         verifyNoInteractions(generator)
+        assertStageReason("triage", "Alice already answered the room's question.")
+    }
+
+    private fun assertStageReason(key: String, reason: String) {
+        val recorded = mockingDetails(trace).invocations.single { it.method.name == "record" }
+        val stages: List<PipelineStage> = recorded.getArgument(3)
+        val stage = stages.single { it.key == key }
+        org.assertj.core.api.Assertions.assertThat(stage.fields.single { it.label == "reason" }.value).isEqualTo(reason)
     }
 
     @Test
     fun `cooldown retains direct requests instead of discarding them`() {
         val orchestrator = orchestrator()
-        `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "direct_address"))
+        `when`(triage.assess("#room", trigger))
+            .thenReturn(TriageVerdict(true, "direct_address", "The user asks the bot to answer."))
         orchestrator.evaluateRoom("#room")
         verify(pending, never()).finish(trigger)
         verifyNoInteractions(generator)
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).contains("defer")
+        assertStageReason("triage", "The user asks the bot to answer.")
     }
 
     @Test

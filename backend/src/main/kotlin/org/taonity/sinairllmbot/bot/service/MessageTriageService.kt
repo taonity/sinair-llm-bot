@@ -46,7 +46,11 @@ class MessageTriageService(
                 .containsMatchIn(triggerMessageText.trimStart())
         }
         if (startsWithBotMention && !verifyStillNeeded) {
-            return TriageVerdict(respond = true, category = "direct_address")
+            return TriageVerdict(
+                respond = true,
+                category = "direct_address",
+                reason = "Leading bot mention; passed to the reply model without an LLM gate decision.",
+            )
         }
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 25)
         val aliasPattern = buildAliasPattern(person.name, person.aliases)
@@ -55,7 +59,7 @@ class MessageTriageService(
         }
 
         val annotatedTranscript = if (mention != null) {
-            "$transcript\n\nNOTE: The TARGET contains the bot's name or alias (matched: \"$mention\"). A mention is not an invitation when the bot is only being discussed or quoted. Apply the recipient exclusion first."
+            "$transcript\n\nNOTE: The TARGET contains the bot's name or alias (matched: \"$mention\"). Treat it as direct address unless context clearly shows the name is only being discussed or quoted, or the message is addressed solely to someone else."
         } else {
             transcript
         }
@@ -66,70 +70,85 @@ class MessageTriageService(
             append(" group chat. The bot's nick is '").append(person.name)
             append("' (also called: ").append(aliases).append("). In the transcript the bot's own ")
             append("messages appear under that nick or are marked bot=self, including replies under older nicknames. ")
-            append("Judge the TARGET message, using later messages ")
-            append("to check whether it was answered, withdrawn, or superseded. Do not answer twice.\n\n")
+            append("Judge the TARGET, not the last line of the transcript. Decide who is being addressed ")
+            append("from the message and context, then whether a response is still needed.\n\n")
             if (verifyStillNeeded) {
                 append("A draft has already been prepared for this TARGET. This is a freshness check, ")
-                append("not a new participation decision. For a request addressed to the bot, return ")
-                append("respond=false only when later messages clearly withdraw, replace or fully resolve ")
-                append("it, or it is actually directed only to someone else. Unrelated later chatter does ")
+                append("not a new participation decision. Keep respond=true unless later messages clearly ")
+                append("withdraw, replace or fully resolve this TARGET, or the TARGET is clearly directed ")
+                append("only to someone else or is only a bare acknowledgement. Unrelated later chatter does ")
                 append("not cancel it. If resolution is uncertain, keep respond=true.\n\n")
             }
-            append("RECIPIENT EXCLUSION (takes precedence over every positive rule below): If the ")
-            append("TARGET question or request is explicitly addressed to another participant, return ")
-            append("respond=false and category=not_addressed unless the bot is ALSO explicitly invited ")
-            append("to answer or act. Addressing may use an @mention, a plain name, or a clear reply to ")
-            append("that participant. Merely mentioning or quoting the bot does not invite it. ")
-            append("Elapsed time or the absence of a human answer does not turn a person-directed ")
-            append("question into an open question. The bot's knowledge, tools, a potential correction, ")
-            append("or an earlier exchange with the bot never override this exclusion.\n\n")
-            append("1) respond (boolean): should the bot send a message now? Subject to that exclusion, ")
-            append("say TRUE when the TARGET genuinely addresses THIS bot (by its nick, an @mention ")
-            append("or one of its aliases), or continues the bot's active exchange, including short follow-ups, corrections, ")
-            append("requests to continue, or acceptance of an offered action. A brief, well-timed reaction or joke ")
-            append("may fit an active exchange WITH the bot without adding factual information; classify an ")
-            append("unnamed continuation as indirect_address. This never permits interrupting other people's ")
-            append("exchanges or replying to bare acknowledgements. Intervening chatter does not end that exchange. Also consider ")
-            append("a direct follow-up or reply to something the bot ITSELF said in ")
-            append("the transcript. An open question may receive TRUE with category open_question when ")
-            append("the bot can provide a substantive missing answer. Say FALSE if someone has answered ")
-            append("adequately, is explicitly taking the question, or the question targets another person. ")
-            append("Do not infer expertise from a person's identity or unrelated messages. A brief ")
-            append("unsolicited contribution may receive TRUE with category contribution only for a material ")
-            append("missing mechanism, trade-off, consequence or correction, never a recap or social filler. ALSO ")
-            append("say TRUE when the TARGET states a clear, objective factual falsehood that ")
-            append("could genuinely mislead people and the bot can correct it — only for real, ")
-            append("checkable facts, NOT opinions, jokes, exaggeration, sarcasm or debatable claims. ")
-            append("Say FALSE for everything else: small talk between other people, answered questions, ")
-            append("bare acknowledgements without pending action, noise. Outside an active exchange with the bot, ")
-            append("do NOT respond just to add an opinion or joke, to be helpful, or to seem present. ")
-            append("For a plausible direct request or active follow-up to the bot, prefer respond=true ")
-            append("when uncertain; the reply model can inspect the context and choose silence. A short ")
-            append("request to answer, continue or retry is an actionable request, not noise. A previous ")
-            append("bot reply on the same topic does not necessarily answer this new request. Remain ")
-            append("conservative for unsolicited contributions and other people's exchanges.\n")
-            append("Also classify the decision with category (string) = exactly one of: ")
-            append("direct_address (the message actually asks the bot to answer or act, not merely mentions it), ")
-            append("indirect_address (an unmistakable direct follow-up or reply to the bot's OWN last ")
-            append("message, without naming it), ")
-            append("misinformation (you would answer only to correct a checkable factual falsehood), ")
-            append("open_question (an unanswered question to the group), contribution (a material new insight), ")
-            append("not_addressed (no useful reply is needed), ")
-            append("noise (a bare acknowledgement, filler or noise). Choose the single closest kind; it ")
-            append("must be one of those exact tokens and must NOT contain any words from the ")
-            append("conversation or restate its topic.\n\n")
-            append("The bot has these capabilities (use this to judge whether a request is aimed at it):\n")
+            append("RECIPIENT: Direct address uses the bot's nick or alias, with or without @, anywhere ")
+            append("in the message. A greeting, joke, social remark, question or command TO the bot is ")
+            append("direct address; no explicit invitation or factual usefulness is required. Treat a ")
+            append("bot-name occurrence as direct address unless context clearly shows it is only a ")
+            append("third-person discussion or quotation ABOUT the bot, not speech TO it. Quoting something ")
+            append("while also asking the bot about it still addresses the bot. If a bot-name occurrence ")
+            append("is ambiguous, prefer direct_address with respond=true.\n")
+            append("Exclude requests clearly addressed ONLY to another participant: respond=false, ")
+            append("category=not_addressed. Mentioning another person as the subject of a question is ")
+            append("not addressing that person. If the bot is also addressed, it must respond. Elapsed ")
+            append("time or the absence of a human answer does not turn a person-directed question into ")
+            append("an open question. Capabilities describe what the bot can do, not who a request addresses.\n\n")
+            append("CATEGORIES AND RESPONSE RULES:\n")
+            append("- direct_address: speech TO the bot by name or alias. respond=true, including ")
+            append("greetings and jokes. Do not use not_addressed just because an answer is social, ")
+            append("subjective, simple or merely helpful.\n")
+            append("- indirect_address: a continuation of the bot's active exchange without its name. ")
+            append("respond=true for follow-ups, corrections, requests to answer/continue/retry, accepting ")
+            append("an offered action, greetings or jokes directed to the bot. Intervening chatter does ")
+            append("not end that exchange. Short messages can be actionable.\n")
+            append("- open_question: a genuine question or request to the room, without an exclusive ")
+            append("recipient. respond=true when the bot can offer a relevant answer, including opinions, ")
+            append("recommendations and practical help, not only objective facts. Questions may be brief, ")
+            append("casual, implicit or lack a question mark. They are NOT noise just because nobody named ")
+            append("the bot or the subject seems simple. Do not guess the answer here; use the bot's ")
+            append("capabilities. Human-reply waiting and cooldown are handled by the application. If ")
+            append("someone already answered adequately or explicitly undertook to answer this question, ")
+            append("respond=false but keep category=open_question. Do not infer that from identity or ")
+            append("unrelated chatter.\n")
+            append("- misinformation: respond=true for a clear, checkable factual falsehood the bot can ")
+            append("correct. Opinions, jokes and debatable claims are not misinformation. Never override ")
+            append("an exclusive human recipient.\n")
+            append("- contribution: respond=true for a relevant new insight, missing mechanism, ")
+            append("trade-off or consequence in the room's discussion. Do not add recaps or unsolicited ")
+            append("social filler. Being helpful is welcome; it is not a reason to reject an answer.\n")
+            append("- noise: respond=false for bare acknowledgements without pending action (including ")
+            append("thanks addressed to the bot), empty filler or unintelligible fragments. Never use ")
+            append("noise for a genuine question, greeting to the bot, joke to the bot, or an acceptance ")
+            append("of an offered action.\n")
+            append("- not_addressed: respond=false for speech exclusively to another person, third-person ")
+            append("discussion or quotation of the bot without addressing it, or other conversation ")
+            append("with no question or contribution for the bot.\n\n")
+            append("RESOLUTION: Later messages that clearly withdraw, replace or fully answer the ")
+            append("TARGET make respond=false; keep its address/question category and explain what ")
+            append("resolved it. A previous bot reply on the same topic is not proof that this new ")
+            append("request is resolved. Unrelated chatter does not resolve it. Uncertainty about a ")
+            append("plausible bot-directed request is a reason to pass it, not suppress it.\n\n")
+            append("EXAMPLES (assuming no later resolution):\n")
+            append("- '").append(person.name).append(", hello' or 'what do you think, ").append(person.name)
+                .append("?' -> respond=true, direct_address.\n")
+            append("- '").append(person.name).append(", why did @alice say that?' -> respond=true, direct_address.\n")
+            append("- '@alice, why did ").append(person.name).append(" say that?' -> respond=false, not_addressed.\n")
+            append("- 'I think ").append(person.name).append(" was wrong' said to another member -> respond=false, not_addressed.\n")
+            append("- 'any recommendations' or 'what do you all think?' to the room -> respond=true, open_question.\n")
+            append("- '").append(person.name).append(", thanks' with no pending action -> respond=false, noise.\n")
+            append("- 'yes, do it' accepting the bot's offer -> respond=true, indirect_address.\n\n")
+            append("Available capabilities for answering questions and fulfilling requests:\n")
             append("- Chat commands: change nick (/nick), change color (/color), send /me actions, ")
             append("send /do third-person messages, send /n noise messages, private messages (/msg), ")
             append("kick/ban users (moderator commands), manage room access requests, and more.\n")
             append("- Live web search (for recent/current facts)\n")
             append("- GitHub repository lookup (for code questions)\n")
             append("- Application context tools (for live config/state questions)\n")
-            append("Capabilities describe what the bot can do, not who a request addresses. Being ")
-            append("able to look something up is never evidence that a person-directed request is for the bot.\n")
             append("Respond with ONLY a JSON object: ")
-            append("{\"respond\": boolean, \"category\": string}. ")
-            append("Default respond=false for unsolicited participation, not for plausible bot-directed requests.")
+            append("{\"respond\": boolean, \"category\": string, \"reason\": string}. ")
+            append("Use exactly one of the category tokens above. ")
+            append("The reason must be one short sentence of at most 30 words identifying the decisive ")
+            append("recipient or contextual evidence for this decision, not just repeating the category. ")
+            append("For respond=false, name the actual exclusion or resolution; lack of an @mention ")
+            append("or a desire to avoid being helpful is not an exclusion.")
         }
         val messages = listOf(
             ChatMessage.system(system),
@@ -163,7 +182,7 @@ class MessageTriageService(
         val respond = RESPOND_REGEX.find(text)?.groupValues?.get(1)?.equals("true", ignoreCase = true)
             ?: return null
         LOGGER.info { "Salvaged truncated triage verdict: respond=$respond" }
-        return TriageVerdict(respond = respond)
+        return TriageVerdict(respond = respond, reason = "Recovered respond from malformed JSON; model reason unavailable.")
     }
 }
 
@@ -171,6 +190,7 @@ class MessageTriageService(
 data class TriageVerdict(
     val respond: Boolean = false,
     val category: String = "",
+    val reason: String = "",
 ) {
     val loggableCategory: String
         get() = category.trim().lowercase().takeIf { it in ALLOWED_CATEGORIES } ?: "unclassified"

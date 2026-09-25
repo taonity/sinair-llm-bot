@@ -139,16 +139,7 @@ class BotMessageOrchestrator(
                 return
             }
             val triage = messageTriageService.assess(roomTarget, trigger)
-            stages += PipelineStage(
-                key = "triage",
-                label = "Triage",
-                status = PipelineStageStatus.OK,
-                summary = "respond=${triage.respond} · ${triage.loggableCategory}",
-                fields = listOf(
-                    PipelineField("respond", triage.respond.toString()),
-                    PipelineField("category", triage.loggableCategory),
-                ),
-            )
+            stages += triageStage("triage", "Triage", triage)
 
             val shouldReply = triage.respond
             val driver = when {
@@ -167,7 +158,7 @@ class BotMessageOrchestrator(
             )
             LOGGER.info {
                 "Gate decision for $roomTarget @${trigger.senderLogin}: reply=$shouldReply " +
-                    "driver=$driver (respond=${triage.respond}, category=${triage.loggableCategory})"
+                    "driver=$driver (respond=${triage.respond}, category=${triage.loggableCategory}, reason=${triage.reason})"
             }
             if (!shouldReply) {
                 pendingMessages.finish(trigger)
@@ -204,8 +195,11 @@ class BotMessageOrchestrator(
             )
             stages += generationStage(generation)
 
-            val superseded = contextVersion != pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name) &&
-                runCatching { !messageTriageService.assess(roomTarget, trigger, verifyStillNeeded = true).respond }.getOrDefault(false)
+            val freshness = if (contextVersion != pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name)) {
+                runCatching { messageTriageService.assess(roomTarget, trigger, verifyStillNeeded = true) }.getOrNull()
+            } else null
+            freshness?.let { stages += triageStage("freshness", "Freshness check", it) }
+            val superseded = freshness?.respond == false
             if (superseded) {
                 botTypingService.clearTyping(roomTarget)
                 pendingMessages.finish(trigger)
@@ -246,6 +240,18 @@ class BotMessageOrchestrator(
             handleFailure(trigger, stages, detail, exception)
         }
     }
+
+    private fun triageStage(key: String, label: String, verdict: TriageVerdict) = PipelineStage(
+        key = key,
+        label = label,
+        status = if (verdict.respond) PipelineStageStatus.OK else PipelineStageStatus.STOP,
+        summary = "respond=${verdict.respond} · ${verdict.loggableCategory}",
+        fields = buildList {
+            add(PipelineField("respond", verdict.respond.toString()))
+            add(PipelineField("category", verdict.loggableCategory))
+            if (verdict.reason.isNotBlank()) add(PipelineField("reason", verdict.reason))
+        },
+    )
 
     private fun handleFailure(
         trigger: ChatMessageEntity,
