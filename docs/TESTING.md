@@ -2,7 +2,6 @@
 
 ## Backend Tests
 
-Bot behavior, rollout notes, and the conversational replay checklist are in [BOT_REPLY_DESIGN.md](BOT_REPLY_DESIGN.md).
 Focused regressions include `LlmToolLoopTest`, `BotParticipationTest`, `ToolDiscoveryTest`,
 `ChatReplyFormatterTest`, `SourceCacheTest`, `BotPersistenceMigrationTest`, and `RoomSummaryWatermarkTest`.
 If a local Google stub already occupies port 9561, use a free port for tests, for example

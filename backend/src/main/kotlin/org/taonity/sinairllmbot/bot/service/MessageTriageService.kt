@@ -49,7 +49,7 @@ class MessageTriageService(
             return TriageVerdict(
                 respond = true,
                 category = "direct_address",
-                reason = "Leading bot mention; passed to the reply model without an LLM gate decision.",
+                reason = "Direct-mention handoff rule: the target starts with a bot mention; passed to the reply model without an LLM gate decision.",
             )
         }
         val transcript = contextBuilder.recentTranscript(roomTarget, limit = 25)
@@ -145,8 +145,17 @@ class MessageTriageService(
             append("Respond with ONLY a JSON object: ")
             append("{\"respond\": boolean, \"category\": string, \"reason\": string}. ")
             append("Use exactly one of the category tokens above. ")
-            append("The reason must be one short sentence of at most 30 words identifying the decisive ")
-            append("recipient or contextual evidence for this decision, not just repeating the category. ")
+            append("Always provide a nonempty reason for BOTH respond=true and respond=false, including ")
+            append("freshness checks. Use one short sentence of at most 30 words in the form ")
+            append("'Decisive prompt rule: concrete recipient or contextual evidence'. Name the main rule ")
+            append("from this prompt that determines the outcome, not just the category or a generic ")
+            append("'should reply'/'should stay silent'. If a resolution or exclusion overrides an address ")
+            append("rule, name that overriding rule and its evidence. Use only evidence in the supplied ")
+            append("messages; do not invent a recipient, answer or pending action. Examples: ")
+            append("respond=true: 'Direct-address rule: the sender asks the bot by name to explain the error.'; ")
+            append("respond=true: 'Open-question rule: the room asks for recommendations and nobody has answered.'; ")
+            append("respond=false: 'Exclusive-recipient rule: the question addresses Alice, while the bot is only its subject.'; ")
+            append("respond=false: 'Resolution rule: a later message withdraws this request to the bot.' ")
             append("For respond=false, name the actual exclusion or resolution; lack of an @mention ")
             append("or a desire to avoid being helpful is not an exclusion.")
         }

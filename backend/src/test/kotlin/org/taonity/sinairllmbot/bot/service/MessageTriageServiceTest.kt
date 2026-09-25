@@ -31,7 +31,7 @@ class MessageTriageServiceTest {
             val verdict = service.assess("#room", target(text))
             assertThat(verdict.respond).isTrue()
             assertThat(verdict.category).isEqualTo("direct_address")
-            assertThat(verdict.reason).contains("without an LLM gate decision")
+            assertThat(verdict.reason).contains("Direct-mention handoff rule:", "the target starts with a bot mention", "without an LLM gate decision")
         }
         `when`(settings.bot().persona.name).thenReturn("новый-ник")
         assertThat(service.assess("#room", target("@новый-ник отвечай")).category).isEqualTo("direct_address")
@@ -88,14 +88,26 @@ class MessageTriageServiceTest {
         val service = MessageTriageService(client, context, settings, jacksonObjectMapper(),
             JsonPromptRunner(settings, mock(JsonParseFailureTracker::class.java)))
 
-        for (respond in listOf(true, false)) {
-            val reason = if (respond) "The room's question is still unanswered." else "Alice already answered the room's question."
-            response = """{"respond":$respond,"category":"open_question","reason":"$reason"}"""
-            val verdict = service.assess("#room", target("How does this work?"))
-            assertThat(verdict.respond).isEqualTo(respond)
-            assertThat(verdict.reason).isEqualTo(reason)
+        for (verifyStillNeeded in listOf(false, true)) {
+            for (respond in listOf(true, false)) {
+                val reason = if (respond) "Open-question rule: the room's question is still unanswered."
+                    else "Resolution rule: Alice already answered the room's question."
+                response = """{"respond":$respond,"category":"open_question","reason":"$reason"}"""
+                val verdict = service.assess("#room", target("How does this work?"), verifyStillNeeded)
+                assertThat(verdict.respond).isEqualTo(respond)
+                assertThat(verdict.reason).isEqualTo(reason)
+                assertThat(system).contains(
+                    "BOTH respond=true and respond=false, including freshness checks",
+                    "Decisive prompt rule: concrete recipient or contextual evidence",
+                    "Name the main rule from this prompt that determines the outcome",
+                    "name that overriding rule and its evidence",
+                    "Use only evidence in the supplied messages",
+                    "respond=true: 'Direct-address rule:",
+                    "respond=false: 'Resolution rule:",
+                )
+            }
         }
-        assertThat(system).contains("\"reason\": string", "at most 30 words", "decisive", "contextual evidence")
+        assertThat(system).contains("\"reason\": string", "at most 30 words", "Always provide a nonempty reason")
 
         response = """{"respond":false,"category":"not_addressed"}"""
         assertThat(service.assess("#room", target("hello"))).isEqualTo(TriageVerdict(false, "not_addressed"))

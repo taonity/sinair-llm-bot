@@ -84,7 +84,7 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
                 jsonParseFailureCount = 1,
                 jsonParseFailuresJson = """[{"label":"triage","attempt":1,"payload":"not json"}]""",
                 configRevisionId = "revision-1",
-                contextManifestJson = """{"sources":["docs/BOT_REPLY_DESIGN.md"]}""",
+                contextManifestJson = """{"sources":["docs/TESTING.md"]}""",
             ),
         )
 
@@ -94,7 +94,7 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
             .andExpect(content().contentType("text/markdown;charset=UTF-8"))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("# Pipeline debug bundle")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Why did this fail?")))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("docs/BOT_REPLY_DESIGN.md")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("docs/TESTING.md")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("\"prompt\" : \"hello\"")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("\"error\" : \"bad\"")))
 
