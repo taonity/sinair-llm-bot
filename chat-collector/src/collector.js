@@ -6,6 +6,7 @@ import { bufferMessage, bufferEvent, startFlushTimer, stopFlushTimer } from './b
 import { startSender, stopSender } from './sender.js';
 import { loadPresences, persistNickname, startPresence, stopPresence } from './presence.js';
 import { startTyping, stopTyping } from './typing.js';
+import { startTelemetry, stopTelemetry } from './telemetry.js';
 import { estimateServerNowMs, isOlderThan, normalizeUnixTime } from './history.js';
 
 let chat = null;
@@ -370,6 +371,7 @@ export async function startCollector() {
         startPresence(setRoomPresence, setRoomNick);
         startTyping(setRoomTyping);
         startHeartbeat(client);
+        startTelemetry(() => [...roomsByTarget.keys()].filter((target) => !isHistoryWarmup(target)));
     } catch (err) {
         logConnectionFailure(
             `Failed while ${initializationPhase}; joinedRooms=${formatRoomTargets()}`,
@@ -468,6 +470,7 @@ function markAlive() {
 }
 
 function stopHeartbeat() {
+    stopTelemetry();
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;

@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.metrics.BotMetrics
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailureTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineLlmUsageTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
@@ -24,6 +25,7 @@ class PipelineTraceService(
     private val configRevisionService: ConfigRevisionService,
     private val objectMapper: ObjectMapper,
     private val settings: BotSettings,
+    private val botMetrics: BotMetrics,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -58,6 +60,7 @@ class PipelineTraceService(
         outcomeDetail: String? = null,
         outboundMessageId: String? = null,
     ): String? = runCatching {
+        botMetrics.recordPipelineRun(outcome)
         val llmUsage = pipelineLlmUsageTracker.drain()
         val jsonFailures = jsonParseFailureTracker.drain()
         val contextManifest = pipelineContextTracker.drain()
@@ -91,6 +94,7 @@ class PipelineTraceService(
         stages: List<PipelineStage>,
         outcomeDetail: String? = null,
     ): String? = runCatching {
+        botMetrics.recordPipelineRun(outcome)
         val llmUsage = pipelineLlmUsageTracker.drain()
         val jsonFailures = jsonParseFailureTracker.drain()
         val contextManifest = pipelineContextTracker.drain()

@@ -28,6 +28,12 @@ spring:
             user-info-uri: http://127.0.0.1:9561/oauth2/v3/userinfo
 
 app:
+  observability:
+    snapshot-interval-ms: 30000
+    openrouter:
+      enabled: false
+      interval-ms: 300000
+      timeout-seconds: 2
   ingestion:
     cache:
       ttl-seconds: 300

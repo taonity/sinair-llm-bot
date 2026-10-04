@@ -9,6 +9,12 @@ server:
         name: ${SERVER_SERVLET_SESSION_COOKIE_NAME}
 
 app:
+  observability:
+    snapshot-interval-ms: 30000
+    openrouter:
+      enabled: ${OPENROUTER_USAGE_ENABLED:true}
+      interval-ms: 300000
+      timeout-seconds: 5
   minimised-http-servlet-logging: true
   csrf-cookie-name: ${CSRF_COOKIE_NAME}
   cookie:

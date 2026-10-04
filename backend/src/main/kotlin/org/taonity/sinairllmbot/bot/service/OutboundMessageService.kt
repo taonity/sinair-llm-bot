@@ -4,14 +4,21 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.taonity.sinairllmbot.bot.dto.OutboundMessageDto
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
+import org.taonity.sinairllmbot.bot.metrics.BotMetrics
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
+import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import java.time.Duration
 import java.time.Instant
 
 @Service
 class OutboundMessageService(
     private val outboundMessageRepository: OutboundMessageRepository,
+    private val botMetrics: BotMetrics,
+    private val chatMessageRepository: ChatMessageRepository,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -51,6 +58,18 @@ class OutboundMessageService(
         }
         outboundMessageRepository.saveAll(claimed)
         if (claimed.isNotEmpty()) {
+            val count = claimed.size
+            val triggers = chatMessageRepository.findAllById(claimed.mapNotNull { it.triggerMessageId }.distinct())
+                .associateBy { it.id }
+            val latencies = claimed.mapNotNull { message ->
+                triggers[message.triggerMessageId]?.let { Duration.between(it.receivedAt, now) }
+            }
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    botMetrics.recordAcknowledgedReplies(count)
+                    latencies.forEach(botMetrics::recordReplyLatency)
+                }
+            })
             LOGGER.info { "Acknowledged ${claimed.size} outbound messages as SENT" }
         }
         return claimed.size

@@ -1,8 +1,10 @@
 package org.taonity.sinairllmbot.bot.repository
 
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -12,6 +14,11 @@ import java.time.Instant
 
 @Repository
 interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, String> {
+    fun countByRoomTargetInAndStatusIn(rooms: Collection<String>, statuses: Collection<OutboundStatus>): Long
+
+    @Query("select min(outbound.createdAt) from OutboundMessageEntity outbound where outbound.roomTarget in :rooms and outbound.status in :statuses")
+    fun oldestCreatedAt(rooms: Collection<String>, statuses: Collection<OutboundStatus>): Instant?
+
     fun findByRoomTarget(roomTarget: String, pageable: Pageable): Page<OutboundMessageEntity>
 
     @Query(
@@ -65,6 +72,7 @@ interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, Strin
         pageable: Pageable,
     ): List<OutboundMessageEntity>
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findByIdInAndStatus(ids: Collection<String>, status: OutboundStatus): List<OutboundMessageEntity>
 
     fun findByRoomTargetAndMessageTextAndStatusInOrderByCreatedAtDesc(

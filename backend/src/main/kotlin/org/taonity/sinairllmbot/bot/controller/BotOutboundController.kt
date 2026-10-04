@@ -1,5 +1,7 @@
 package org.taonity.sinairllmbot.bot.controller
 
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Size
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -15,6 +17,7 @@ import org.taonity.sinairllmbot.bot.service.BotNicknameService
 import org.taonity.sinairllmbot.bot.service.BotPresenceService
 import org.taonity.sinairllmbot.bot.service.BotTypingService
 import org.taonity.sinairllmbot.bot.service.OutboundMessageService
+import org.taonity.sinairllmbot.bot.metrics.BotStatusMetrics
 import org.taonity.sinairllmbot.observability.logging.EndpointLogLevel
 import org.taonity.sinairllmbot.observability.logging.LogLevel
 
@@ -25,7 +28,18 @@ class BotOutboundController(
     private val botNicknameService: BotNicknameService,
     private val botPresenceService: BotPresenceService,
     private val botTypingService: BotTypingService,
+    private val botStatusMetrics: BotStatusMetrics,
 ) {
+    data class CollectorStatusRequest(
+        @field:Size(max = 100) val rooms: Set<@Size(max = 200) String>,
+        val sendingEnabled: Boolean,
+    )
+
+    @EndpointLogLevel(LogLevel.TRACE)
+    @PostMapping("/collector-status")
+    fun collectorStatus(@Valid @RequestBody request: CollectorStatusRequest) =
+        botStatusMetrics.collectorHeartbeat(request.rooms, request.sendingEnabled)
+
     @EndpointLogLevel(LogLevel.TRACE)
     @GetMapping
     fun claim(

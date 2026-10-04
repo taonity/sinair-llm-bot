@@ -136,6 +136,7 @@ vi.mock('./presence.js', () => ({
     stopPresence: vi.fn(),
 }));
 vi.mock('./typing.js', () => ({ startTyping: vi.fn(), stopTyping: vi.fn() }));
+vi.mock('./telemetry.js', () => ({ startTelemetry: vi.fn(), stopTelemetry: vi.fn() }));
 
 describe('collector reconnect lifecycle', () => {
     beforeEach(() => {

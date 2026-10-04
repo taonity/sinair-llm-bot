@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.taonity.sinairllmbot.bot.service.BotMessageOrchestrator
 import org.taonity.sinairllmbot.bot.service.BotSleepService
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
+import org.taonity.sinairllmbot.bot.metrics.BotMetrics
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.dto.ChatEventDto
 import org.taonity.sinairllmbot.chat.dto.ChatMessageDto
@@ -33,7 +34,8 @@ class ChatIngestService(
     private val outboundMessageRepository: OutboundMessageRepository,
     private val settings: BotSettings,
     private val botMessageOrchestrator: BotMessageOrchestrator,
-    private val botSleepService: BotSleepService
+    private val botSleepService: BotSleepService,
+    private val botMetrics: BotMetrics,
 ) {
     companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -129,8 +131,15 @@ class ChatIngestService(
         // Run the bot pipeline only after the transaction commits, so the async worker sees the rows.
         if (storedMessages.isNotEmpty()) {
             val toProcess = storedMessages.toList()
+            val rooms = settings.botRooms().toSet()
+            val personaName = settings.bot().persona.name
+            val humanMessages = toProcess.count {
+                it.roomTarget in rooms && it.sourceOutboundMessageId == null &&
+                    !it.senderLogin.equals(personaName, ignoreCase = true)
+            }
             TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
                 override fun afterCommit() {
+                    botMetrics.recordHumanMessages(humanMessages)
                     botMessageOrchestrator.onMessagesStored(toProcess)
                 }
             })

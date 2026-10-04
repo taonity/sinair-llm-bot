@@ -53,6 +53,8 @@ export const config = {
     restoreRejoinGrace: parseInt(process.env.RESTORE_REJOIN_GRACE || '2000', 10),
     heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS || '25000', 10),
     heartbeatTimeoutMs: parseInt(process.env.HEARTBEAT_TIMEOUT_MS || '60000', 10),
+    telemetryIntervalMs: parseInt(process.env.TELEMETRY_INTERVAL_MS || '30000', 10),
+    telemetryTimeoutMs: parseInt(process.env.TELEMETRY_TIMEOUT_MS || '5000', 10),
     tokenFile: process.env.TOKEN_FILE || defaultTokenFile,
     shutdownCloseTimeout: parseInt(process.env.SHUTDOWN_CLOSE_TIMEOUT || '3000', 10),
 };
