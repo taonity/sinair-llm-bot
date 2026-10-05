@@ -1,0 +1,50 @@
+services:
+  db:
+    restart: unless-stopped
+    cpus: "${DB_CPU_LIMIT:-0.50}"
+    mem_limit: ${DB_MEMORY_LIMIT:-256m}
+    memswap_limit: ${DB_MEMORY_SWAP_LIMIT:-384m}
+    pids_limit: ${DB_PIDS_LIMIT:-128}
+    shm_size: ${POSTGRES_SHM_SIZE:-1gb}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-64MB}
+      - -c
+      - work_mem=${POSTGRES_WORK_MEM:-2MB}
+      - -c
+      - maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-32MB}
+      - -c
+      - autovacuum_work_mem=${POSTGRES_AUTOVACUUM_WORK_MEM:-16MB}
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-30}
+      - -c
+      - max_parallel_workers_per_gather=${POSTGRES_MAX_PARALLEL_WORKERS_PER_GATHER:-0}
+
+  flyway:
+    restart: "no"
+    cpus: "${FLYWAY_CPU_LIMIT:-0.50}"
+    mem_limit: ${FLYWAY_MEMORY_LIMIT:-384m}
+    memswap_limit: ${FLYWAY_MEMORY_SWAP_LIMIT:-512m}
+    pids_limit: ${FLYWAY_PIDS_LIMIT:-256}
+
+  backend:
+    extends:
+      file: backend/docker-compose.prodenv.yml
+      service: ${COMPOSE_PROJECT_NAME}
+    restart: unless-stopped
+    pids_limit: ${BACKEND_PIDS_LIMIT:-512}
+
+  chat-collector:
+    restart: unless-stopped
+    cpus: "${COLLECTOR_CPU_LIMIT:-0.50}"
+    mem_limit: ${COLLECTOR_MEMORY_LIMIT:-256m}
+    memswap_limit: ${COLLECTOR_MEMORY_SWAP_LIMIT:-384m}
+    pids_limit: ${COLLECTOR_PIDS_LIMIT:-256}
+
+  frontend:
+    restart: unless-stopped
+    cpus: "${FRONTEND_CPU_LIMIT:-0.50}"
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    memswap_limit: ${FRONTEND_MEMORY_SWAP_LIMIT:-384m}
+    pids_limit: ${FRONTEND_PIDS_LIMIT:-128}
