@@ -271,6 +271,14 @@ erDiagram
     }
 
     chat_message {
+        character_varying bot_response_category 
+        timestamp_with_time_zone bot_response_deferred_at 
+        text bot_response_detail 
+        timestamp_with_time_zone bot_response_next_attempt_at 
+        character_varying bot_response_outbound_message_id 
+        character_varying bot_response_reason 
+        character_varying bot_response_status 
+        timestamp_with_time_zone bot_response_updated_at 
         character_varying dedup_key UK "{NOT_NULL}"
         character_varying id PK "{NOT_NULL}"
         character_varying message_style "{NOT_NULL}"
@@ -303,6 +311,7 @@ erDiagram
         character_varying room_target "{NOT_NULL}"
         timestamp_without_time_zone sent_at 
         character_varying status "{NOT_NULL}"
+        character_varying trigger_message_id 
     }
 
     pending_bot_message {
