@@ -1,4 +1,39 @@
-import type { PipelineRun } from './types'
+import type { BotResponseState, PipelineRun } from './types'
+
+const RESPONSE_STATUSES: Record<string, string> = {
+  PENDING: 'Awaiting assessment',
+  DEFERRED: 'Waiting',
+  DISCARDED: 'Discarded',
+  REPLY_QUEUED: 'Reply queued',
+  REPLIED: 'Replied',
+  FAILED: 'Failed',
+}
+
+const RESPONSE_REASONS: Record<string, string> = {
+  ASSESSMENT_PENDING: 'Assessment pending',
+  WAITING_FOR_HUMANS: 'Waiting for human replies',
+  COOLDOWN: 'Cooldown',
+  ASSESSMENT_FAILED: 'Assessment failed; retry pending',
+  RESTART: 'Backend restarted',
+  GATE_DECLINED: 'Gate declined',
+  NOT_ADDRESSED: 'Not addressed to the bot',
+  AGENT_DECLINED: 'Reply agent declined',
+  SUPERSEDED: 'Resolved or superseded during generation',
+  MUTED: 'Room muted',
+  COMMAND: 'Command handled',
+  REPLY_GENERATED: 'Awaiting delivery',
+  DELIVERED: 'Collector acknowledged delivery',
+  GENERATION_FAILED: 'Generation failed; error notice queued',
+}
+
+export function responseDiagnostic(state?: BotResponseState | null) {
+  if (!state) return null
+  const status = RESPONSE_STATUSES[state.status] ?? state.status
+  return {
+    label: state.deferredAt ? `Delayed: ${status.toLowerCase()}` : status,
+    reason: RESPONSE_REASONS[state.reason] ?? state.reason,
+  }
+}
 
 export type DiagnosticKind = 'llm' | 'tool-error' | 'tool-recovered' | 'json'
 

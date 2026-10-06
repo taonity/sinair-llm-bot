@@ -47,7 +47,7 @@ class BotParticipationTest {
 
         orchestrator.evaluateRoom("#room")
 
-        verify(pending).finish(trigger)
+        verify(pending).finish(trigger, "AGENT_DECLINED", "Reply agent returned no remaining contribution.", "direct_address")
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("reply", "defer")
         verify(triage, never()).assess("#room", trigger, verifyStillNeeded = true)
     }
@@ -64,7 +64,7 @@ class BotParticipationTest {
         orchestrator.evaluateRoom("#room")
 
         verify(triage).assess("#room", trigger, verifyStillNeeded = true)
-        verify(pending).finish(trigger)
+        verify(pending).finish(trigger, "SUPERSEDED", "The user withdrew the request during generation.", "direct_address")
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("reply", "defer")
         assertStageReason("freshness", "The user withdrew the request during generation.")
     }
@@ -74,7 +74,7 @@ class BotParticipationTest {
         val orchestrator = orchestrator()
         `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "open_question"))
         orchestrator.evaluateRoom("#room")
-        verify(pending).defer(trigger, trigger.receivedAt.plusSeconds(45))
+        verify(pending).defer(trigger, trigger.receivedAt.plusSeconds(45), "WAITING_FOR_HUMANS", "", "open_question")
         verifyNoInteractions(generator)
     }
 
@@ -84,7 +84,7 @@ class BotParticipationTest {
         `when`(triage.assess("#room", trigger))
             .thenReturn(TriageVerdict(false, "open_question", "Alice already answered the room's question."))
         orchestrator.evaluateRoom("#room")
-        verify(pending).finish(trigger)
+        verify(pending).finish(trigger, "GATE_DECLINED", "Alice already answered the room's question.", "open_question")
         verifyNoInteractions(generator)
         assertStageReason("triage", "Alice already answered the room's question.")
     }

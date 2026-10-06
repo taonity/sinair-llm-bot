@@ -19,6 +19,7 @@ class OutboundMessageService(
     private val outboundMessageRepository: OutboundMessageRepository,
     private val botMetrics: BotMetrics,
     private val chatMessageRepository: ChatMessageRepository,
+    private val pendingBotMessages: PendingBotMessages,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -35,16 +36,23 @@ class OutboundMessageService(
             )
         }
         val now = Instant.now()
-        pending.forEach {
+        val current = pending.filter { outbound ->
+            val trigger = outbound.triggerMessageId?.let { chatMessageRepository.findById(it).orElse(null) }
+            val eligible = !outbound.createdAt.isBefore(pendingBotMessages.startedAt) &&
+                (trigger == null || pendingBotMessages.isCurrentRun(trigger))
+            if (!eligible) pendingBotMessages.discardOutbound(outbound)
+            eligible
+        }
+        current.forEach {
             it.status = OutboundStatus.CLAIMED
             it.claimedAt = now
         }
-        outboundMessageRepository.saveAll(pending)
-        if (pending.isNotEmpty()) {
+        outboundMessageRepository.saveAll(current)
+        if (current.isNotEmpty()) {
             val scope = if (roomTarget.isNullOrBlank()) "all rooms" else roomTarget
-            LOGGER.info { "Claimed ${pending.size} outbound messages ($scope) as CLAIMED" }
+            LOGGER.info { "Claimed ${current.size} outbound messages ($scope) as CLAIMED" }
         }
-        return pending.map { it.toDto() }
+        return current.map { it.toDto() }
     }
 
     @Transactional
@@ -55,6 +63,7 @@ class OutboundMessageService(
         claimed.forEach {
             it.status = OutboundStatus.SENT
             it.sentAt = now
+            pendingBotMessages.delivered(it)
         }
         outboundMessageRepository.saveAll(claimed)
         if (claimed.isNotEmpty()) {

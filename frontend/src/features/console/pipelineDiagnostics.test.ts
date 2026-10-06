@@ -1,6 +1,55 @@
 import { describe, expect, it } from 'vitest'
-import { pipelineDiagnostics, pipelineOutcomeReason } from './pipelineDiagnostics'
-import type { LlmCallUsage, PipelineRun, ToolCallEntry } from './types'
+import { pipelineDiagnostics, pipelineOutcomeReason, responseDiagnostic } from './pipelineDiagnostics'
+import type { BotResponseState, LlmCallUsage, PipelineRun, ToolCallEntry } from './types'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { ResponseDiagnostic } from './ResponseDiagnostic'
+
+function response(overrides: Partial<BotResponseState> = {}): BotResponseState {
+  return {
+    status: 'DEFERRED', reason: 'WAITING_FOR_HUMANS', detail: 'An open question to the room.', category: 'open_question',
+    deferredAt: '2026-10-06T12:00:00Z', nextAttemptAt: '2026-10-06T12:00:45Z', updatedAt: '2026-10-06T12:00:00Z',
+    outboundMessageId: null, ...overrides,
+  }
+}
+
+describe('responseDiagnostic', () => {
+  it('distinguishes waiting, queued and delivered without losing delayed identity', () => {
+    expect(responseDiagnostic(response())).toEqual({ label: 'Delayed: waiting', reason: 'Waiting for human replies' })
+    expect(responseDiagnostic(response({ status: 'REPLY_QUEUED', reason: 'REPLY_GENERATED' }))?.label).toBe('Delayed: reply queued')
+    expect(responseDiagnostic(response({ status: 'REPLIED', reason: 'DELIVERED' }))?.label).toBe('Delayed: replied')
+  })
+
+  it.each([
+    ['RESTART', 'Backend restarted'], ['GATE_DECLINED', 'Gate declined'],
+    ['AGENT_DECLINED', 'Reply agent declined'], ['NOT_ADDRESSED', 'Not addressed to the bot'],
+  ])('identifies discard source %s', (reason, expected) => {
+    expect(responseDiagnostic(response({ status: 'DISCARDED', reason }))).toEqual({ label: 'Delayed: discarded', reason: expected })
+  })
+
+  it('does not invent candidate history for legacy messages or direct replies', () => {
+    expect(responseDiagnostic(null)).toBeNull()
+    expect(responseDiagnostic(response({ status: 'REPLIED', deferredAt: null }))?.label).toBe('Replied')
+  })
+
+  it('renders the full discard reason and timing directly in expanded row content', () => {
+    const html = renderToStaticMarkup(createElement(ResponseDiagnostic, { state: response({
+      status: 'DISCARDED', reason: 'GATE_DECLINED', detail: 'Alice already answered the question in full.', nextAttemptAt: null,
+    }) }))
+    expect(html).toContain('aria-label="Message response"')
+    expect(html).not.toContain('<details')
+    expect(html).not.toContain('<summary')
+    expect(html).toContain('Alice already answered the question in full.')
+    expect(html).toContain('First deferred:')
+    expect(html).not.toContain('Next check:')
+  })
+
+  it('links delivered replies to the outbound record', () => {
+    const html = renderToStaticMarkup(createElement(ResponseDiagnostic, { state: response({ status: 'REPLIED', reason: 'DELIVERED', outboundMessageId: 'reply-id' }) }))
+    expect(html).toContain('?outbound=reply-id')
+    expect(html).toContain('View reply')
+  })
+})
 
 function call(overrides: Partial<LlmCallUsage> = {}): LlmCallUsage {
   return {

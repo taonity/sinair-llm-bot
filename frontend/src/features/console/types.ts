@@ -47,7 +47,19 @@ export interface PageLocation {
   page: number
 }
 
+export interface BotResponseState {
+  status: string
+  reason: string
+  detail: string | null
+  category: string | null
+  deferredAt: string | null
+  nextAttemptAt: string | null
+  updatedAt: string
+  outboundMessageId: string | null
+}
+
 export interface ChatMessage {
+  botResponse?: BotResponseState | null
   id: string
   roomTarget: string
   senderLogin: string
@@ -144,6 +156,7 @@ export interface JsonParseFailure {
 }
 
 export interface PipelineRun {
+  botResponse?: BotResponseState | null
   id: string
   pipelineKey: string
   roomTarget: string

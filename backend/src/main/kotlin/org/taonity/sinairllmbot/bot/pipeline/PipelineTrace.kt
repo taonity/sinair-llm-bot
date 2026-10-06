@@ -33,6 +33,7 @@ enum class PipelineStageStatus {
 }
 
 object PipelineOutcome {
+    const val DEFERRED = "DEFERRED"
     const val REPLIED = "REPLIED"
     const val FAILED = "FAILED"
     const val SILENT = "SILENT"

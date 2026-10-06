@@ -216,6 +216,8 @@ class ConsoleDataService(
             room.isNullOrBlank() -> pipelineRunRepository.findAll(pageable)
             else -> pipelineRunRepository.findByRoomTarget(room, pageable)
         }
+        val responses = chatMessageRepository.findAllById(result.content.mapNotNull { it.triggerMessageId }.distinct())
+            .associate { it.id to it.botResponse }
         return PageResponse.of(result) {
             PipelineRunDto.from(
                 it,
@@ -223,6 +225,7 @@ class ConsoleDataService(
                 parseLlmUsage(it.llmUsageJson).map(LlmCallUsageDto::from),
                 parseJsonFailures(it.jsonParseFailuresJson).map(JsonParseFailureDto::from),
                 parseContextSources(it.contextManifestJson),
+                responses[it.triggerMessageId].takeIf { _ -> it.pipelineKey == "reply" },
             )
         }
     }

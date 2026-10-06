@@ -8,6 +8,7 @@ import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
 import org.taonity.sinairllmbot.bot.pipeline.ToolCallAttempt
 import org.taonity.sinairllmbot.chat.entity.ChatEventEntity
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.chat.entity.BotResponseState
 import org.taonity.sinairllmbot.console.entity.AuditLogEntity
 import java.time.Instant
 
@@ -22,6 +23,7 @@ data class ChatMessageDto(
     val receivedAt: Instant,
     val sourceOutboundMessageId: String?,
     val sourceOutboundMatch: String?,
+    val botResponse: BotResponseState?,
 ) {
     companion object {
         fun from(e: ChatMessageEntity) = ChatMessageDto(
@@ -35,6 +37,7 @@ data class ChatMessageDto(
             receivedAt = e.receivedAt,
             sourceOutboundMessageId = e.sourceOutboundMessageId,
             sourceOutboundMatch = e.sourceOutboundMatch,
+            botResponse = e.botResponse,
         )
     }
 }
@@ -124,6 +127,7 @@ data class PipelineRunDto(
     val configRevisionId: String?,
     val contextSources: List<String>,
     val createdAt: Instant,
+    val botResponse: BotResponseState?,
 ) {
     companion object {
         fun from(
@@ -132,6 +136,7 @@ data class PipelineRunDto(
             llmUsage: List<LlmCallUsageDto>,
             jsonParseFailures: List<JsonParseFailureDto>,
             contextSources: List<String>,
+            botResponse: BotResponseState? = null,
         ) =
             PipelineRunDto(
                 id = e.id,
@@ -150,6 +155,7 @@ data class PipelineRunDto(
                 configRevisionId = e.configRevisionId,
                 contextSources = contextSources,
                 createdAt = e.createdAt,
+                botResponse = botResponse,
             )
     }
 }

@@ -12,12 +12,46 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
+import org.taonity.sinairllmbot.chat.entity.BotResponseState
+import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
+import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
+import java.time.Instant
 
 @DirtiesContext
 class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
 
     @Autowired
     private lateinit var pipelineRunRepository: PipelineRunRepository
+
+    @Autowired
+    private lateinit var chatMessageRepository: ChatMessageRepository
+
+    @Test
+    fun `message and earlier pipeline attempts expose the latest delayed response outcome`() {
+        val session = authorizeOAuth2()
+        val message = chatMessageRepository.save(ChatMessageEntity(
+            dedupKey = "ext:delayed-console", roomTarget = "#delayed-console", senderMemberId = 1,
+            senderLogin = "alice", messageText = "delayed-console-question", messageStyle = "message", sentAt = Instant.now(),
+            botResponse = BotResponseState("DEFERRED", "WAITING_FOR_HUMANS", deferredAt = Instant.now()),
+        ))
+        pipelineRunRepository.save(PipelineRunEntity(
+            pipelineKey = "reply", roomTarget = message.roomTarget, triggerMessageId = message.id,
+            triggerSenderLogin = message.senderLogin, triggerText = message.messageText,
+            outcome = "DEFERRED", stagesJson = "[]",
+        ))
+        message.botResponse = message.botResponse!!.copy(status = "DISCARDED", reason = "GATE_DECLINED", detail = "Bob already answered.")
+        chatMessageRepository.save(message)
+
+        mockMvc.perform(get("/console/chat-messages").param("q", message.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].botResponse.status").value("DISCARDED"))
+            .andExpect(jsonPath("$.content[0].botResponse.deferredAt").isNotEmpty)
+        mockMvc.perform(get("/console/pipeline-runs").param("q", message.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].outcome").value("DEFERRED"))
+            .andExpect(jsonPath("$.content[0].botResponse.status").value("DISCARDED"))
+            .andExpect(jsonPath("$.content[0].botResponse.detail").value("Bob already answered."))
+    }
 
     @Test
     fun `access endpoint requires authentication`() {

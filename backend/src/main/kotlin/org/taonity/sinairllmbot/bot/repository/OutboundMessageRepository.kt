@@ -14,6 +14,8 @@ import java.time.Instant
 
 @Repository
 interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, String> {
+    fun findByStatusInAndCreatedAtBefore(statuses: Collection<OutboundStatus>, cutoff: Instant): List<OutboundMessageEntity>
+
     fun countByRoomTargetInAndStatusIn(rooms: Collection<String>, statuses: Collection<OutboundStatus>): Long
 
     @Query("select min(outbound.createdAt) from OutboundMessageEntity outbound where outbound.roomTarget in :rooms and outbound.status in :statuses")
@@ -25,6 +27,7 @@ interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, Strin
         """
         SELECT outbound FROM OutboundMessageEntity outbound
         WHERE outbound.roomTarget = :roomTarget AND outbound.triggerMessageId IS NOT NULL
+                    AND outbound.status <> org.taonity.sinairllmbot.bot.entity.OutboundStatus.DISCARDED
           AND outbound.createdAt >= :since
           AND NOT EXISTS (
               SELECT echo.id FROM ChatMessageEntity echo

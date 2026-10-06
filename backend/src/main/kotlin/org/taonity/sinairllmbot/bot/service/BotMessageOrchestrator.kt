@@ -108,7 +108,7 @@ class BotMessageOrchestrator(
 
             if (commandDecision == CommandDecision.STOP_BOT) {
                 mutedRoomRegistry.mute(roomTarget)
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, "COMMAND", "Bot muted by command.")
                 LOGGER.info { "Bot muted in $roomTarget by @${trigger.senderLogin}" }
                 stages += PipelineStage("command", "Command gate", PipelineStageStatus.STOP, "mute command")
                 pipelineTraceService.record(
@@ -119,7 +119,7 @@ class BotMessageOrchestrator(
             }
             if (commandDecision == CommandDecision.START_BOT) {
                 val wasRemoved = mutedRoomRegistry.unmute(roomTarget)
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, "COMMAND", "Bot unmuted by command.")
                 if (wasRemoved) {
                     LOGGER.info { "Bot un-muted in $roomTarget by @${trigger.senderLogin}" }
                 }
@@ -133,7 +133,7 @@ class BotMessageOrchestrator(
             stages += PipelineStage("command", "Command gate", PipelineStageStatus.PASS, "no command")
 
             if (mutedRoomRegistry.isMuted(roomTarget)) {
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, "MUTED", "Room is muted.")
                 stages += PipelineStage("mute", "Mute check", PipelineStageStatus.STOP, "room muted")
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.MUTED, stages)
                 return
@@ -161,9 +161,9 @@ class BotMessageOrchestrator(
                     "driver=$driver (respond=${triage.respond}, category=${triage.loggableCategory}, reason=${triage.reason})"
             }
             if (!shouldReply) {
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, if (triage.loggableCategory == "not_addressed") "NOT_ADDRESSED" else "GATE_DECLINED", triage.reason, triage.loggableCategory)
                 pipelineTraceService.record(
-                    PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "driver=$driver",
+                    PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = triage.reason,
                 )
                 return
             }
@@ -171,13 +171,13 @@ class BotMessageOrchestrator(
             val requested = triage.loggableCategory in setOf("direct_address", "indirect_address")
             val graceUntil = trigger.receivedAt.plusSeconds(botProperties.decision.openQuestionDelaySeconds)
             if (!requested && Instant.now().isBefore(graceUntil)) {
-                pendingMessages.defer(trigger, graceUntil)
+                pendingMessages.defer(trigger, graceUntil, "WAITING_FOR_HUMANS", triage.reason, triage.loggableCategory)
                 stages += PipelineStage("grace", "Conversation grace period", PipelineStageStatus.STOP, "waiting for human replies")
-                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "deferred contribution")
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.DEFERRED, stages, outcomeDetail = "waiting for human replies")
                 return
             }
             if (!cooldownTracker.canReply(roomTarget, requested = requested)) {
-                pendingMessages.defer(trigger, Instant.now().plusSeconds(30))
+                pendingMessages.defer(trigger, Instant.now().plusSeconds(30), "COOLDOWN", triage.reason, triage.loggableCategory)
                 stages += PipelineStage("cooldown", "Cooldown", PipelineStageStatus.STOP, "request retained")
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.COOLDOWN, stages)
                 return
@@ -202,14 +202,14 @@ class BotMessageOrchestrator(
             val superseded = freshness?.respond == false
             if (superseded) {
                 botTypingService.clearTyping(roomTarget)
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, "SUPERSEDED", freshness.reason, freshness.loggableCategory)
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "superseded during generation")
                 return
             }
 
             if (generation.suppressed) {
                 botTypingService.clearTyping(roomTarget)
-                pendingMessages.finish(trigger)
+                pendingMessages.finish(trigger, "AGENT_DECLINED", "Reply agent returned no remaining contribution.", triage.loggableCategory)
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.SILENT, stages, outcomeDetail = "no remaining contribution")
                 return
             }
@@ -229,7 +229,7 @@ class BotMessageOrchestrator(
             )
         } catch (exception: Exception) {
             if (!generationStarted) {
-                pendingMessages.defer(trigger, Instant.now().plusSeconds(30))
+                pendingMessages.defer(trigger, Instant.now().plusSeconds(30), "ASSESSMENT_FAILED", exception.javaClass.simpleName)
                 stages += PipelineStage("triage_error", "Assessment deferred", PipelineStageStatus.STOP, exception.javaClass.simpleName)
                 pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages, outcomeDetail = "assessment failed; request retained")
                 return
@@ -270,7 +270,7 @@ class BotMessageOrchestrator(
         )
         val message = pipelineId?.let { "$FAILURE_MESSAGE Пайплайн: ${pipelineUrl(it)}" } ?: FAILURE_MESSAGE
         runCatching {
-            pendingMessages.reply(trigger, message)
+            pendingMessages.reply(trigger, message, failure = true)
             cooldownTracker.recordReply(trigger.roomTarget)
         }.onFailure { LOGGER.warn(it) { "Failed to queue fallback reply in ${trigger.roomTarget}" } }
     }

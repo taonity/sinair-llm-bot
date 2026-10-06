@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
+import { ResponseDiagnostic } from './ResponseDiagnostic'
 import { formatTime, formatTokens } from './format'
 import { pipelineDiagnostics, pipelineOutcomeReason, type PipelineDiagnostic } from './pipelineDiagnostics'
 import type {
@@ -585,6 +586,7 @@ function PipelineDetail({ run, focus }: { run: PipelineRun; focus?: DiagnosticFo
   const totalCompletion = run.llmUsage.reduce((s, u) => s + u.completionTokens, 0)
   return (
     <div className="flex flex-col gap-3">
+      <ResponseDiagnostic state={run.botResponse} />
       {run.outcomeDetail && (
         <div className="text-xs text-muted-foreground">
           Outcome <span className="font-medium text-foreground/80">{run.outcome}</span> — {run.outcomeDetail}

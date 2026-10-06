@@ -36,7 +36,7 @@ class ConversationContextBuilder(
             .findByRoomTargetOrderBySentAtDesc(roomTarget, PageRequest.of(0, limit))
             .asReversed()
         val echoedIds = messages.mapNotNull { it.sourceOutboundMessageId }.toSet()
-        val unechoed = outbound.filter { it.id !in echoedIds }
+        val unechoed = outbound.filter { it.id !in echoedIds && it.status != OutboundStatus.DISCARDED }
         val entries = (messages.map(::chatEntry) + unechoed.map(::outboundEntry))
             .sortedBy { it.at }.takeLast(limit)
         val transcript = render(entries)
@@ -62,6 +62,7 @@ class ConversationContextBuilder(
             OutboundStatus.PENDING -> "queued; delivery not confirmed"
             OutboundStatus.CLAIMED -> "claimed by collector; delivery not confirmed"
             OutboundStatus.SENT -> "collector acknowledged; chat echo not yet ingested"
+            OutboundStatus.DISCARDED -> error("Discarded replies must not enter conversation context")
         }
         return TranscriptEntry(
             message.createdAt,

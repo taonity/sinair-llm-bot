@@ -20,6 +20,7 @@ import { ConfigTab } from './ConfigTab'
 import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
 import { PipelinesTab } from './PipelinesTab'
+import { ResponseDiagnostic } from './ResponseDiagnostic'
 import { SummariesTab } from './SummariesTab'
 import { AppInfoPanel } from '@/features/info/AppInfoPanel'
 import type {
@@ -163,6 +164,7 @@ export default function DataConsole() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabKey>('messages')
   const [pipelineId, setPipelineId] = useState<string | null>(null)
+  const [outboundId, setOutboundId] = useState<string | null>(null)
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set<TabKey>(['messages']))
 
   const selectTab = useCallback((next: TabKey) => {
@@ -190,10 +192,16 @@ export default function DataConsole() {
   }, [loadAccess])
 
   useEffect(() => {
-    const requestedPipelineId = new URLSearchParams(window.location.search).get('pipeline')
-    if (!requestedPipelineId) return
-    setPipelineId(requestedPipelineId)
-    selectTab('pipelines')
+    const params = new URLSearchParams(window.location.search)
+    const requestedPipelineId = params.get('pipeline')
+    const requestedOutboundId = params.get('outbound')
+    if (requestedPipelineId) {
+      setPipelineId(requestedPipelineId)
+      selectTab('pipelines')
+    } else if (requestedOutboundId) {
+      setOutboundId(requestedOutboundId)
+      selectTab('outbound')
+    }
   }, [selectTab])
 
   if (loading) {
@@ -275,6 +283,9 @@ export default function DataConsole() {
           {visited.has('messages') && (
             <DataTab<ChatMessage>
               columns={MESSAGE_COLUMNS}
+              expand={(message) => message.botResponse
+                ? <ResponseDiagnostic state={message.botResponse} />
+                : <p className="text-xs text-muted-foreground">No response assessment recorded.</p>}
               rowKey={(m) => m.id}
               load={(page, size, q, field, direction) =>
                 consoleApi.listChatMessages(page, size, q, field, direction)
@@ -317,6 +328,8 @@ export default function DataConsole() {
           {visited.has('outbound') && (
             <DataTab<OutboundMessage>
               columns={OUTBOUND_COLUMNS}
+              initialFocusId={outboundId}
+              locateById={(id, size, direction) => consoleApi.locateOutboundMessage(id, size, direction).then((result) => result.page)}
               rowKey={(m) => m.id}
               load={(page, size, q, field, direction) =>
                 consoleApi.listOutboundMessages(page, size, q, field, direction)

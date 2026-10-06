@@ -6,6 +6,8 @@ import org.taonity.sinairllmbot.bot.entity.PendingBotMessageEntity
 import java.time.Instant
 
 interface PendingBotMessageRepository : JpaRepository<PendingBotMessageEntity, String> {
+    fun findByCreatedAtBefore(cutoff: Instant): List<PendingBotMessageEntity>
+
     fun countByRoomTargetIn(rooms: Collection<String>): Long
 
     @Query("select min(pending.createdAt) from PendingBotMessageEntity pending where pending.roomTarget in :rooms")

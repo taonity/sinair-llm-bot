@@ -30,4 +30,5 @@ enum class OutboundStatus {
     PENDING,
     CLAIMED,
     SENT,
+    DISCARDED,
 }

@@ -10,6 +10,9 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.entity.OutboundStatus
+import org.taonity.sinairllmbot.bot.entity.PendingBotMessageEntity
+import org.taonity.sinairllmbot.bot.repository.PendingBotMessageRepository
 import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.service.ConversationContextBuilder
 import org.taonity.sinairllmbot.bot.service.OutboundMessageService
@@ -42,6 +45,84 @@ class BotConversationScenarioTest {
     @Autowired private lateinit var outboundMessages: OutboundMessageRepository
     @Autowired private lateinit var outboundService: OutboundMessageService
     @Autowired private lateinit var ingestService: ChatIngestService
+    @Autowired private lateinit var pendingRepository: PendingBotMessageRepository
+
+    @Test
+    @Transactional
+    fun `restart discards old pending and unsent replies but preserves current work and sent history`() {
+        val old = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:old-startup", roomTarget = "#restart", senderMemberId = 1,
+            senderLogin = "user", messageText = "old question", messageStyle = "message",
+            sentAt = Instant.EPOCH, receivedAt = Instant.EPOCH,
+        ))
+        pendingRepository.save(PendingBotMessageEntity(old.id!!, old.roomTarget, Instant.now().plusSeconds(600), Instant.EPOCH))
+        val oldReply = outboundMessages.save(OutboundMessageEntity(roomTarget = old.roomTarget, messageText = "old reply", triggerMessageId = old.id, createdAt = Instant.EPOCH))
+        val claimed = outboundMessages.save(OutboundMessageEntity(roomTarget = old.roomTarget, messageText = "old claimed", triggerMessageId = old.id, createdAt = Instant.EPOCH, status = OutboundStatus.CLAIMED))
+        val sent = outboundMessages.save(OutboundMessageEntity(roomTarget = old.roomTarget, messageText = "sent history", createdAt = Instant.EPOCH, status = OutboundStatus.SENT))
+        val current = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:new-startup", roomTarget = old.roomTarget, senderMemberId = 1,
+            senderLogin = "user", messageText = "new question", messageStyle = "message", sentAt = Instant.now(),
+        ))
+        pendingMessages.enqueue(listOf(current), 0)
+
+        pendingMessages.discardPreviousRun()
+
+        assertThat(pendingRepository.existsById(old.id!!)).isFalse()
+        assertThat(chatMessages.findById(old.id!!).get().botResponse?.reason).isEqualTo("RESTART")
+        assertThat(outboundMessages.findById(oldReply.id!!).get().status).isEqualTo(OutboundStatus.DISCARDED)
+        assertThat(outboundMessages.findById(claimed.id!!).get().status).isEqualTo(OutboundStatus.DISCARDED)
+        assertThat(outboundMessages.findById(sent.id!!).get().status).isEqualTo(OutboundStatus.SENT)
+        assertThat(pendingMessages.next(old.roomTarget)?.id).isEqualTo(current.id)
+        assertThat(outboundService.claimPending(old.roomTarget, 10)).isEmpty()
+        assertThat(contextBuilder.recentTranscript(old.roomTarget)).doesNotContain("old reply", "old claimed")
+    }
+
+    @Test
+    @Transactional
+    fun `stale pending and outbound work cannot escape before startup cleanup`() {
+        val old = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:startup-race", roomTarget = "#startup-race", senderMemberId = 1,
+            senderLogin = "user", messageText = "old question", messageStyle = "message",
+            sentAt = Instant.EPOCH,
+        ))
+        pendingRepository.save(PendingBotMessageEntity(old.id!!, old.roomTarget, Instant.EPOCH, old.receivedAt))
+        outboundMessages.save(OutboundMessageEntity(roomTarget = old.roomTarget, messageText = "stale reply", triggerMessageId = old.id))
+
+        assertThat(pendingMessages.next(old.roomTarget)).isNull()
+        assertThat(outboundService.claimPending(old.roomTarget, 10)).isEmpty()
+        org.assertj.core.api.Assertions.assertThatThrownBy { pendingMessages.reply(old, "must not send") }
+            .isInstanceOf(IllegalStateException::class.java)
+        assertThat(chatMessages.findById(old.id!!).get().botResponse?.status).isEqualTo("DISCARDED")
+    }
+
+    @Test
+    @Transactional
+    fun `delayed response keeps its identity through retries discard and delivery`() {
+        val target = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:lifecycle", roomTarget = "#lifecycle", senderMemberId = 1,
+            senderLogin = "user", messageText = "question", messageStyle = "message", sentAt = Instant.now(),
+        ))
+        pendingMessages.enqueue(listOf(target), 0)
+        val until = Instant.now().plusSeconds(45)
+        pendingMessages.defer(target, until, "WAITING_FOR_HUMANS", "Open question", "open_question")
+        val firstDeferredAt = target.botResponse!!.deferredAt
+        assertThat(target.botResponse!!.nextAttemptAt).isEqualTo(until)
+        pendingMessages.defer(target, until, "ASSESSMENT_FAILED", "Provider unavailable")
+        assertThat(target.botResponse!!.deferredAt).isEqualTo(firstDeferredAt)
+        pendingMessages.finish(target, "GATE_DECLINED", "Alice already answered.", "open_question")
+        assertThat(target.botResponse!!.status).isEqualTo("DISCARDED")
+        assertThat(target.botResponse!!.detail).isEqualTo("Alice already answered.")
+        assertThat(target.botResponse!!.nextAttemptAt).isNull()
+        assertThat(pendingRepository.existsById(target.id!!)).isFalse()
+
+        val reply = pendingMessages.reply(target, "answer")
+        assertThat(target.botResponse!!.status).isEqualTo("REPLY_QUEUED")
+        outboundService.claimPending(target.roomTarget, 10)
+        outboundService.acknowledge(listOf(reply.id!!))
+        assertThat(target.botResponse!!.status).isEqualTo("REPLIED")
+        assertThat(target.botResponse!!.deferredAt).isEqualTo(firstDeferredAt)
+        assertThat(target.botResponse!!.outboundMessageId).isEqualTo(reply.id)
+    }
 
     @Test
     @Transactional

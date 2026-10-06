@@ -27,6 +27,7 @@ class ConversationContextBuilderTest {
             .contains("status:PENDING queued; delivery not confirmed", "status:CLAIMED claimed by collector",
                 "status:SENT collector acknowledged; chat echo not yet ingested")
         assertThat(transcript.indexOf("question")).isLessThan(transcript.indexOf("answer-0"))
+        assertThat(transcript).doesNotContain("status:DISCARDED", "answer-3")
     }
 
     @Test
