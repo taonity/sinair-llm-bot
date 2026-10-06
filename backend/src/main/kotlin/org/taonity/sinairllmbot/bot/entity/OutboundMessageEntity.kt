@@ -24,6 +24,7 @@ class OutboundMessageEntity(
     var claimedAt: Instant? = null,
     var sentAt: Instant? = null,
     val triggerMessageId: String? = null,
+    var pipelineRunId: String? = null,
 )
 
 enum class OutboundStatus {

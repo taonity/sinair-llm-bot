@@ -11,6 +11,10 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
+import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
+import org.taonity.sinairllmbot.bot.command.ChatCommandToolService
+import org.taonity.sinairllmbot.bot.service.PipelineTraceService
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.chat.entity.BotResponseState
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
@@ -25,6 +29,88 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
 
     @Autowired
     private lateinit var chatMessageRepository: ChatMessageRepository
+
+    @Autowired
+    private lateinit var outboundMessageRepository: OutboundMessageRepository
+
+    @Autowired
+    private lateinit var pipelineTraceService: PipelineTraceService
+
+    @Autowired
+    private lateinit var commandToolService: ChatCommandToolService
+
+    @Test
+    fun `legacy failure notices resolve only an explicit pipeline URL for their own trigger`() {
+        val session = authorizeOAuth2()
+        val room = "#legacy-failure-link"
+        val run = pipelineRunRepository.save(PipelineRunEntity(
+            pipelineKey = "reply", roomTarget = room, triggerMessageId = "legacy-trigger", triggerSenderLogin = "alice",
+            triggerText = "question", outcome = "FAILED", stagesJson = "[]",
+        ))
+        val notice = outboundMessageRepository.save(OutboundMessageEntity(
+            roomTarget = room, messageText = "Failure notice: https://console.test/?pipeline=${run.id}", triggerMessageId = "legacy-trigger",
+        ))
+        val unrelated = outboundMessageRepository.save(OutboundMessageEntity(
+            roomTarget = room, messageText = "Unrelated https://console.test/?pipeline=${run.id}", triggerMessageId = "other-trigger",
+        ))
+
+        mockMvc.perform(get("/console/outbound-messages").param("q", notice.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(run.id))
+        mockMvc.perform(get("/console/outbound-messages").param("q", unrelated.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(org.hamcrest.Matchers.nullValue()))
+    }
+
+    @Test
+    fun `commands and failure notices link to their exact pipeline`() {
+        val session = authorizeOAuth2()
+        val trigger = ChatMessageEntity(
+            roomTarget = "#command-pipeline", dedupKey = "ext:command-pipeline", senderMemberId = 1,
+            senderLogin = "alice", messageText = "change color", messageStyle = "message", sentAt = Instant.now(),
+        )
+        pipelineTraceService.begin()
+        val commandId = commandToolService.persistOutbound(trigger.roomTarget, "/color red", "color", "red")
+        val runId = pipelineTraceService.record("reply", trigger, "FAILED", emptyList())!!
+        val notice = outboundMessageRepository.save(OutboundMessageEntity(
+            roomTarget = trigger.roomTarget, messageText = "Failed to reply",
+        ))
+        pipelineTraceService.linkOutbound(runId, listOf(notice.id!!))
+
+        org.assertj.core.api.Assertions.assertThat(outboundMessageRepository.findById(commandId).get().pipelineRunId).isEqualTo(runId)
+        mockMvc.perform(get("/console/outbound-messages").param("room", trigger.roomTarget).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(runId))
+            .andExpect(jsonPath("$.content[1].pipelineRunId").value(runId))
+
+        pipelineRunRepository.deleteById(runId)
+        mockMvc.perform(get("/console/outbound-messages").param("room", trigger.roomTarget).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.content[1].pipelineRunId").value(org.hamcrest.Matchers.nullValue()))
+    }
+
+    @Test
+    fun `outbound rows link to their pipeline only while the trace exists`() {
+        val session = authorizeOAuth2()
+        val outbound = outboundMessageRepository.save(OutboundMessageEntity(
+            roomTarget = "#outbound-pipeline", messageText = "outbound-pipeline-answer",
+        ))
+        val run = pipelineRunRepository.save(PipelineRunEntity(
+            pipelineKey = "reply", roomTarget = outbound.roomTarget, triggerSenderLogin = "alice",
+            triggerText = "question", outcome = "REPLIED", stagesJson = "[]", outboundMessageId = outbound.id,
+        ))
+
+        mockMvc.perform(get("/console/outbound-messages").param("q", outbound.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(run.id))
+
+        pipelineRunRepository.deleteById(run.id!!)
+        mockMvc.perform(get("/console/outbound-messages").param("q", outbound.messageText).cookie(session))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content[0].pipelineRunId").value(org.hamcrest.Matchers.nullValue()))
+    }
 
     @Test
     fun `message and earlier pipeline attempts expose the latest delayed response outcome`() {

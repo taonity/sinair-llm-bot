@@ -228,14 +228,15 @@ class BotMessageOrchestrator(
                 PipelineKeys.REPLY, trigger, PipelineOutcome.REPLIED, stages, outboundMessageId = saved.id,
             )
         } catch (exception: Exception) {
-            if (!generationStarted) {
-                pendingMessages.defer(trigger, Instant.now().plusSeconds(30), "ASSESSMENT_FAILED", exception.javaClass.simpleName)
-                stages += PipelineStage("triage_error", "Assessment deferred", PipelineStageStatus.STOP, exception.javaClass.simpleName)
-                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages, outcomeDetail = "assessment failed; request retained")
-                return
-            }
             val detail = exception.message?.takeIf { it.isNotBlank() }
                 ?: exception.javaClass.simpleName
+            if (!generationStarted) {
+                pendingMessages.fail(trigger, "ASSESSMENT_FAILED", detail)
+                LOGGER.warn(exception) { "Bot assessment failed for room $roomTarget" }
+                stages += PipelineStage("triage_error", "Assessment failed", PipelineStageStatus.STOP, detail)
+                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages, outcomeDetail = "assessment failed; automatic retries stopped")
+                return
+            }
             stages += PipelineStage("error", "Pipeline error", PipelineStageStatus.STOP, detail)
             handleFailure(trigger, stages, detail, exception)
         }
@@ -260,6 +261,7 @@ class BotMessageOrchestrator(
         exception: Exception? = null,
     ) {
         botTypingService.clearTyping(trigger.roomTarget)
+        pendingMessages.fail(trigger, "GENERATION_FAILED", detail)
         exception?.let { LOGGER.warn(it) { "Bot pipeline failed for room ${trigger.roomTarget}" } }
         val pipelineId = pipelineTraceService.record(
             PipelineKeys.REPLY,
@@ -270,7 +272,8 @@ class BotMessageOrchestrator(
         )
         val message = pipelineId?.let { "$FAILURE_MESSAGE Пайплайн: ${pipelineUrl(it)}" } ?: FAILURE_MESSAGE
         runCatching {
-            pendingMessages.reply(trigger, message, failure = true)
+            val saved = pendingMessages.reply(trigger, message, failure = true)
+            if (pipelineId != null) pipelineTraceService.linkOutbound(pipelineId, listOfNotNull(saved.id))
             cooldownTracker.recordReply(trigger.roomTarget)
         }.onFailure { LOGGER.warn(it) { "Failed to queue fallback reply in ${trigger.roomTarget}" } }
     }

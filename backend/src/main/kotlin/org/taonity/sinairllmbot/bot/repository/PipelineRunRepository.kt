@@ -17,6 +17,26 @@ interface PipelineRunRepository : JpaRepository<PipelineRunEntity, String> {
 
     fun findFirstByOutboundMessageId(outboundMessageId: String): PipelineRunEntity?
 
+    @Query(
+        """
+        SELECT COALESCE(linked.id, legacy.id, failure.id) AS pipelineRunId, message.id AS outboundMessageId
+        FROM OutboundMessageEntity message
+        LEFT JOIN PipelineRunEntity linked ON linked.id = message.pipelineRunId
+        LEFT JOIN PipelineRunEntity legacy ON legacy.outboundMessageId = message.id
+        LEFT JOIN PipelineRunEntity failure ON failure.triggerMessageId = message.triggerMessageId
+            AND failure.pipelineKey = 'reply' AND failure.outcome = 'FAILED'
+            AND (LOCATE(CONCAT('?pipeline=', failure.id), message.messageText) > 0
+                OR LOCATE(CONCAT('&pipeline=', failure.id), message.messageText) > 0)
+        WHERE message.id IN :outboundIds AND (linked.id IS NOT NULL OR legacy.id IS NOT NULL OR failure.id IS NOT NULL)
+        """,
+    )
+    fun findOutboundLinks(outboundIds: Collection<String>): List<OutboundPipelineLink>
+
+    interface OutboundPipelineLink {
+        val pipelineRunId: String
+        val outboundMessageId: String
+    }
+
     fun findByRoomTargetOrderByCreatedAtDesc(roomTarget: String, pageable: Pageable): List<PipelineRunEntity>
 
     @Query(

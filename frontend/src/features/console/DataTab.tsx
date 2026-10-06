@@ -53,6 +53,7 @@ type DataTabProps<T> = {
   expand?: (row: T) => React.ReactNode
   roomAccessor?: (row: T) => string
   canEdit?: boolean
+  rowActions?: (row: T) => React.ReactNode
   onDelete?: (row: T) => Promise<unknown>
   emptyLabel: string
   sortLabel?: string
@@ -85,6 +86,7 @@ export function DataTab<T>({
   expand,
   roomAccessor,
   canEdit = false,
+  rowActions,
   onDelete,
   emptyLabel,
   sortLabel = 'time',
@@ -198,7 +200,8 @@ export function DataTab<T>({
 
   const searching = activeQuery.trim().length > 0
   const rows = data?.content ?? []
-  const columnCount = columns.length + (expand ? 1 : 0) + (locate ? 1 : 0) + (canEdit ? 1 : 0)
+  const hasActions = Boolean(rowActions || canEdit)
+  const columnCount = columns.length + (expand ? 1 : 0) + (locate ? 1 : 0) + (hasActions ? 1 : 0)
   const firstRow = rows[0]
   const roomName = roomAccessor && firstRow ? roomAccessor(firstRow) : null
   const searchableColumns = columns.filter((c) => c.searchKey)
@@ -325,7 +328,7 @@ export function DataTab<T>({
                 </TableHead>
               ))}
               {locate && <TableHead className="w-[48px]" />}
-              {canEdit && <TableHead className="w-[64px] pr-4 text-right">Actions</TableHead>}
+              {hasActions && <TableHead className="w-[96px] pr-4 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -345,17 +348,19 @@ export function DataTab<T>({
                     </TableCell>
                   ))}
                   {locate && <TableCell />}
-                  {canEdit && (
+                  {hasActions && (
                     <TableCell className="pr-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-muted-foreground"
-                        aria-label="Delete row"
-                        disabled
-                      >
-                        <Trash2 />
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground"
+                          aria-label="Delete row"
+                          disabled
+                        >
+                          <Trash2 />
+                        </Button>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -412,17 +417,22 @@ export function DataTab<T>({
                           )}
                         </TableCell>
                       )}
-                      {canEdit && (
-                        <TableCell className="pr-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label="Delete row"
-                            onClick={() => remove(row)}
-                          >
-                            <Trash2 />
-                          </Button>
+                      {hasActions && (
+                        <TableCell className="pr-4">
+                          <div className="flex items-center justify-end gap-1">
+                            {rowActions?.(row)}
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label="Delete row"
+                                onClick={() => remove(row)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>

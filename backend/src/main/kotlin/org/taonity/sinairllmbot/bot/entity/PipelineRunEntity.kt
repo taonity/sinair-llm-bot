@@ -21,7 +21,7 @@ class PipelineRunEntity(
     val triggerText: String,
     val outcome: String,
     val outcomeDetail: String? = null,
-    val outboundMessageId: String? = null,
+    var outboundMessageId: String? = null,
     // Mapped as plain String (not @Lob): on Postgres @Lob on a String becomes a Large Object (oid),
     // which fails to read back from a `text` column ("Bad value for type long"). columnDefinition
     // = "text" keeps Hibernate-generated schemas (tests use ddl-auto=create-drop) from capping these

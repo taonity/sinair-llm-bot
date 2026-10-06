@@ -10,6 +10,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineContextTracker
 import org.taonity.sinairllmbot.bot.pipeline.PipelineKeys
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
+import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.config.service.ConfigRevisionService
@@ -26,6 +27,7 @@ class PipelineTraceService(
     private val objectMapper: ObjectMapper,
     private val settings: BotSettings,
     private val botMetrics: BotMetrics,
+    private val outboundMessageRepository: OutboundMessageRepository,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -45,6 +47,12 @@ class PipelineTraceService(
     fun currentConfigRevisionId(): String? = pipelineContextTracker.configRevisionId()
 
     fun recordContextSource(uri: String) = pipelineContextTracker.recordSource(uri)
+
+    fun linkOutbound(pipelineRunId: String, outboundMessageIds: List<String>) {
+        if (outboundMessageIds.isEmpty()) return
+        runCatching { outboundMessageRepository.linkToPipeline(outboundMessageIds, pipelineRunId) }
+            .onFailure { LOGGER.warn(it) { "Failed to link outbound messages to pipeline $pipelineRunId" } }
+    }
 
     fun discard() {
         pipelineLlmUsageTracker.drain()
@@ -83,6 +91,7 @@ class PipelineTraceService(
                 contextManifestJson = pipelineContextTracker.serialize(contextManifest),
             ),
         )
+        saved.id?.let { linkOutbound(it, contextManifest.outboundMessageIds + listOfNotNull(outboundMessageId)) }
         saved.id
     }.onFailure { LOGGER.warn(it) { "Failed to record pipeline trace for ${trigger.roomTarget}" } }
         .getOrNull()

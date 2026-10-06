@@ -92,6 +92,7 @@ export interface OutboundMessage {
   createdAt: string
   claimedAt: string | null
   sentAt: string | null
+  pipelineRunId: string | null
 }
 
 export interface PipelineField {

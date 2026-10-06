@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.client.ChatMessage
 import org.taonity.sinairllmbot.bot.client.LlmClient
+import org.taonity.sinairllmbot.bot.config.LlmProperties
 import org.taonity.sinairllmbot.config.BotSettings
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryEntity
 import org.taonity.sinairllmbot.bot.entity.RoomSummaryHistoryEntity
@@ -16,6 +17,7 @@ import org.taonity.sinairllmbot.bot.repository.RoomSummaryHistoryRepository
 import org.taonity.sinairllmbot.bot.repository.RoomSummaryRepository
 import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import org.springframework.data.domain.PageRequest
 
 @Service
@@ -30,6 +32,8 @@ class RoomSummaryService(
 ) {
     private val botProperties get() = settings.bot()
     private val llmProperties get() = settings.llm()
+    private val refreshGuard = RoomProcessingGuard()
+    private val failedConfigurations = ConcurrentHashMap<String, LlmProperties>()
 
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
@@ -50,6 +54,15 @@ class RoomSummaryService(
     }
 
     private fun refreshInternal(roomTarget: String, force: Boolean, trigger: SummaryRefreshTrigger) {
+        refreshGuard.runExclusive(roomTarget) {
+            val configuration = llmProperties
+            if (failedConfigurations[roomTarget] != configuration) {
+                refreshUnlocked(roomTarget, force, trigger, configuration)
+            }
+        }
+    }
+
+    private fun refreshUnlocked(roomTarget: String, force: Boolean, trigger: SummaryRefreshTrigger, configuration: LlmProperties) {
         val existing = roomSummaryRepository.findByRoomTarget(roomTarget)
         val totalMessages = chatMessageRepository.countByRoomTarget(roomTarget).toInt()
         val watermarkTime = existing?.lastMessageReceivedAt ?: Instant.EPOCH
@@ -66,8 +79,15 @@ class RoomSummaryService(
 
         val previousSummary = existing?.summary
         pipelineTraceService.begin()
-        val newSummary = generateSummary(previousSummary, transcript)
-        if (newSummary == null) {
+        val newSummary = try {
+            generateSummary(previousSummary, transcript)
+        } catch (exception: Exception) {
+            LOGGER.warn(exception) { "Summary generation failed for $roomTarget" }
+            null
+        }
+        if (newSummary.isNullOrBlank()) {
+            failedConfigurations[roomTarget] = configuration
+            LOGGER.warn { "Summary refresh paused for $roomTarget until LLM configuration changes or backend restarts" }
             pipelineTraceService.recordSummary(
                 roomTarget = roomTarget,
                 trigger = trigger,
@@ -85,11 +105,12 @@ class RoomSummaryService(
                         force = force,
                     ),
                 ),
-                outcomeDetail = "summary generation failed",
+                outcomeDetail = "summary generation failed; automatic retries paused until LLM configuration changes or backend restarts",
             )
             return
         }
 
+        failedConfigurations.remove(roomTarget)
         val current = if (existing == null) {
             RoomSummaryEntity(
                 roomTarget = roomTarget,

@@ -1,6 +1,8 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.mockito.Mockito.*
 import org.taonity.sinairllmbot.bot.config.BotProperties
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
@@ -12,12 +14,20 @@ import java.time.Instant
 class BotParticipationTest {
     private val settings = mock(BotSettings::class.java)
     private val properties = mock(BotProperties::class.java)
-    private val pending = mock(PendingBotMessages::class.java)
+    private var fallbackFailure: RuntimeException? = null
+    private val pending = mock(PendingBotMessages::class.java) { invocation ->
+        if (invocation.method.name == "reply") fallbackFailure?.let { throw it }
+        RETURNS_DEFAULTS.answer(invocation)
+    }
     private val triage = mock(MessageTriageService::class.java)
     private var generation = ReplyGeneration(reply = "answer")
+    private var generationFailure: RuntimeException? = null
     private var canReply = false
     private val generator = mock(ReplyGenerator::class.java) { invocation ->
-        if (invocation.method.name == "generateTraced") generation else RETURNS_DEFAULTS.answer(invocation)
+        if (invocation.method.name == "generateTraced") {
+            generationFailure?.let { throw it }
+            generation
+        } else RETURNS_DEFAULTS.answer(invocation)
     }
     private val cooldown = mock(BotCooldownTracker::class.java) { invocation ->
         if (invocation.method.name == "canReply") canReply else RETURNS_DEFAULTS.answer(invocation)
@@ -109,12 +119,56 @@ class BotParticipationTest {
     }
 
     @Test
-    fun `assessment failure retains the request without posting an error`() {
+    fun `assessment failure stops retries without posting an error`() {
         val orchestrator = orchestrator()
         `when`(triage.assess("#room", trigger)).thenThrow(IllegalStateException("provider unavailable"))
-        orchestrator.evaluateRoom("#room")
+        doAnswer {
+            `when`(pending.next("#room")).thenReturn(null)
+            null
+        }.`when`(pending).fail(trigger, "ASSESSMENT_FAILED", "provider unavailable")
+
+        repeat(5) { orchestrator.evaluateRoom("#room") }
+
+        verify(pending).fail(trigger, "ASSESSMENT_FAILED", "provider unavailable")
+        verify(triage).assess("#room", trigger)
         verifyNoInteractions(generator)
-        verify(pending, never()).finish(trigger)
-        org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).contains("defer").doesNotContain("reply")
+        org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("defer", "reply")
+        val recorded = mockingDetails(trace).invocations.filter { it.method.name == "record" }
+        org.assertj.core.api.Assertions.assertThat(recorded).hasSize(1)
+        org.assertj.core.api.Assertions.assertThat(recorded.single().getArgument<String>(2)).isEqualTo("FAILED")
+    }
+
+    @ParameterizedTest
+    @CsvSource("false,false", "false,true", "true,false", "true,true")
+    fun `generation failure stops retries even when fallback cannot be queued`(throws: Boolean, fallbackFails: Boolean) {
+        val orchestrator = orchestrator()
+        canReply = true
+        generation = ReplyGeneration(reply = null)
+        if (throws) generationFailure = IllegalStateException("provider unavailable")
+        if (fallbackFails) fallbackFailure = IllegalStateException("outbound unavailable")
+        val detail = if (throws) "provider unavailable" else "generation produced no reply"
+        `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "direct_address"))
+        doAnswer {
+            `when`(pending.next("#room")).thenReturn(null)
+            null
+        }.`when`(pending).fail(trigger, "GENERATION_FAILED", detail)
+
+        repeat(5) { orchestrator.evaluateRoom("#room") }
+
+        verify(pending).fail(trigger, "GENERATION_FAILED", detail)
+        verify(triage).assess("#room", trigger)
+        org.assertj.core.api.Assertions.assertThat(mockingDetails(generator).invocations.filter { it.method.name == "generateTraced" }).hasSize(1)
+        val recorded = mockingDetails(trace).invocations.filter { it.method.name == "record" }
+        org.assertj.core.api.Assertions.assertThat(recorded).hasSize(1)
+        org.assertj.core.api.Assertions.assertThat(recorded.single().getArgument<String>(2)).isEqualTo("FAILED")
+        val queued = mockingDetails(pending).invocations.filter { it.method.name == "reply" }
+        org.assertj.core.api.Assertions.assertThat(queued).hasSize(1)
+        org.assertj.core.api.Assertions.assertThat(queued.single().getArgument<Boolean>(2)).isTrue()
+        org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("defer")
+        val cooldownRooms = mockingDetails(cooldown).invocations
+            .filter { it.method.name == "recordReply" }
+            .map { it.getArgument<String>(0) }
+        org.assertj.core.api.Assertions.assertThat(cooldownRooms)
+            .containsExactlyElementsOf(if (fallbackFails) emptyList() else listOf("#room"))
     }
 }

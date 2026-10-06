@@ -75,9 +75,10 @@ data class OutboundMessageDto(
     val createdAt: Instant,
     val claimedAt: Instant?,
     val sentAt: Instant?,
+    val pipelineRunId: String?,
 ) {
     companion object {
-        fun from(e: OutboundMessageEntity) = OutboundMessageDto(
+        fun from(e: OutboundMessageEntity, pipelineRunId: String? = null) = OutboundMessageDto(
             id = e.id,
             roomTarget = e.roomTarget,
             messageText = e.messageText,
@@ -86,6 +87,7 @@ data class OutboundMessageDto(
             createdAt = e.createdAt,
             claimedAt = e.claimedAt,
             sentAt = e.sentAt,
+            pipelineRunId = pipelineRunId,
         )
     }
 }

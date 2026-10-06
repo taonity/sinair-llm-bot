@@ -4,6 +4,22 @@ import type { BotResponseState, LlmCallUsage, PipelineRun, ToolCallEntry } from 
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ResponseDiagnostic } from './ResponseDiagnostic'
+import { OutboundPipelineLink } from './DataConsole'
+
+describe('outbound pipeline navigation', () => {
+  it('links to the exact pipeline with an accessible label', () => {
+    const html = renderToStaticMarkup(createElement(OutboundPipelineLink, { pipelineRunId: 'run/with space' }))
+    expect(html).toContain('href="?pipeline=run%2Fwith%20space"')
+    expect(html).toContain('aria-label="Open pipeline"')
+    expect(html).toContain('title="Open pipeline"')
+  })
+
+  it('does not create a broken link when the trace is unavailable', () => {
+    const html = renderToStaticMarkup(createElement(OutboundPipelineLink, { pipelineRunId: null }))
+    expect(html).toContain('aria-label="Pipeline unavailable"')
+    expect(html).not.toContain('href=')
+  })
+})
 
 function response(overrides: Partial<BotResponseState> = {}): BotResponseState {
   return {

@@ -8,12 +8,18 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
 import java.time.Instant
 
 @Repository
 interface OutboundMessageRepository : JpaRepository<OutboundMessageEntity, String> {
+    @Transactional
+    @Modifying
+    @Query("UPDATE OutboundMessageEntity m SET m.pipelineRunId = :pipelineRunId WHERE m.id IN :ids AND m.pipelineRunId IS NULL")
+    fun linkToPipeline(ids: Collection<String>, pipelineRunId: String): Int
+
     fun findByStatusInAndCreatedAtBefore(statuses: Collection<OutboundStatus>, cutoff: Instant): List<OutboundMessageEntity>
 
     fun countByRoomTargetInAndStatusIn(rooms: Collection<String>, statuses: Collection<OutboundStatus>): Long

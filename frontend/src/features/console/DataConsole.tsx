@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Workflow } from 'lucide-react'
 import ErrorNotification from '@/components/ErrorNotification'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -44,6 +45,31 @@ function statusBadge(value: string) {
     <Badge variant="secondary" className="font-normal">
       {value}
     </Badge>
+  )
+}
+
+export function OutboundPipelineLink({ pipelineRunId }: { pipelineRunId: string | null }) {
+  if (!pipelineRunId) {
+    return (
+      <span
+        role="img"
+        aria-label="Pipeline unavailable"
+        title="Pipeline unavailable"
+        className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground/40"
+      >
+        <Workflow className="size-4" aria-hidden="true" />
+      </span>
+    )
+  }
+  return (
+    <a
+      href={`?pipeline=${encodeURIComponent(pipelineRunId)}`}
+      title="Open pipeline"
+      aria-label="Open pipeline"
+      className={buttonVariants({ variant: 'ghost', size: 'icon-xs' })}
+    >
+      <Workflow aria-hidden="true" />
+    </a>
   )
 }
 
@@ -126,7 +152,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     label: 'Status',
     value: (m) => m.status,
     render: (m) => statusBadge(m.status),
-    headClassName: 'w-[120px]',
+    headClassName: 'w-[110px]',
     skeleton: 'h-5 w-14 rounded-full',
     searchKey: 'status',
   },
@@ -339,6 +365,7 @@ export default function DataConsole() {
               }
               roomAccessor={(m) => m.roomTarget}
               canEdit={canEdit}
+              rowActions={(m) => <OutboundPipelineLink pipelineRunId={m.pipelineRunId} />}
               onDelete={(m) => consoleApi.deleteOutboundMessage(m.id)}
               emptyLabel="No outbound messages."
               sortLabel="created time"

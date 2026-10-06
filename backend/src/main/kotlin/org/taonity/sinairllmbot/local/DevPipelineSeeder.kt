@@ -5,6 +5,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
+import org.taonity.sinairllmbot.bot.entity.OutboundStatus
 import org.taonity.sinairllmbot.bot.entity.PipelineRunEntity
 import org.taonity.sinairllmbot.bot.pipeline.JsonParseFailure
 import org.taonity.sinairllmbot.bot.pipeline.LlmCallUsage
@@ -15,6 +17,7 @@ import org.taonity.sinairllmbot.bot.pipeline.PipelineOutcome
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
 import org.taonity.sinairllmbot.bot.pipeline.ToolCallEntry
+import org.taonity.sinairllmbot.bot.repository.OutboundMessageRepository
 import org.taonity.sinairllmbot.bot.repository.PipelineRunRepository
 import org.taonity.sinairllmbot.config.BotSettings
 import tools.jackson.databind.ObjectMapper
@@ -25,6 +28,7 @@ import java.time.temporal.ChronoUnit
 @Profile("demo-data")
 class DevPipelineSeeder(
     private val pipelineRunRepository: PipelineRunRepository,
+    private val outboundMessageRepository: OutboundMessageRepository,
     private val objectMapper: ObjectMapper,
     private val settings: BotSettings,
 ) {
@@ -41,8 +45,38 @@ class DevPipelineSeeder(
         }
         val room = settings.botRooms().firstOrNull() ?: "#taonity-room"
         val runs = buildFixtures(room)
-        pipelineRunRepository.saveAll(runs)
-        LOGGER.info { "Seeded ${runs.size} demo pipeline runs into $room (demo-data profile)" }
+        val savedRuns = pipelineRunRepository.saveAll(runs)
+        val outboundRuns = savedRuns.filter { it.outboundMessageId != null }
+        val outboundMessages = outboundMessageRepository.saveAll(outboundRuns.map(::outboundFixture))
+        outboundRuns.zip(outboundMessages).forEach { (run, outbound) -> run.outboundMessageId = outbound.id }
+        pipelineRunRepository.saveAll(outboundRuns)
+        LOGGER.info {
+            "Seeded ${runs.size} demo pipeline runs and ${outboundMessages.size} outbound messages into $room (demo-data profile)"
+        }
+    }
+
+    private fun outboundFixture(run: PipelineRunEntity): OutboundMessageEntity {
+        val outboundId = requireNotNull(run.outboundMessageId)
+        val messageText = when (outboundId) {
+            "demo-out-payload-viewer" -> "The payload viewer fixture repeats context words for testing."
+            "demo-out-1" -> "Последняя LTS — Node 22."
+            "demo-out-2" -> "Бери «Grokking Algorithms» — заходит легко."
+            "demo-out-3" -> "Я в норме, просто задумался :)"
+            "demo-out-4" -> "Обещают дождь в субботу, воскресенье ясно."
+            "demo-out-5" -> "Читается норм, но вынеси магические числа в константы."
+            "demo-out-6" -> "В backend/src/main/kotlin/.../client/ChatCompletionDtos.kt — data class ChatCompletionRequest."
+            else -> error("Missing outbound fixture text for $outboundId")
+        }
+        return OutboundMessageEntity(
+            roomTarget = run.roomTarget,
+            messageText = messageText,
+            replyToExternalId = run.triggerMessageId,
+            status = OutboundStatus.SENT,
+            createdAt = run.createdAt.plusSeconds(1),
+            sentAt = run.createdAt.plusSeconds(1),
+            triggerMessageId = run.triggerMessageId,
+            pipelineRunId = run.id,
+        )
     }
 
     private fun buildFixtures(room: String): List<PipelineRunEntity> {

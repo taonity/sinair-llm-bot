@@ -11,12 +11,13 @@ class PipelineContextTracker(
     private data class State(
         val configRevisionId: String?,
         val sources: MutableSet<String>,
+        val outboundMessageIds: MutableSet<String>,
     )
 
     private val state = ThreadLocal<State?>()
 
     fun begin(configRevisionId: String?) {
-        state.set(State(configRevisionId, Collections.synchronizedSet(linkedSetOf())))
+        state.set(State(configRevisionId, Collections.synchronizedSet(linkedSetOf()), Collections.synchronizedSet(linkedSetOf())))
     }
 
     fun configRevisionId(): String? = state.get()?.configRevisionId
@@ -25,12 +26,17 @@ class PipelineContextTracker(
         if (uri.isNotBlank()) state.get()?.sources?.add(uri.take(500))
     }
 
+    fun recordOutboundMessage(id: String) {
+        state.get()?.outboundMessageIds?.add(id)
+    }
+
     fun drain(): PipelineContextManifest {
         val current = state.get()
         state.remove()
         return PipelineContextManifest(
             configRevisionId = current?.configRevisionId,
             sources = current?.sources?.toList().orEmpty(),
+            outboundMessageIds = current?.outboundMessageIds?.toList().orEmpty(),
         )
     }
 
@@ -45,4 +51,5 @@ class PipelineContextTracker(
 data class PipelineContextManifest(
     val configRevisionId: String? = null,
     val sources: List<String> = emptyList(),
+    val outboundMessageIds: List<String> = emptyList(),
 )

@@ -281,7 +281,9 @@ class ChatCommandToolService(
             ),
         )
 
-        return saved.id ?: throw RuntimeException("Failed to persist outbound message")
+        val id = saved.id ?: throw RuntimeException("Failed to persist outbound message")
+        pipelineContextTracker.recordOutboundMessage(id)
+        return id
     }
 
     private fun pollForResponse(

@@ -98,6 +98,12 @@ class PendingBotMessages(
     }
 
     @Transactional
+    fun fail(message: ChatMessageEntity, reason: String, detail: String) {
+        updateResponse(message, "FAILED", reason, detail)
+        pendingRepository.deleteById(message.id!!)
+    }
+
+    @Transactional
     fun delivered(outbound: OutboundMessageEntity) {
         val message = outbound.triggerMessageId?.let { messageRepository.findById(it).orElse(null) } ?: return
         if (message.botResponse?.reason == "GENERATION_FAILED") return

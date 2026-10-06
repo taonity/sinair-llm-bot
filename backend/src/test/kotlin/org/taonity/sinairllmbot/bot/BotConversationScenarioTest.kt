@@ -3,6 +3,8 @@ package org.taonity.sinairllmbot.bot
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -107,7 +109,7 @@ class BotConversationScenarioTest {
         pendingMessages.defer(target, until, "WAITING_FOR_HUMANS", "Open question", "open_question")
         val firstDeferredAt = target.botResponse!!.deferredAt
         assertThat(target.botResponse!!.nextAttemptAt).isEqualTo(until)
-        pendingMessages.defer(target, until, "ASSESSMENT_FAILED", "Provider unavailable")
+        pendingMessages.defer(target, until, "COOLDOWN", "Reply cooldown")
         assertThat(target.botResponse!!.deferredAt).isEqualTo(firstDeferredAt)
         pendingMessages.finish(target, "GATE_DECLINED", "Alice already answered.", "open_question")
         assertThat(target.botResponse!!.status).isEqualTo("DISCARDED")
@@ -122,6 +124,58 @@ class BotConversationScenarioTest {
         assertThat(target.botResponse!!.status).isEqualTo("REPLIED")
         assertThat(target.botResponse!!.deferredAt).isEqualTo(firstDeferredAt)
         assertThat(target.botResponse!!.outboundMessageId).isEqualTo(reply.id)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["ASSESSMENT_FAILED", "GENERATION_FAILED"])
+    @Transactional
+    fun `terminal failure removes deferred work without blocking later messages`(reason: String) {
+        val target = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:failure-$reason", roomTarget = "#failure-$reason", senderMemberId = 1,
+            senderLogin = "user", messageText = "question", messageStyle = "message", sentAt = Instant.now(),
+        ))
+        pendingMessages.enqueue(listOf(target), 0)
+        pendingMessages.defer(target, Instant.now().plusSeconds(30), "COOLDOWN", "Reply cooldown")
+
+        pendingMessages.fail(target, reason, "Provider unavailable")
+
+        val response = chatMessages.findById(target.id!!).get().botResponse!!
+        assertThat(response.status).isEqualTo("FAILED")
+        assertThat(response.reason).isEqualTo(reason)
+        assertThat(response.detail).isEqualTo("Provider unavailable")
+        assertThat(response.nextAttemptAt).isNull()
+        assertThat(pendingRepository.existsById(target.id!!)).isFalse()
+        assertThat(pendingMessages.dueRooms()).doesNotContain(target.roomTarget)
+        repeat(5) { assertThat(pendingMessages.next(target.roomTarget)).isNull() }
+
+        val followup = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:followup-$reason", roomTarget = target.roomTarget, senderMemberId = 1,
+            senderLogin = "user", messageText = "new question", messageStyle = "message", sentAt = Instant.now(),
+        ))
+        pendingMessages.enqueue(listOf(followup), 0)
+        assertThat(pendingMessages.next(target.roomTarget)?.id).isEqualTo(followup.id)
+    }
+
+    @Test
+    @Transactional
+    fun `failure notice delivery does not reopen or succeed a failed request`() {
+        val target = chatMessages.save(ChatMessageEntity(
+            dedupKey = "ext:failure-notice", roomTarget = "#failure-notice", senderMemberId = 1,
+            senderLogin = "user", messageText = "question", messageStyle = "message", sentAt = Instant.now(),
+        ))
+        pendingMessages.enqueue(listOf(target), 0)
+        pendingMessages.fail(target, "GENERATION_FAILED", "Provider unavailable")
+
+        val notice = pendingMessages.reply(target, "Failure notice", failure = true)
+        outboundService.claimPending(target.roomTarget, 10)
+        outboundService.acknowledge(listOf(notice.id!!))
+
+        val response = chatMessages.findById(target.id!!).get().botResponse!!
+        assertThat(response.status).isEqualTo("FAILED")
+        assertThat(response.reason).isEqualTo("GENERATION_FAILED")
+        assertThat(response.outboundMessageId).isEqualTo(notice.id)
+        assertThat(pendingMessages.next(target.roomTarget)).isNull()
+        assertThat(pendingRepository.existsById(target.id!!)).isFalse()
     }
 
     @Test

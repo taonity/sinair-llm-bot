@@ -175,7 +175,10 @@ class ConsoleDataService(
             room.isNullOrBlank() -> outboundMessageRepository.findAll(pageable)
             else -> outboundMessageRepository.findByRoomTarget(room, pageable)
         }
-        return PageResponse.of(result, OutboundMessageDto::from)
+        val outboundIds = result.content.mapNotNull { it.id }
+        val pipelineIds = if (outboundIds.isEmpty()) emptyMap() else pipelineRunRepository.findOutboundLinks(outboundIds)
+            .associate { it.outboundMessageId to it.pipelineRunId }
+        return PageResponse.of(result) { OutboundMessageDto.from(it, pipelineIds[it.id]) }
     }
 
     fun locateOutboundMessagePage(principal: GoogleUserPrincipal, id: String, size: Int, direction: String): Int {
