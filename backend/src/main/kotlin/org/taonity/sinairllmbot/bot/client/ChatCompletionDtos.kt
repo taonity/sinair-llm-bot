@@ -15,7 +15,11 @@ data class ChatCompletionRequest(
     val reasoning: Reasoning? = null,
 )
 
-data class Reasoning(val effort: String)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class Reasoning(
+    val effort: String,
+    val exclude: Boolean? = null,
+)
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class Tool(

@@ -46,6 +46,39 @@ class LlmToolLoopTest {
     }
 
     @Test
+    fun `text serialized tool call is retried instead of returned to the user`() {
+        val malformed = response("bash<arg_key>command</arg_key><arg_value>pwd</arg_value></tool_call>")
+        val toolResponse = """{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","tool_calls":[{"id":"one","type":"function","function":{"name":"read","arguments":"{}"}}]}}]}"""
+        withProvider(listOf(malformed, toolResponse, response("Safe answer"))) { client, requests ->
+            var executions = 0
+
+            val result = client.completeWithTools(
+                "reply",
+                listOf(ChatMessage.user("Investigate")),
+                emptyList(),
+                3,
+                { _, _ -> executions++; "evidence" },
+            )
+
+            assertThat(result?.content).isEqualTo("Safe answer")
+            assertThat(executions).isEqualTo(1)
+            assertThat(requests).hasSize(3)
+            assertThat(requests[1]["messages"].last()["content"].asString())
+                .contains("structured tool_calls")
+        }
+    }
+
+    @Test
+    fun `final answer hides reasoning payload`() {
+        withProvider(listOf(response("Safe answer"))) { client, requests ->
+            client.completeWithTools("reply", listOf(ChatMessage.user("Explain")), emptyList(), 0, { _, _ -> "" })
+
+            assertThat(requests.single()["reasoning"]["effort"].asString()).isEqualTo("low")
+            assertThat(requests.single()["reasoning"]["exclude"].asBoolean()).isTrue()
+        }
+    }
+
+    @Test
     fun `truncated tool requests never execute`() {
         val truncatedTool = """{"choices":[{"finish_reason":"length","message":{"role":"assistant","tool_calls":[{"id":"one","type":"function","function":{"name":"write","arguments":"{}"}}]}}]}"""
         withProvider(listOf(truncatedTool, response("Could not complete action"))) { client, _ ->

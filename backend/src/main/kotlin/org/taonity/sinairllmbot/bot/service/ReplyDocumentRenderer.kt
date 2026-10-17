@@ -1,15 +1,18 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 @Component
 class ReplyDocumentRenderer(private val objectMapper: ObjectMapper) {
     fun render(raw: String): String {
         val text = raw.trim().removePrefix("```json").removeSuffix("```").trim()
-        if (!text.startsWith("{")) return ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(raw.trim()))
-        val document = runCatching { objectMapper.readTree(text) }.getOrNull()
-        if (document == null || !document.path("lead").isString) return "Не удалось оформить полный ответ."
+        val document = findReplyDocument(text)
+        if (document == null) {
+            if (!text.startsWith("{")) return ChatReplyFormatter.wrapLongReply(ChatReplyFormatter.normalize(raw.trim()))
+            return "Не удалось оформить полный ответ."
+        }
         val lead = ChatReplyFormatter.normalize(document["lead"].asString()).replace("```", "").trim()
         return buildString {
             append(lead)
@@ -34,10 +37,45 @@ class ReplyDocumentRenderer(private val objectMapper: ObjectMapper) {
         }.trim().let { ChatReplyFormatter.wrapLongReply(it) }
     }
 
-    fun isStructured(raw: String): Boolean = runCatching {
-        val document = objectMapper.readTree(raw.trim().removePrefix("```json").removeSuffix("```").trim())
-        document.path("lead").isString && document.path("blocks").isArray
-    }.getOrDefault(false)
+    fun isStructured(raw: String): Boolean =
+        findReplyDocument(raw.trim().removePrefix("```json").removeSuffix("```").trim()) != null
+
+    private fun findReplyDocument(text: String): JsonNode? {
+        var start = -1
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var lastDocument: JsonNode? = null
+        text.forEachIndexed { index, character ->
+            if (inString) {
+                when {
+                    escaped -> escaped = false
+                    character == '\\' -> escaped = true
+                    character == '"' -> inString = false
+                }
+                return@forEachIndexed
+            }
+            when (character) {
+                '"' -> inString = true
+                '{' -> {
+                    if (depth == 0) start = index
+                    depth++
+                }
+                '}' -> {
+                    if (depth > 0) depth--
+                    if (depth == 0 && start >= 0) {
+                        parseReplyDocument(text.substring(start, index + 1))?.let { lastDocument = it }
+                        start = -1
+                    }
+                }
+            }
+        }
+        return lastDocument
+    }
+
+    private fun parseReplyDocument(text: String): JsonNode? = runCatching {
+        objectMapper.readTree(text).takeIf { it.path("lead").isString && it.path("blocks").isArray }
+    }.getOrNull()
 
     companion object {
         const val CONTRACT = "FINAL ANSWER: Return only a JSON object with shape " +

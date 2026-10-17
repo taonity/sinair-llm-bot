@@ -43,6 +43,21 @@ class ChatReplyFormatterTest {
     }
 
     @Test
+    fun `renders only the last structured reply when reasoning and drafts are concatenated`() {
+        val first = mapper.writeValueAsString(mapOf("lead" to "First draft.", "blocks" to emptyList<Any>()))
+        val final = mapper.writeValueAsString(mapOf(
+            "lead" to "Final answer.",
+            "blocks" to listOf(mapOf("kind" to "prose", "text" to "Useful detail.")),
+        ))
+        val raw = "We need to reconsider the answer.\n$first\nThat draft is too vague.\n```json\n$final\n```"
+
+        assertThat(renderer.render(raw))
+            .isEqualTo("Final answer.```Useful detail.```")
+            .doesNotContain("reconsider", "First draft", "too vague")
+        assertThat(renderer.isStructured(raw)).isTrue()
+    }
+
+    @Test
     fun `quotes remain outside detail blocks`() {
         val response = mapper.writeValueAsString(mapOf(
             "lead" to "The distinction matters.",

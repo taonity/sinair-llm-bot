@@ -39,6 +39,12 @@ class LlmClient(
             "rate limit",
             "too many requests",
         )
+        private val SERIALIZED_TOOL_CALL_MARKERS = setOf(
+            "<tool_call",
+            "</tool_call>",
+            "<arg_key>",
+            "<arg_value>",
+        )
     }
 
     private val llmProperties get() = settings.llm()
@@ -116,6 +122,7 @@ class LlmClient(
         var executedTools = 0
         var toolRounds = 0
         var boosted = false
+        var malformedToolCallRetries = 0
         val evidenceExcerpts = mutableListOf<String>()
         fun result(content: String, incomplete: Boolean = false) = LlmResult(
             content, totalTokens, citationUrls.toList(), executedTools,
@@ -156,7 +163,7 @@ class LlmClient(
                     else -> tier.maxTokens
                 },
                 tools = if (offerTools) toolsProvider?.invoke() ?: tools else null,
-                reasoning = Reasoning(budget.reasoningEffort),
+                reasoning = Reasoning(budget.reasoningEffort, exclude = true.takeIf { !offerTools }),
             )
             val requestJson = runCatching { objectMapper.writeValueAsString(request) }.getOrDefault("")
             val transport = postChatCompletion(
@@ -241,6 +248,21 @@ class LlmClient(
             }
 
             val content = (message?.content as? String)?.trim()
+            if (!content.isNullOrBlank() && toolCalls.isEmpty() && containsSerializedToolCall(content)) {
+                LOGGER.warn {
+                    "Agentic tier '$tierName' returned a text-serialized tool call " +
+                        "(iteration=$iteration, toolsOffered=$offerTools)"
+                }
+                if (offerTools && malformedToolCallRetries++ == 0) {
+                    conversation += ChatMessage.user(
+                        "Your previous turn serialized a tool call as visible text. Retry the turn using " +
+                            "the API's structured tool_calls field. Do not expose reasoning or tool markup.",
+                    )
+                } else {
+                    finalizing = true
+                }
+                continue
+            }
             if (!content.isNullOrBlank() && !truncated) {
                 return result(content)
             }
@@ -258,6 +280,9 @@ class LlmClient(
         }
         return partial?.let { result(it, incomplete = true) }
     }
+
+    private fun containsSerializedToolCall(content: String): Boolean =
+        SERIALIZED_TOOL_CALL_MARKERS.any { content.contains(it, ignoreCase = true) }
 
     private fun postChatCompletion(
         tierName: String,
