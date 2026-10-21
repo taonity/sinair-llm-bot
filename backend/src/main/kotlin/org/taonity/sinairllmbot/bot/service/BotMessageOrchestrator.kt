@@ -196,7 +196,12 @@ class BotMessageOrchestrator(
             stages += generationStage(generation)
 
             val freshness = if (contextVersion != pendingMessages.latestHumanMessageId(roomTarget, botProperties.persona.name)) {
-                runCatching { messageTriageService.assess(roomTarget, trigger, verifyStillNeeded = true) }.getOrNull()
+                try {
+                    messageTriageService.assess(roomTarget, trigger, verifyStillNeeded = true)
+                } catch (exception: Exception) {
+                    handleAssessmentFailure(trigger, stages, exception, freshness = true)
+                    return
+                }
             } else null
             freshness?.let { stages += triageStage("freshness", "Freshness check", it) }
             val superseded = freshness?.respond == false
@@ -231,15 +236,32 @@ class BotMessageOrchestrator(
             val detail = exception.message?.takeIf { it.isNotBlank() }
                 ?: exception.javaClass.simpleName
             if (!generationStarted) {
-                pendingMessages.fail(trigger, "ASSESSMENT_FAILED", detail)
-                LOGGER.warn(exception) { "Bot assessment failed for room $roomTarget" }
-                stages += PipelineStage("triage_error", "Assessment failed", PipelineStageStatus.STOP, detail)
-                pipelineTraceService.record(PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages, outcomeDetail = "assessment failed; automatic retries stopped")
+                handleAssessmentFailure(trigger, stages, exception)
                 return
             }
             stages += PipelineStage("error", "Pipeline error", PipelineStageStatus.STOP, detail)
             handleFailure(trigger, stages, detail, exception)
         }
+    }
+
+    private fun handleAssessmentFailure(
+        trigger: ChatMessageEntity,
+        stages: List<PipelineStage>,
+        exception: Exception,
+        freshness: Boolean = false,
+    ) {
+        val detail = exception.message?.takeIf { it.isNotBlank() } ?: exception.javaClass.simpleName
+        val label = if (freshness) "Freshness check failed" else "Assessment failed"
+        if (freshness) botTypingService.clearTyping(trigger.roomTarget)
+        pendingMessages.fail(trigger, if (freshness) "FRESHNESS_FAILED" else "ASSESSMENT_FAILED", detail)
+        LOGGER.warn(exception) { "$label for room ${trigger.roomTarget}" }
+        val failureStage = PipelineStage(
+            if (freshness) "freshness_error" else "triage_error", label, PipelineStageStatus.STOP, detail,
+        )
+        pipelineTraceService.record(
+            PipelineKeys.REPLY, trigger, PipelineOutcome.FAILED, stages + failureStage,
+            outcomeDetail = "${label.lowercase()}; automatic retries stopped",
+        )
     }
 
     private fun triageStage(key: String, label: String, verdict: TriageVerdict) = PipelineStage(

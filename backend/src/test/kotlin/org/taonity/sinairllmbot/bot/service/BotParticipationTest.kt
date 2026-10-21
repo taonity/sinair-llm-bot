@@ -3,9 +3,12 @@ package org.taonity.sinairllmbot.bot.service
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.Mockito.*
 import org.taonity.sinairllmbot.bot.config.BotProperties
+import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.pipeline.PipelineStage
+import org.taonity.sinairllmbot.bot.pipeline.PipelineStageStatus
 import org.taonity.sinairllmbot.chat.entity.ChatMessageEntity
 import org.taonity.sinairllmbot.common.config.AppProperties
 import org.taonity.sinairllmbot.config.BotSettings
@@ -33,6 +36,8 @@ class BotParticipationTest {
         if (invocation.method.name == "canReply") canReply else RETURNS_DEFAULTS.answer(invocation)
     }
     private val trace = mock(PipelineTraceService::class.java)
+    private val typing = mock(BotTypingService::class.java)
+    private val summaries = mock(RoomSummaryService::class.java)
     private val trigger = ChatMessageEntity(id = "target", dedupKey = "ext:target", roomTarget = "#room", senderMemberId = 1, senderLogin = "user", messageText = "Question", messageStyle = "message", sentAt = Instant.now())
 
     private fun orchestrator(): BotMessageOrchestrator {
@@ -43,8 +48,8 @@ class BotParticipationTest {
         `when`(properties.persona).thenReturn(persona)
         `when`(pending.next("#room")).thenReturn(trigger)
         return BotMessageOrchestrator(settings, mock(AppProperties::class.java), mock(BotDebouncer::class.java),
-            mock(CommandGate::class.java), triage, generator, mock(RoomSummaryService::class.java), cooldown,
-            mock(MutedRoomRegistry::class.java), mock(BotSleepService::class.java), mock(BotTypingService::class.java),
+            mock(CommandGate::class.java), triage, generator, summaries, cooldown,
+            mock(MutedRoomRegistry::class.java), mock(BotSleepService::class.java), typing,
             mock(RoomProcessingGuard::class.java), trace, pending)
     }
 
@@ -77,6 +82,58 @@ class BotParticipationTest {
         verify(pending).finish(trigger, "SUPERSEDED", "The user withdrew the request during generation.", "direct_address")
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("reply", "defer")
         assertStageReason("freshness", "The user withdrew the request during generation.")
+    }
+
+    @Test
+    fun `freshness failure discards the draft without publishing or retrying the message`() {
+        val orchestrator = orchestrator()
+        canReply = true
+        `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "direct_address"))
+        `when`(triage.assess("#room", trigger, verifyStillNeeded = true))
+            .thenThrow(IllegalStateException("freshness check produced no valid verdict"))
+        `when`(pending.latestHumanMessageId("#room", "segfault")).thenReturn("before", "after")
+        doAnswer {
+            `when`(pending.next("#room")).thenReturn(null)
+            null
+        }.`when`(pending).fail(trigger, "FRESHNESS_FAILED", "freshness check produced no valid verdict")
+
+        repeat(5) { orchestrator.evaluateRoom("#room") }
+
+        verify(pending).fail(trigger, "FRESHNESS_FAILED", "freshness check produced no valid verdict")
+        verify(triage).assess("#room", trigger, verifyStillNeeded = true)
+        verify(typing).clearTyping("#room")
+        verify(cooldown, never()).recordReply("#room")
+        verifyNoInteractions(summaries)
+        org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name })
+            .doesNotContain("reply", "defer", "finish")
+        org.assertj.core.api.Assertions.assertThat(mockingDetails(generator).invocations.filter { it.method.name == "generateTraced" })
+            .hasSize(1)
+        val recorded = mockingDetails(trace).invocations.single { it.method.name == "record" }
+        org.assertj.core.api.Assertions.assertThat(recorded.getArgument<String>(2)).isEqualTo("FAILED")
+        org.assertj.core.api.Assertions.assertThat(recorded.getArgument<String?>(5)).isNull()
+        val stages: List<PipelineStage> = recorded.getArgument(3)
+        val failure = stages.single { it.key == "freshness_error" }
+        org.assertj.core.api.Assertions.assertThat(failure.status).isEqualTo(PipelineStageStatus.STOP)
+        org.assertj.core.api.Assertions.assertThat(failure.summary).isEqualTo("freshness check produced no valid verdict")
+    }
+
+    @Test
+    fun `valid freshness approval allows the prepared reply to be published`() {
+        val orchestrator = orchestrator()
+        canReply = true
+        `when`(triage.assess("#room", trigger)).thenReturn(TriageVerdict(true, "direct_address"))
+        `when`(triage.assess("#room", trigger, verifyStillNeeded = true))
+            .thenReturn(TriageVerdict(true, "direct_address", "The request is still unanswered."))
+        `when`(pending.latestHumanMessageId("#room", "segfault")).thenReturn("before", "after")
+        `when`(pending.reply(trigger, "answer"))
+            .thenReturn(OutboundMessageEntity(roomTarget = "#room", messageText = "answer"))
+
+        orchestrator.evaluateRoom("#room")
+
+        verify(pending).reply(trigger, "answer")
+        verify(cooldown).recordReply("#room")
+        val recorded = mockingDetails(trace).invocations.single { it.method.name == "record" }
+        org.assertj.core.api.Assertions.assertThat(recorded.getArgument<String>(2)).isEqualTo("REPLIED")
     }
 
     @Test
@@ -118,20 +175,22 @@ class BotParticipationTest {
         assertStageReason("triage", "The user asks the bot to answer.")
     }
 
-    @Test
-    fun `assessment failure stops retries without posting an error`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["provider unavailable", "triage produced no valid verdict"])
+    fun `assessment failure stops retries without posting an error`(detail: String) {
         val orchestrator = orchestrator()
-        `when`(triage.assess("#room", trigger)).thenThrow(IllegalStateException("provider unavailable"))
+        `when`(triage.assess("#room", trigger)).thenThrow(IllegalStateException(detail))
         doAnswer {
             `when`(pending.next("#room")).thenReturn(null)
             null
-        }.`when`(pending).fail(trigger, "ASSESSMENT_FAILED", "provider unavailable")
+        }.`when`(pending).fail(trigger, "ASSESSMENT_FAILED", detail)
 
         repeat(5) { orchestrator.evaluateRoom("#room") }
 
-        verify(pending).fail(trigger, "ASSESSMENT_FAILED", "provider unavailable")
+        verify(pending).fail(trigger, "ASSESSMENT_FAILED", detail)
         verify(triage).assess("#room", trigger)
         verifyNoInteractions(generator)
+        verifyNoInteractions(summaries)
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("defer", "reply")
         val recorded = mockingDetails(trace).invocations.filter { it.method.name == "record" }
         org.assertj.core.api.Assertions.assertThat(recorded).hasSize(1)

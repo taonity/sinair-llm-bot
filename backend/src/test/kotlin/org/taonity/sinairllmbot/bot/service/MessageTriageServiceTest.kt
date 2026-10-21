@@ -1,7 +1,11 @@
 package org.taonity.sinairllmbot.bot.service
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.Mockito.RETURNS_DEEP_STUBS
 import org.mockito.Mockito.RETURNS_DEFAULTS
 import org.mockito.Mockito.mock
@@ -53,7 +57,7 @@ class MessageTriageServiceTest {
             if (invocation.method.name == "complete") {
                 val messages: List<ChatMessage> = invocation.getArgument(1)
                 prompts += messages.first().content.toString()
-                LlmResult("""{"respond":false,"category":"not_addressed"}""", 10)
+                LlmResult("""{"respond":false,"category":"not_addressed","reason":"Exclusive-recipient rule: the message addresses another participant."}""", 10)
             } else RETURNS_DEFAULTS.answer(invocation)
         }
         val service = MessageTriageService(client, context, settings, jacksonObjectMapper(),
@@ -67,7 +71,7 @@ class MessageTriageServiceTest {
     }
 
     @Test
-    fun `reason is retained for both outcomes and legacy or malformed responses remain usable`() {
+    fun `reason is retained for both outcomes and freshness checks`() {
         val settings = mock(BotSettings::class.java, RETURNS_DEEP_STUBS)
         `when`(settings.bot().persona.name).thenReturn("segfault")
         `when`(settings.bot().persona.aliases).thenReturn(emptyList())
@@ -108,14 +112,89 @@ class MessageTriageServiceTest {
             }
         }
         assertThat(system).contains("\"reason\": string", "at most 30 words", "Always provide a nonempty reason")
+    }
 
-        response = """{"respond":false,"category":"not_addressed"}"""
-        assertThat(service.assess("#room", target("hello"))).isEqualTo(TriageVerdict(false, "not_addressed"))
+    @ParameterizedTest
+    @CsvSource("true,false", "false,false", "true,true", "false,true")
+    fun `malformed verdict retries and uses the complete replacement`(respond: Boolean, freshness: Boolean) {
+        val failures = JsonParseFailureTracker()
+        failures.begin()
+        var calls = 0
+        val service = service({
+            calls++
+            if (calls == 1) """{"respond":true,"reason":"unfinished"""
+            else """{"respond":$respond,"category":"open_question","reason":"Open-question rule: the room asks for help."}"""
+        }, failures)
 
-        response = """{"respond":true,"category":"open_question","reason":"unfinished"""
-        val salvaged = service.assess("#room", target("How does this work?"))
-        assertThat(salvaged.respond).isTrue()
-        assertThat(salvaged.reason).isEqualTo("Recovered respond from malformed JSON; model reason unavailable.")
+        val verdict = service.assess("#room", target("How does this work?"), freshness)
+
+        assertThat(verdict).isEqualTo(TriageVerdict(respond, "open_question", "Open-question rule: the room asks for help."))
+        assertThat(calls).isEqualTo(2)
+        val recorded = failures.drain()
+        assertThat(recorded).hasSize(1)
+        assertThat(recorded.single().label).isEqualTo(if (freshness) "freshness" else "triage")
+        assertThat(recorded.single().attempt).isEqualTo(1)
+        assertThat(recorded.single().payload).contains("unfinished")
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [
+        "",
+        "null",
+        "[]",
+        "{}",
+        """{"respond":true,"category":"open_question","reason":"unfinished""",
+        """{"respond":false,"category":"noise","reason":"unfinished""",
+        """{"category":"open_question","reason":"Missing decision"}""",
+        """{"respond":null,"category":"open_question","reason":"Null decision"}""",
+        """{"respond":"true","category":"open_question","reason":"String decision"}""",
+        """{"respond":1,"category":"open_question","reason":"Numeric decision"}""",
+        """{"respond":true,"reason":"Missing category"}""",
+        """{"respond":true,"category":null,"reason":"Null category"}""",
+        """{"respond":true,"category":1,"reason":"Numeric category"}""",
+        """{"respond":true,"category":"unknown","reason":"Unknown category"}""",
+        """{"respond":true,"category":"","reason":"Empty category"}""",
+        """{"respond":true,"category":"open_question"}""",
+        """{"respond":false,"category":"noise"}""",
+        """{"respond":true,"category":"open_question","reason":null}""",
+        """{"respond":true,"category":"open_question","reason":42}""",
+        """{"respond":true,"category":"open_question","reason":""}""",
+        """{"respond":true,"category":"open_question","reason":"   "}""",
+        """{"respond":true,"category":"open_question","reason":"Complete"} {"respond":false}""",
+    ])
+    fun `invalid verdicts exhaust the retry budget without returning a decision`(response: String) {
+        for (freshness in listOf(false, true)) {
+            val failures = JsonParseFailureTracker()
+            failures.begin()
+            var calls = 0
+            val service = service({ calls++; response }, failures)
+
+            assertThatThrownBy { service.assess("#room", target("How does this work?"), freshness) }
+                .isInstanceOf(IllegalStateException::class.java)
+                .hasMessage("${if (freshness) "freshness check" else "triage"} produced no valid verdict")
+
+            assertThat(calls).isEqualTo(3)
+            val recorded = failures.drain()
+            assertThat(recorded.map { it.attempt }).containsExactly(1, 2, 3)
+            assertThat(recorded.map { it.label }).containsOnly(if (freshness) "freshness" else "triage")
+            assertThat(recorded.map { it.payload }).containsOnly(response)
+        }
+    }
+
+    private fun service(response: () -> String, failures: JsonParseFailureTracker): MessageTriageService {
+        val settings = mock(BotSettings::class.java, RETURNS_DEEP_STUBS)
+        `when`(settings.bot().persona.name).thenReturn("segfault")
+        `when`(settings.bot().persona.aliases).thenReturn(emptyList())
+        `when`(settings.bot().persona.language).thenReturn("English")
+        `when`(settings.llm().gateTier).thenReturn("gate")
+        `when`(settings.llm().jsonRetryAttempts).thenReturn(3)
+        val context = mock(ConversationContextBuilder::class.java)
+        `when`(context.recentTranscript("#room", 25)).thenReturn("")
+        val client = mock(LlmClient::class.java) { invocation ->
+            if (invocation.method.name == "complete") LlmResult(response(), 10)
+            else RETURNS_DEFAULTS.answer(invocation)
+        }
+        return MessageTriageService(client, context, settings, jacksonObjectMapper(), JsonPromptRunner(settings, failures))
     }
 
     private fun target(text: String) = ChatMessageEntity(
@@ -137,7 +216,7 @@ class MessageTriageServiceTest {
         val client = mock(LlmClient::class.java) { invocation ->
             if (invocation.method.name == "complete") {
                 sentMessages = invocation.getArgument(1)
-                LlmResult("""{"respond":false,"category":"not_addressed"}""", 10)
+                LlmResult("""{"respond":false,"category":"not_addressed","reason":"Exclusive-recipient rule: the question addresses Alice."}""", 10)
             } else RETURNS_DEFAULTS.answer(invocation)
         }
         val target = ChatMessageEntity(
