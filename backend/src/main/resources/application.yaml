@@ -172,7 +172,7 @@ app:
       cooldown-seconds: 30
       max-replies-per-window: 8
       window-minutes: 20
-      open-question-delay-seconds: 120
+      open-question-delay-seconds: 28800
       requested-cooldown-seconds: 2
       max-requested-replies-per-window: 40
     context:
