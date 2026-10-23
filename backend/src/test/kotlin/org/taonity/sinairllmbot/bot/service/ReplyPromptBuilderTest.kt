@@ -24,7 +24,7 @@ import java.time.Instant
 
 class ReplyPromptBuilderTest {
     @Test
-    fun `includes operator UI and technical request guidance`() {
+    fun `includes participation guidance live command discovery and configured bot controls`() {
         val roomSummaryService = mock(RoomSummaryService::class.java)
         val settings = mock(BotSettings::class.java)
         val sourceIngestionService = mock(SourceIngestionService::class.java)
@@ -47,10 +47,10 @@ class ReplyPromptBuilderTest {
                 language = "Russian",
                 prompt = Prompt(ClassPathResource("prompts/persona.txt").inputStream.bufferedReader().use { it.readText() }),
                 creatorUserId = 0,
-                stopCommand = "!stop",
-                startCommand = "!start",
-                sleepCommand = "!sleep",
-                wakeCommand = "!wake",
+                stopCommand = "!quiet",
+                startCommand = "!resume",
+                sleepCommand = "!nap",
+                wakeCommand = "!rise",
                 sleepNickSuffix = "-zzz",
             ),
         )
@@ -119,15 +119,24 @@ class ReplyPromptBuilderTest {
             .contains("The site for inspecting this bot is https://ui.example.test/console")
             .contains("when unclear or unexpected bot behavior")
             .contains("FINAL ANSWER:")
-            .contains("discover_tools")
+            .contains("discover_tools", "discover CHAT_COMMAND", "command=help before answering")
+            .contains("from that live /help result", "Omit unavailable commands")
+            .contains("BOT AWARENESS:", "Bot commands and Chat commands as separate groups")
+            .contains("Bot-command help comes from this awareness context and requires no tool call")
+            .contains("If asked about only one group, answer only that group")
+            .contains("!quiet mutes bot replies", "!resume resumes replies", "!nap puts the bot to sleep", "!rise wakes it")
+            .doesNotContain("!stop", "!start", "!sleep", "!wake", "only when an action is requested")
             .doesNotContain("130 characters", "just another person", "list_repos first")
+        assertThat(prompt.system.substringAfter("Chat-server commands:").substringBefore("Never claim success"))
+            .doesNotContain("BOT AWARENESS", "Bot commands", "!quiet", "!resume", "!nap", "!rise")
         assertThat(prompt.userText).contains("TARGET REQUEST", "Do not recap established points")
             .contains("without an LLM gate decision", "Check the actual recipient and context before using tools")
             .contains("addressed only to another person", "fulfill a direct request to answer, continue or retry")
             .contains("bare acknowledgement with no pending action", "answer genuine direct address, including greetings and jokes")
             .contains("with or without @", "the subject does not make them the recipient")
             .contains("silence merely because a response is social, subjective, simple or helpful")
-            .contains("including opinions and recommendations", "A question need not name you or have a question mark")
+            .contains("Apply the brief unsolicited-reply rules in your persona")
+            .contains("return empty lead and blocks")
             .contains("Accepting your offer to act is not a bare acknowledgement")
             .doesNotContain("it is not an obligation to speak")
         val brief = prompt.system.replace(Regex("\\s+"), " ")
@@ -160,6 +169,11 @@ class ReplyPromptBuilderTest {
             "Do not combine smiley codes or substitute decorative symbols",
             "If a search is empty or inconclusive, reconsider the query and scope",
             "Discover repositories when the repository choice may be wrong",
+            "Speak only to correct material misinformation",
+            "lookup, calculation or code diagnosis gives you a clear advantage",
+            "Keep unsolicited replies to one or two short sentences",
+            "preferably just a verified supporting link",
+            "Direct requests and follow-ups still get the needed detail",
             "Try a materially different promising approach when tools and budget permit",
             "do not repeat identical failed searches or search indefinitely",
         ).doesNotContain("example only when the person asks for help formulating one", "Prefer surprising, dry, dark or absurdist humor")
@@ -186,6 +200,11 @@ class ReplyPromptBuilderTest {
             "explanation is not endorsement",
             "a research label does not automatically make the latter acceptable",
             "Do not combine smiley codes or substitute decorative symbols",
+            "enforce the brief's selective participation, verified evidence and short-answer rules",
+            "require a live /help tool result",
+            "For bot-control questions, use the configured BOT AWARENESS context",
+            "keep Bot commands and Chat commands in separate groups",
+            "If asked about only one group, include only that group",
             "{language}", "{brief}",
         ).doesNotContain("competent without condescension", "No generic disclaimers, interrogation, motive questions, trailing offers or performative jabs", "reward surprising, dry, dark or absurdist humor")
     }

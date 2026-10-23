@@ -24,7 +24,8 @@ class LlmToolDispatcher(
             "discover_tools",
             "Load tools for a capability only when needed. Read schemas before calling them. " +
                 "APPLICATION: live room state and diagnostics; REPOSITORY: code and files; " +
-                "LOGS: runtime logs; CHAT_COMMAND: requested chat actions; REPOSITORY_WRITE: authorized repository changes.",
+                "LOGS: runtime logs; CHAT_COMMAND: chat actions and live /help for available commands; " +
+                "REPOSITORY_WRITE: authorized repository changes.",
             mapOf(
                 "type" to "object",
                 "properties" to mapOf("capability" to mapOf("type" to "string", "enum" to capabilities.map { it.name })),

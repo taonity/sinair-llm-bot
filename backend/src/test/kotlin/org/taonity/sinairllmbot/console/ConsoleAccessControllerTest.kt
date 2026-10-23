@@ -70,7 +70,7 @@ class ConsoleAccessControllerTest : ControllerTestsBaseClass() {
             senderLogin = "alice", messageText = "change color", messageStyle = "message", sentAt = Instant.now(),
         )
         pipelineTraceService.begin()
-        val commandId = commandToolService.persistOutbound(trigger.roomTarget, "/color red", "color", "red")
+        val commandId = commandToolService.persistOutbound(trigger.roomTarget, "/color red")
         val runId = pipelineTraceService.record("reply", trigger, "FAILED", emptyList())!!
         val notice = outboundMessageRepository.save(OutboundMessageEntity(
             roomTarget = trigger.roomTarget, messageText = "Failed to reply",

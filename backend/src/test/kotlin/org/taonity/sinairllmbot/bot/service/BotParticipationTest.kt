@@ -102,7 +102,7 @@ class BotParticipationTest {
         verify(pending).fail(trigger, "FRESHNESS_FAILED", "freshness check produced no valid verdict")
         verify(triage).assess("#room", trigger, verifyStillNeeded = true)
         verify(typing).clearTyping("#room")
-        verify(cooldown, never()).recordReply("#room")
+        org.assertj.core.api.Assertions.assertThat(recordedCooldownRooms()).isEmpty()
         verifyNoInteractions(summaries)
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name })
             .doesNotContain("reply", "defer", "finish")
@@ -131,7 +131,7 @@ class BotParticipationTest {
         orchestrator.evaluateRoom("#room")
 
         verify(pending).reply(trigger, "answer")
-        verify(cooldown).recordReply("#room")
+        org.assertj.core.api.Assertions.assertThat(recordedCooldownRooms()).containsExactly("#room")
         val recorded = mockingDetails(trace).invocations.single { it.method.name == "record" }
         org.assertj.core.api.Assertions.assertThat(recorded.getArgument<String>(2)).isEqualTo("REPLIED")
     }
@@ -224,10 +224,11 @@ class BotParticipationTest {
         org.assertj.core.api.Assertions.assertThat(queued).hasSize(1)
         org.assertj.core.api.Assertions.assertThat(queued.single().getArgument<Boolean>(2)).isTrue()
         org.assertj.core.api.Assertions.assertThat(mockingDetails(pending).invocations.map { it.method.name }).doesNotContain("defer")
-        val cooldownRooms = mockingDetails(cooldown).invocations
-            .filter { it.method.name == "recordReply" }
-            .map { it.getArgument<String>(0) }
-        org.assertj.core.api.Assertions.assertThat(cooldownRooms)
+        org.assertj.core.api.Assertions.assertThat(recordedCooldownRooms())
             .containsExactlyElementsOf(if (fallbackFails) emptyList() else listOf("#room"))
     }
+
+    private fun recordedCooldownRooms(): List<String> = mockingDetails(cooldown).invocations
+        .filter { it.method.name == "recordReply" }
+        .map { it.getArgument<String>(0) }
 }

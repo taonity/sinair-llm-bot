@@ -203,7 +203,7 @@ class MessageTriageServiceTest {
     )
 
     @Test
-    fun `gate distinguishes recipients and open questions from bare acknowledgements`() {
+    fun `gate preserves bot requests and selects open questions by concrete advantage`() {
         val settings = mock(BotSettings::class.java, RETURNS_DEEP_STUBS)
         `when`(settings.bot().persona.name).thenReturn("segfault")
         `when`(settings.bot().persona.aliases).thenReturn(emptyList())
@@ -240,14 +240,19 @@ class MessageTriageServiceTest {
             "with or without @, anywhere in the message",
             "If a bot-name occurrence is ambiguous, prefer direct_address with respond=true",
             "greetings and jokes",
-            "including opinions, recommendations and practical help",
-            "Questions may be brief, casual, implicit or lack a question mark",
-            "respond=false but keep category=open_question",
+            "open_question: default respond=false",
+            "a source lookup, calculation or code diagnosis gives the bot a clear advantage",
+            "name that advantage in the reason",
+            "questions already answered or being handled",
+            "respond=true only for a clear, material and checkable factual",
+            "Minor inaccuracies, pedantic corrections",
+            "When unsure, respond=false",
+            "Reserve unsolicited replies for material misinformation",
             "thanks addressed to the bot",
             "Never use noise for a genuine question",
             "'segfault, why did @alice say that?' -> respond=true, direct_address",
             "'@alice, why did segfault say that?' -> respond=false, not_addressed",
-            "'any recommendations' or 'what do you all think?' to the room -> respond=true, open_question",
+            "'any recommendations' or 'what do you all think?' to the room -> respond=false, open_question",
             "'yes, do it' accepting the bot's offer -> respond=true, indirect_address",
         )
         assertThat(system).doesNotContain("to be helpful, or to seem present", "A mention is not an invitation")
