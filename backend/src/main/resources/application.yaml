@@ -104,7 +104,7 @@ app:
       review-min-tool-calls: 3
     tiers:
       gate:
-        model: google/gemini-2.5-flash-lite
+        model: google/gemini-3.5-flash-lite
         temperature: 0
         max-tokens: 220
       cheap:
@@ -112,20 +112,20 @@ app:
         temperature: 0.2
         max-tokens: 400
       smart-glm:
-        model: z-ai/glm-5.2
+        model: z-ai/glm-5.3
         temperature: 0.2
         max-tokens: 1500
       # Sized to prevent multi-round tool calls from being truncated mid-emission.
       repo:
-        model: z-ai/glm-5.2
+        model: z-ai/glm-5.3
         temperature: 0.2
         max-tokens: 1500
       critic:
-        model: google/gemini-2.5-flash-lite
+        model: google/gemini-3.5-flash-lite
         temperature: 0
         max-tokens: 500
       vision:
-        model: google/gemini-2.5-flash
+        model: google/gemini-3.5-flash
         temperature: 0.7
         max-tokens: 500
   ingestion:
