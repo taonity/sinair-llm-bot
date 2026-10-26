@@ -12,6 +12,7 @@ import org.taonity.sinairllmbot.bot.repository.PendingBotMessageRepository
 import org.taonity.sinairllmbot.bot.service.BotSleepService
 import org.taonity.sinairllmbot.bot.service.MutedRoomRegistry
 import org.taonity.sinairllmbot.config.BotSettings
+import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
 
 class BotMetricsTest {
@@ -52,12 +53,15 @@ class BotMetricsTest {
             val sleeping = mock(BotSleepService::class.java)
             `when`(settings.bot()).thenReturn(properties)
             `when`(properties.enabled).thenReturn(true)
+            `when`(properties.persona).thenReturn(mock(BotProperties.Persona::class.java))
+            `when`(properties.persona.name).thenReturn("segfault")
             `when`(settings.botRooms()).thenReturn(listOf("#active", "#muted", "#sleeping"))
             `when`(muted.isMuted("#muted")).thenReturn(true)
             `when`(sleeping.isAsleep("#sleeping")).thenReturn(true)
             `when`(pending.countByRoomTargetIn(listOf("#active"))).thenReturn(2)
             `when`(pending.oldestCreatedAt(listOf("#active"))).thenReturn(Instant.ofEpochSecond(100))
-            val metrics = BotStatusMetrics(registry, settings, pending, outbound, muted, sleeping)
+            val messages = mock(ChatMessageRepository::class.java)
+            val metrics = BotStatusMetrics(registry, settings, pending, outbound, muted, sleeping, messages)
             assertThat(registry.get("bot.metrics.snapshot.timestamp.seconds").gauge().value()).isZero()
             metrics.refresh()
             assertThat(registry.get("bot.state.active.rooms").gauge().value()).isEqualTo(1.0)

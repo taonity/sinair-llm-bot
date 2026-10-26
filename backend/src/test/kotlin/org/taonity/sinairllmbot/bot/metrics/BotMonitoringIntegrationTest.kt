@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import org.taonity.sinairllmbot.bot.entity.OutboundMessageEntity
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
@@ -114,6 +115,41 @@ class BotMonitoringIntegrationTest {
         gate.countDown()
         assertThat(attempts.sumOf { it.get(10, TimeUnit.SECONDS) }).isEqualTo(1)
         assertThat(counter.count() - before).isEqualTo(1.0)
+    }
+
+    @Test
+    @Transactional
+    fun `chat window counts persisted messages in order and separates rooms`() {
+        messages.deleteAll()
+        val start = Instant.now().plusSeconds(3600)
+        fun store(index: Int, sender: String = "human", room: String = "#chat", source: String? = null) =
+            messages.save(ChatMessageEntity(
+                dedupKey = "window:${UUID.randomUUID()}", roomTarget = room, senderMemberId = 1,
+                senderLogin = sender, messageText = "message", messageStyle = "message",
+                sentAt = start.plusSeconds(index.toLong()), sourceOutboundMessageId = source,
+            ))
+        fun count(name: String) = registry.get(name).tags("room", "#chat", "window", "100").gauge().value()
+
+        repeat(99) { store(it, if (it >= 95) "SeGfAuLt" else "human") }
+        statusMetrics.refresh()
+        assertThat(count("bot.chat.window.messages")).isEqualTo(99.0)
+        assertThat(count("bot.chat.window.bot.messages")).isEqualTo(4.0)
+
+        store(-1, "segfault")
+        store(99)
+        store(1000, "segfault", "#other")
+        statusMetrics.refresh()
+        assertThat(count("bot.chat.window.messages")).isEqualTo(100.0)
+        assertThat(count("bot.chat.window.bot.messages")).isEqualTo(4.0)
+
+        store(100, "previous-persona", source = UUID.randomUUID().toString())
+        statusMetrics.refresh()
+        assertThat(count("bot.chat.window.bot.messages")).isEqualTo(5.0)
+
+        repeat(100) { store(101 + it) }
+        statusMetrics.refresh()
+        assertThat(count("bot.chat.window.messages")).isEqualTo(100.0)
+        assertThat(count("bot.chat.window.bot.messages")).isZero()
     }
 
     @Test

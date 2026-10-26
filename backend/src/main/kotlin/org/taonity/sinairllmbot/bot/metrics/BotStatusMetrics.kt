@@ -3,6 +3,7 @@ package org.taonity.sinairllmbot.bot.metrics
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
+import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.taonity.sinairllmbot.bot.entity.OutboundStatus
@@ -11,24 +12,29 @@ import org.taonity.sinairllmbot.bot.repository.PendingBotMessageRepository
 import org.taonity.sinairllmbot.bot.service.BotSleepService
 import org.taonity.sinairllmbot.bot.service.MutedRoomRegistry
 import org.taonity.sinairllmbot.config.BotSettings
+import org.taonity.sinairllmbot.chat.repository.ChatMessageRepository
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class BotStatusMetrics(
-    registry: MeterRegistry,
+    private val registry: MeterRegistry,
     private val settings: BotSettings,
     private val pendingRepository: PendingBotMessageRepository,
     private val outboundRepository: OutboundMessageRepository,
     private val mutedRooms: MutedRoomRegistry,
     private val sleepService: BotSleepService,
+    private val messages: ChatMessageRepository,
 ) {
     private companion object {
         private val LOGGER = KotlinLogging.logger {}
         private val WAITING = listOf(OutboundStatus.PENDING, OutboundStatus.CLAIMED)
+        private const val CHAT_WINDOW_SIZE = 100
     }
 
     @Volatile private var snapshot = Snapshot()
     @Volatile private var collector = CollectorSnapshot()
+    private val registeredRooms = ConcurrentHashMap.newKeySet<String>()
 
     init {
         gauge(registry, "bot.state.enabled") { snapshot.enabled }
@@ -61,6 +67,19 @@ class BotStatusMetrics(
             val enabled = settings.bot().enabled
             val awakeRooms = rooms.filterNot { sleepService.isAsleep(it) }
             val activeRooms = awakeRooms.filterNot { mutedRooms.isMuted(it) }
+            val personaName = settings.bot().persona.name
+            val windows = rooms.associateWith { room ->
+                val recent = messages.findByRoomTargetOrderBySentAtDescIdDesc(room, PageRequest.of(0, CHAT_WINDOW_SIZE))
+                ChatWindow(recent.size.toDouble(), recent.count {
+                    it.sourceOutboundMessageId != null || it.senderLogin.equals(personaName, ignoreCase = true)
+                }.toDouble())
+            }
+            for (room in rooms.filter { registeredRooms.add(it) }) {
+                Gauge.builder("bot.chat.window.messages", this) { it.snapshot.windows[room]?.total ?: Double.NaN }
+                    .tags("platform", "sinair", "room", room, "window", CHAT_WINDOW_SIZE.toString()).register(registry)
+                Gauge.builder("bot.chat.window.bot.messages", this) { it.snapshot.windows[room]?.bot ?: Double.NaN }
+                    .tags("platform", "sinair", "room", room, "window", CHAT_WINDOW_SIZE.toString()).register(registry)
+            }
             snapshot = Snapshot(
                 enabled = if (enabled) 1.0 else 0.0,
                 configuredRooms = rooms.size.toDouble(),
@@ -72,6 +91,7 @@ class BotStatusMetrics(
                 outboundCount = if (rooms.isEmpty()) 0.0 else outboundRepository.countByRoomTargetInAndStatusIn(rooms, WAITING).toDouble(),
                 outboundOldest = if (rooms.isEmpty()) 0.0 else outboundRepository.oldestCreatedAt(rooms, WAITING)?.epochSecond?.toDouble() ?: 0.0,
                 timestamp = Instant.now().epochSecond.toDouble(),
+                windows = windows,
             )
         }.onFailure { LOGGER.warn { "Bot metrics snapshot failed: ${it.javaClass.simpleName}" } }
     }
@@ -91,7 +111,10 @@ class BotStatusMetrics(
         val outboundCount: Double = Double.NaN,
         val outboundOldest: Double = Double.NaN,
         val timestamp: Double = 0.0,
+        val windows: Map<String, ChatWindow> = emptyMap(),
     )
+
+    private data class ChatWindow(val total: Double, val bot: Double)
 
     private data class CollectorSnapshot(
         val timestamp: Double = 0.0,
