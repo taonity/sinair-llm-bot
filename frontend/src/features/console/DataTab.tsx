@@ -31,6 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { PageResponse } from './types'
+import { DataPagination } from './DataPagination'
 
 export type Column<T> = {
   key: string
@@ -41,6 +42,7 @@ export type Column<T> = {
   headClassName?: string
   skeleton?: string
   searchKey?: string
+  mobileContent?: boolean
 }
 
 type DataTabProps<T> = {
@@ -61,7 +63,6 @@ type DataTabProps<T> = {
   onError: (message: string) => void
 }
 
-const PAGE_SIZES = [20, 50, 100]
 const DEFAULT_PAGE_SIZE = 50
 const SKELETON_ROWS = 10
 
@@ -105,6 +106,7 @@ export function DataTab<T>({
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [jumpingId, setJumpingId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const topPaginationRef = useRef<HTMLElement>(null)
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
@@ -124,6 +126,7 @@ export function DataTab<T>({
         const result = await load(targetPage, targetSize, q.trim() || undefined, searchField, dir)
         setData(result)
         setPage(result.page)
+        setSize(result.size)
       } catch {
         onError('Failed to load data.')
       } finally {
@@ -187,9 +190,19 @@ export function DataTab<T>({
     }
   }
 
-  const onSizeChange = (next: number) => {
-    setSize(next)
-    void reload(0, next, activeQuery, field, direction)
+  const returnToPagination = () => {
+    topPaginationRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+    topPaginationRef.current?.focus({ preventScroll: true })
+  }
+
+  const onSizeChange = async (next: number, fromBottom = false) => {
+    await reload(0, next, activeQuery, field, direction)
+    if (fromBottom) returnToPagination()
+  }
+
+  const onPageChange = async (next: number, fromBottom = false) => {
+    await reload(next, size, activeQuery, field, direction)
+    if (fromBottom) returnToPagination()
   }
 
   const onToggleDirection = () => {
@@ -205,6 +218,7 @@ export function DataTab<T>({
   const firstRow = rows[0]
   const roomName = roomAccessor && firstRow ? roomAccessor(firstRow) : null
   const searchableColumns = columns.filter((c) => c.searchKey)
+  const initialLoading = loading && data === null
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -246,17 +260,26 @@ export function DataTab<T>({
     }
   }
 
+  const paginationProps = {
+    page,
+    size,
+    rowCount: rows.length,
+    totalElements: data?.totalElements,
+    totalPages: data?.totalPages,
+    loading,
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {roomAccessor &&
+    <div className="data-tab flex min-w-0 flex-col gap-2 sm:gap-3">
+      <div className="data-toolbar flex flex-wrap items-center gap-2 sm:justify-between">
+        <div className="data-search flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {roomAccessor && (roomName || initialLoading) &&
             (roomName ? (
-              <Badge variant="outline" className="h-6 min-w-32 font-normal">
+              <Badge variant="outline" className="room-badge h-6 max-w-full font-normal whitespace-normal wrap-anywhere">
                 Room: {roomName}
               </Badge>
             ) : (
-              <Badge variant="outline" className="h-6 min-w-32 font-normal">
+              <Badge variant="outline" className="room-badge h-6 font-normal">
                 <Skeleton className="h-3 w-20" />
               </Badge>
             ))}
@@ -269,7 +292,7 @@ export function DataTab<T>({
               value={field}
               onValueChange={(v) => v && onFieldChange(v)}
             >
-              <SelectTrigger size="sm" className="h-7 w-[150px]">
+              <SelectTrigger size="sm" className="search-field h-7 w-[130px]" aria-label="Search column">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -283,7 +306,8 @@ export function DataTab<T>({
             </Select>
           )}
           <Input
-            className="h-7 w-full sm:w-56"
+            className="search-input h-7 min-w-0 flex-1 sm:w-56 sm:flex-none"
+            aria-label="Search all rows"
             placeholder="Search all rows…"
             value={query}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -294,7 +318,7 @@ export function DataTab<T>({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="data-refresh flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
@@ -317,8 +341,16 @@ export function DataTab<T>({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <Table className={cn('min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50', tableClassName)}>
+      <DataPagination
+        {...paginationProps}
+        position="top"
+        paginationRef={topPaginationRef}
+        onPageChange={(next) => void onPageChange(next)}
+        onSizeChange={(next) => void onSizeChange(next)}
+      />
+
+      <div className="data-table-frame min-w-0 overflow-hidden rounded-lg border" aria-busy={loading || refreshing}>
+        <Table className={cn('mobile-records min-w-[720px] table-fixed [&_td]:py-1.5 [&_th]:h-9 [&_tr]:border-border/50', tableClassName)}>
           <TableHeader>
             <TableRow className="bg-muted/40">
               {expand && <TableHead className="w-[40px]" />}
@@ -332,12 +364,12 @@ export function DataTab<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading &&
+            {initialLoading &&
               Array.from({ length: SKELETON_ROWS }).map((_, i) => (
-                <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
-                  {expand && <TableCell className="w-[40px]" />}
+                <TableRow key={`skeleton-${i}`} className="record-row hover:bg-transparent" aria-hidden="true">
+                  {expand && <TableCell className="record-toggle w-[40px]" />}
                   {columns.map((c, idx) => (
-                    <TableCell key={c.key} className={c.cellClassName}>
+                    <TableCell key={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
                       <Skeleton
                         className={cn(
                           'h-4',
@@ -347,9 +379,9 @@ export function DataTab<T>({
                       />
                     </TableCell>
                   ))}
-                  {locate && <TableCell />}
+                  {locate && <TableCell className="record-locate" />}
                   {hasActions && (
-                    <TableCell className="pr-4 text-right">
+                    <TableCell className="record-actions pr-4 text-right">
                       {canEdit && (
                         <Button
                           variant="ghost"
@@ -366,7 +398,7 @@ export function DataTab<T>({
                 </TableRow>
               ))}
 
-            {!loading &&
+            {!initialLoading &&
               rows.map((row) => {
                 const id = rowKey(row)
                 const isExpanded = expandedIds.has(id)
@@ -377,31 +409,32 @@ export function DataTab<T>({
                         if (element) rowRefs.current.set(id, element)
                         else rowRefs.current.delete(id)
                       }}
-                      className={cn('group/data-row', highlightId === id && 'bg-primary/10')}
+                      className={cn('record-row group/data-row', highlightId === id && 'bg-primary/10')}
                     >
                       {expand && (
-                        <TableCell className="w-[40px]">
+                        <TableCell className="record-toggle w-[40px]">
                           <Button
                             variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-foreground"
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground min-[1100px]:size-7 min-[1100px]:p-0"
                             aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                             aria-expanded={isExpanded}
                             onClick={() => toggleExpanded(id)}
                           >
                             {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                            <span className="min-[1100px]:hidden">Details</span>
                           </Button>
                         </TableCell>
                       )}
                       {columns.map((c) => (
-                        <TableCell key={c.key} className={c.cellClassName}>
+                        <TableCell key={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
                           {c.render
                             ? c.render(row, { expand: () => setExpandedIds((previous) => new Set(previous).add(id)) })
                             : c.value(row)}
                         </TableCell>
                       ))}
                       {locate && (
-                        <TableCell className="text-right">
+                        <TableCell className="record-locate text-right" data-active={searching || undefined}>
                           {searching && (
                             <Button
                               variant="ghost"
@@ -418,7 +451,7 @@ export function DataTab<T>({
                         </TableCell>
                       )}
                       {hasActions && (
-                        <TableCell className="pr-4">
+                        <TableCell className="record-actions pr-4">
                           <div className="flex items-center justify-end gap-1">
                             {rowActions?.(row)}
                             {canEdit && (
@@ -427,6 +460,7 @@ export function DataTab<T>({
                                 size="icon-sm"
                                 className="text-muted-foreground hover:text-destructive"
                                 aria-label="Delete row"
+                                disabled={loading || refreshing}
                                 onClick={() => remove(row)}
                               >
                                 <Trash2 />
@@ -437,9 +471,9 @@ export function DataTab<T>({
                       )}
                     </TableRow>
                     {expand && isExpanded && (
-                      <TableRow className="hover:bg-transparent">
+                      <TableRow className="record-detail hover:bg-transparent">
                         <TableCell colSpan={columnCount} className="bg-muted/20 p-0">
-                          <div className="px-4 py-3">{expand(row)}</div>
+                          <div className="min-w-0 px-2 py-2 wrap-anywhere sm:px-4 sm:py-3">{expand(row)}</div>
                         </TableCell>
                       </TableRow>
                     )}
@@ -447,8 +481,8 @@ export function DataTab<T>({
                 )
               })}
 
-            {!loading && rows.length === 0 && (
-              <TableRow>
+            {!initialLoading && rows.length === 0 && (
+              <TableRow className="record-empty">
                 <TableCell
                   colSpan={columnCount}
                   className="h-20 text-center text-muted-foreground"
@@ -461,48 +495,12 @@ export function DataTab<T>({
         </Table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span>{data ? `${data.totalElements} total` : ''}</span>
-          <span className="text-border">·</span>
-          <span>Rows per page</span>
-          <Select
-            items={Object.fromEntries(PAGE_SIZES.map((s) => [String(s), String(s)]))}
-            value={String(size)}
-            onValueChange={(v) => v && onSizeChange(Number(v))}
-          >
-            <SelectTrigger size="sm" className="h-7 w-[72px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || page <= 0}
-            onClick={() => reload(page - 1, size, activeQuery, field, direction)}
-          >
-            Previous
-          </Button>
-          <span>Page {page + 1} of {Math.max(data?.totalPages ?? 1, 1)}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || !data || page + 1 >= data.totalPages}
-            onClick={() => reload(page + 1, size, activeQuery, field, direction)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <DataPagination
+        {...paginationProps}
+        position="bottom"
+        onPageChange={(next) => void onPageChange(next, true)}
+        onSizeChange={(next) => void onSizeChange(next, true)}
+      />
     </div>
   )
 }

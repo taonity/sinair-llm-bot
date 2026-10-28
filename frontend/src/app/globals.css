@@ -136,6 +136,229 @@ html {
   color: #fca5a5;
 }
 
+@media (width < 768px) {
+  .console-shell {
+    padding-inline: 0;
+  }
+
+  .console-header {
+    margin-inline: 8px;
+  }
+
+  .console-navigation,
+  .console-inset,
+  .data-toolbar,
+  .data-pagination {
+    padding-inline: 8px;
+  }
+
+  .data-table-frame {
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .admin-panel [data-slot='card'] {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .console-shell .admin-panel [data-slot='card-content'] {
+    padding-inline: 0;
+  }
+
+  .payload-viewer button,
+  .payload-viewer header a {
+    min-height: 44px;
+  }
+
+  .payload-toolbar button {
+    justify-content: center;
+    width: 100%;
+    padding-inline: 4px;
+  }
+
+  .console-shell :is([data-slot='button'], [data-slot='select-trigger']) {
+    min-height: 44px;
+  }
+
+  .console-shell [data-slot='button'],
+  .mobile-records .record-row a[aria-label] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-slot='select-item'] {
+    min-height: 44px;
+  }
+
+  .console-shell :is(input, textarea) {
+    font-size: 16px;
+  }
+
+  .console-shell [data-slot='input'] {
+    min-height: 44px;
+  }
+
+  .console-shell [data-slot='card'] {
+    gap: 12px;
+    padding-block: 12px;
+  }
+
+  .console-shell :is([data-slot='card-header'], [data-slot='card-content']) {
+    padding-inline: 12px;
+  }
+
+  .data-search {
+    display: contents;
+  }
+
+  .data-search .room-badge {
+    width: fit-content;
+    height: auto;
+    min-height: 24px;
+    border: 0;
+    padding-inline: 0;
+  }
+
+  .data-search .search-field {
+    order: 2;
+    width: 120px;
+  }
+
+  .data-search .search-input {
+    order: 2;
+    flex-basis: calc(100% - 128px);
+  }
+
+  .data-search > span:not(.room-badge) {
+    order: 3;
+  }
+
+  .data-refresh {
+    margin-left: auto;
+  }
+
+  .config-field > [data-slot='select-trigger'] {
+    grid-column: 1 / -1;
+  }
+
+}
+
+@media (width < 1100px) {
+  .mobile-records {
+    display: block;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .mobile-records > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .mobile-records > tbody {
+    display: block;
+  }
+
+  .mobile-records .record-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 12px;
+    padding: 8px;
+  }
+
+  .mobile-records .record-row > td {
+    order: 1;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+
+  .mobile-records td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 16px;
+    color: var(--muted-foreground);
+  }
+
+  .mobile-records .record-row > td[data-content] {
+    grid-column: 1 / -1;
+    order: 2;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .mobile-records td[data-content] .line-clamp-2 {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .mobile-records .record-row > :is(.record-toggle, .record-actions, .record-locate) {
+    order: 3;
+    align-self: end;
+  }
+
+  .mobile-records .record-actions {
+    grid-column: 2;
+  }
+
+  .mobile-records .record-decision {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-records .record-row > .record-locate:not([data-active]) {
+    display: none;
+  }
+
+  .mobile-records .record-row > .record-locate[data-active] {
+    grid-column: 1 / -1;
+    order: 4;
+    text-align: left;
+  }
+
+  .mobile-records :is(.record-detail, .record-empty, .record-detail > td, .record-empty > td) {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-records .record-empty > td {
+    align-content: center;
+  }
+
+  .mobile-records [data-slot='badge'] {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (width < 768px) {
+  .mobile-records .record-row {
+    row-gap: 2px;
+    padding-block: 6px;
+  }
+
+  .mobile-records td[data-content]::before {
+    display: none;
+  }
+
+  .mobile-records .record-row > td[data-content] {
+    line-height: 1.4;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);

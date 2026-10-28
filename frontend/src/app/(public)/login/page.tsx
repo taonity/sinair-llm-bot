@@ -79,7 +79,7 @@ export default function LoginPage() {
 
   return (
     <div>
-      <section className="relative flex min-h-screen flex-col items-center justify-center px-8">
+      <section className="relative flex min-h-[65svh] flex-col items-center justify-center px-4 py-20 sm:min-h-screen sm:px-8">
         <div className="login-card">
           <h1 className="login-title">Sinair LLM Bot</h1>
           <p className="login-subtitle">
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
       <section
         id="system-info"
-        className="flex min-h-screen scroll-mt-4 flex-col justify-center px-8 py-16"
+        className="flex scroll-mt-4 flex-col justify-center px-3 py-6 sm:min-h-screen sm:px-8 sm:py-16"
       >
         <div className="mx-auto w-full max-w-[900px]">
           <h2 className="mb-6 text-center text-xl font-semibold">System information</h2>

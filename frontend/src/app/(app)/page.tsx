@@ -66,16 +66,16 @@ export default function Home() {
   }
 
   return (
-    <div className="flex justify-center px-3 py-4 sm:px-6">
-      <div className="w-full max-w-[1200px]">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 pr-10 min-[1300px]:pr-0">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="text-lg font-semibold">Data console</span>
+    <div className="console-shell px-2 py-2 sm:px-6 sm:py-4">
+      <div className="mx-auto w-full min-w-0 max-w-[1200px]">
+        <header className="console-header flex items-center justify-between gap-2 border-b pb-2 pr-12 sm:pb-3 min-[1300px]:pr-0">
+          <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+            <span className="text-base font-semibold sm:text-lg">Data console</span>
             {loading ? (
               <Skeleton className="h-4 w-40" />
             ) : (
               hello && (
-                <span className="truncate text-sm text-muted-foreground">{hello.email}</span>
+                <span className="truncate text-xs text-muted-foreground sm:text-sm" title={hello.email}>{hello.email}</span>
               )
             )}
           </div>
@@ -84,7 +84,7 @@ export default function Home() {
           </Button>
         </header>
 
-        <main className="pt-4">
+        <main className="min-w-0 pt-2 sm:pt-4">
           {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
           {!loading && hello && <DataConsole />}
         </main>

@@ -18,7 +18,7 @@ export function ResponseDiagnostic({ state }: { state?: BotResponseState | null 
       : state.status === 'DISCARDED' ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'
 
   return (
-    <section aria-label="Message response" className="w-full min-w-0 max-w-[calc(100vw-5rem)] whitespace-normal text-xs leading-snug sm:max-w-full">
+    <section aria-label="Message response" className="w-full min-w-0 whitespace-normal text-xs leading-snug wrap-anywhere">
       <h3 className={cn('flex items-start gap-1 font-medium', tone)}>
         <Icon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
         <span className="min-w-0 break-words">{diagnostic.label}</span>

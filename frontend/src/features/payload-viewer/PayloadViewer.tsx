@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { AlertTriangle, Braces, Check, ChevronLeft, Copy, Eye, EyeOff, Maximize2, Minimize2, Pilcrow, WrapText } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
@@ -357,7 +357,7 @@ function ResizeHandle({ isResizing, onKeyDown, onPointerDown, onPointerMove, onP
       aria-valuemax={80}
       aria-valuemin={20}
       aria-valuenow={Math.round(splitPercent)}
-      className={`group relative cursor-col-resize touch-none outline-none ${isResizing ? 'bg-sky-500/20' : 'hover:bg-sky-500/10 focus-visible:bg-sky-500/10'}`}
+      className={`group relative hidden cursor-col-resize touch-none outline-none md:block ${isResizing ? 'bg-sky-500/20' : 'hover:bg-sky-500/10 focus-visible:bg-sky-500/10'}`}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -453,19 +453,19 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
   const bothPanelsVisible = showReq && showRes
 
   return (
-    <div className={fullscreen ? 'fixed inset-0 z-50 flex flex-col bg-background text-foreground' : 'fixed inset-0 flex flex-col bg-background text-foreground'}>
-      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted/50 px-3 py-1.5 text-[13px]">
+    <div className={`payload-viewer fixed inset-0 flex min-w-0 flex-col bg-background text-foreground ${fullscreen ? 'z-50' : ''}`}>
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/50 px-2 py-1.5 text-[13px] md:px-3">
         <a href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" />Back</a>
         <span className="h-3 w-px bg-border" />
         <span className="font-medium">LLM Payloads</span>
         <span className="text-muted-foreground">run {runId.slice(0, 8)}… / #{index}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setShowReq((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showReq ? 'Hide request' : 'Show request'}>{showReq ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Req</button>
-          <button type="button" onClick={() => setShowRes((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showRes ? 'Hide response' : 'Show response'}>{showRes ? <Eye className="size-3" /> : <EyeOff className="size-3" />}Res</button>
-          <button type="button" onClick={() => setExpandNewlines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandNewlines ? 'text-foreground' : 'text-muted-foreground'}`} title={expandNewlines ? 'Show escaped newline characters as plain text' : 'Render escaped newline characters as line breaks'}><Pilcrow className="size-3" />Newlines</button>
-          <button type="button" onClick={() => setExpandEmbeddedJson((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandEmbeddedJson ? 'text-foreground' : 'text-muted-foreground'}`} title={expandEmbeddedJson ? 'Show embedded JSON as an escaped string' : 'Pretty print embedded JSON strings'}><Braces className="size-3" />Nested JSON</button>
-          <button type="button" onClick={() => setWrapLines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${wrapLines ? 'text-foreground' : 'text-muted-foreground'}`} title={wrapLines ? 'Disable line wrapping' : 'Wrap long lines'}><WrapText className="size-3" />Wrap</button>
-          <span className="h-3 w-px bg-border" />
+        <div className="payload-toolbar grid w-full grid-cols-7 items-center gap-1 md:ml-auto md:flex md:w-auto">
+          <button type="button" onClick={() => setShowReq((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showReq ? 'Hide request' : 'Show request'}>{showReq ? <Eye className="hidden size-3 md:block" /> : <EyeOff className="hidden size-3 md:block" />}<span>Req</span></button>
+          <button type="button" onClick={() => setShowRes((visible) => !visible)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={showRes ? 'Hide response' : 'Show response'}>{showRes ? <Eye className="hidden size-3 md:block" /> : <EyeOff className="hidden size-3 md:block" />}<span>Res</span></button>
+          <button type="button" onClick={() => setExpandNewlines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandNewlines ? 'text-foreground' : 'text-muted-foreground'}`} title={expandNewlines ? 'Show escaped newline characters as plain text' : 'Render escaped newline characters as line breaks'}><Pilcrow className="size-3" /><span className="sr-only md:not-sr-only">Newlines</span></button>
+          <button type="button" onClick={() => setExpandEmbeddedJson((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${expandEmbeddedJson ? 'text-foreground' : 'text-muted-foreground'}`} title={expandEmbeddedJson ? 'Show embedded JSON as an escaped string' : 'Pretty print embedded JSON strings'}><Braces className="size-3" /><span className="sr-only md:not-sr-only">Nested JSON</span></button>
+          <button type="button" onClick={() => setWrapLines((value) => !value)} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent ${wrapLines ? 'text-foreground' : 'text-muted-foreground'}`} title={wrapLines ? 'Disable line wrapping' : 'Wrap long lines'}><WrapText className="size-3" /><span className="sr-only md:not-sr-only">Wrap</span></button>
+          <span className="hidden h-3 w-px bg-border md:block" />
           <ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-accent-foreground" />
           <button type="button" onClick={() => setFullscreen((value) => !value)} className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground" title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}>{fullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}</button>
         </div>
@@ -476,7 +476,11 @@ export default function PayloadViewer({ runId, index }: PayloadViewerProps) {
       {state.loading ? (
         <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-2"><JsonViewSkeleton /><JsonViewSkeleton /></div>
       ) : (
-        <div className="grid flex-1 overflow-hidden" ref={panelsRef} style={{ gridTemplateColumns: bothPanelsVisible ? `${splitPercent}fr 6px ${100 - splitPercent}fr` : '1fr' }}>
+        <div
+          className={`grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[var(--payload-columns)] ${bothPanelsVisible ? 'grid-rows-2 md:grid-rows-1' : 'grid-rows-1'}`}
+          ref={panelsRef}
+          style={{ '--payload-columns': bothPanelsVisible ? `minmax(0, ${splitPercent}fr) 6px minmax(0, ${100 - splitPercent}fr)` : 'minmax(0, 1fr)' } as CSSProperties}
+        >
           {showReq && <PayloadPanel label="Request" payload={state.request} copied={copied === 'request'} expandEmbeddedJson={expandEmbeddedJson} expandNewlines={expandNewlines} onCopy={() => state.request && copyPayload('request', state.request)} wrapLines={wrapLines} />}
           {bothPanelsVisible && <ResizeHandle isResizing={isResizing} onKeyDown={handleResizeKeyDown} onPointerDown={handleResizeStart} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} splitPercent={splitPercent} />}
           {showRes && <PayloadPanel label="Response" payload={state.response} copied={copied === 'response'} expandEmbeddedJson={expandEmbeddedJson} expandNewlines={expandNewlines} onCopy={() => state.response && copyPayload('response', state.response)} wrapLines={wrapLines} />}

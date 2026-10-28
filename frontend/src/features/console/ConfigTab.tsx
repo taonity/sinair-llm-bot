@@ -226,7 +226,7 @@ export function ConfigTab({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="relative flex-1 basis-56">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -240,7 +240,7 @@ export function ConfigTab({
           Applies live · no restart
         </span>
         {canEdit && (
-          <div className="flex items-center gap-2">
+          <div className={cn('items-center gap-2', dirtyKeys.length > 0 || saving ? 'flex' : 'hidden md:flex')}>
             {dirtyKeys.length > 0 && (
               <Badge variant="outline" className="font-normal text-amber-600">
                 {dirtyKeys.length} unsaved
@@ -267,22 +267,38 @@ export function ConfigTab({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start">
         {!q && (
-          <nav className="flex gap-1 overflow-x-auto pb-1 sm:sticky sm:top-14 sm:w-48 sm:shrink-0 sm:flex-col sm:overflow-visible sm:pb-0">
+          <nav aria-label="Configuration groups" className="flex min-w-0 flex-wrap gap-1 md:sticky md:top-14 md:w-48 md:shrink-0 md:flex-col">
+            <Select
+              items={Object.fromEntries(groups.map((group) => [group.name, `${group.name} (${group.fields.length})`]))}
+              value={activeGroup}
+              onValueChange={(value) => value && setActiveGroup(value)}
+            >
+              <SelectTrigger className="min-w-0 flex-1 md:hidden" aria-label="Configuration group">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((group) => (
+                  <SelectItem key={group.name} value={group.name}>
+                    {group.name} ({group.fields.length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {groups.map((g) => (
               <button
                 key={g.name}
                 type="button"
                 onClick={() => setActiveGroup(g.name)}
                 className={cn(
-                  'flex shrink-0 items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors sm:shrink',
+                  'hidden min-w-0 items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors md:flex',
                   g.name === activeGroup
                     ? 'bg-accent font-medium text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                 )}
               >
-                <span className="whitespace-nowrap">{g.name}</span>
+                <span className="wrap-anywhere">{g.name}</span>
                 <span className="flex items-center gap-1.5">
                   {overriddenByGroup.get(g.name) && (
                     <span
@@ -773,11 +789,12 @@ function FieldRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-3 py-2',
+        'config-field grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 md:flex md:gap-3',
+        field.type === 'BOOL' && 'flex',
         field.overridden && 'border-l-2 border-l-amber-500/60',
       )}
     >
-      <div className="flex-1">{meta}</div>
+      <div className="min-w-0 flex-1">{meta}</div>
       {resetBtn}
       <FieldControl field={field} value={value} disabled={disabled} onChange={onChange} />
     </div>
@@ -800,6 +817,7 @@ function FieldControl({
   if (field.type === 'BOOL') {
     return (
       <Switch
+        aria-label={field.label}
         checked={value === 'true'}
         disabled={disabled}
         onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
@@ -810,7 +828,7 @@ function FieldControl({
   if (field.type === 'ENUM') {
     return (
       <Select value={value} onValueChange={(v) => onChange(v ?? '')} disabled={disabled}>
-        <SelectTrigger size="sm" className="w-44">
+        <SelectTrigger size="sm" className="w-full md:w-44" aria-label={field.label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -828,6 +846,7 @@ function FieldControl({
     return (
       <Textarea
         id={field.key}
+        aria-label={field.label}
         value={value}
         readOnly={disabled}
         className="max-h-80 min-h-28 resize-y font-mono text-xs"
@@ -840,9 +859,10 @@ function FieldControl({
   const hasRange = isNumber && (field.min !== null || field.max !== null)
 
   return (
-    <div className={cn('flex items-center gap-2', stacked ? 'w-full' : 'justify-end')}>
+    <div className={cn('min-w-0 flex items-center gap-2', stacked ? 'w-full' : 'config-value col-span-2 md:justify-end')}>
       <Input
         id={field.key}
+        aria-label={field.label}
         type={isNumber ? 'number' : 'text'}
         inputMode={field.type === 'DOUBLE' ? 'decimal' : isNumber ? 'numeric' : undefined}
         step={field.type === 'DOUBLE' ? 'any' : isNumber ? 1 : undefined}
@@ -853,7 +873,7 @@ function FieldControl({
         placeholder={field.type === 'STRING_LIST' ? 'comma, separated, values' : undefined}
         className={cn(
           'h-8',
-          isNumber ? 'w-24 text-right tabular-nums' : stacked ? 'w-full font-mono text-xs' : 'w-56',
+          isNumber ? 'w-full text-right tabular-nums md:w-24' : stacked ? 'w-full font-mono text-xs' : 'w-full md:w-56',
         )}
         onChange={(e) => onChange(e.target.value)}
       />

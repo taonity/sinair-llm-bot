@@ -109,7 +109,7 @@ export function AdminPanel({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-panel flex flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Pending access requests</CardTitle>
@@ -125,8 +125,8 @@ export function AdminPanel({
             <p className="text-sm text-muted-foreground">No pending requests.</p>
           )}
           {requests && requests.length > 0 && (
-            <div className="overflow-hidden rounded-lg border">
-              <Table className="min-w-[640px]">
+            <div className="data-table-frame overflow-hidden rounded-lg border">
+              <Table className="mobile-records min-w-[640px] table-fixed [&_td]:whitespace-normal [&_td]:wrap-anywhere">
                 <TableHeader>
                   <TableRow className="bg-muted/40">
                     <TableHead>User</TableHead>
@@ -138,11 +138,11 @@ export function AdminPanel({
                 </TableHeader>
                 <TableBody>
                   {requests.map((r) => (
-                    <TableRow key={r.googleId}>
-                      <TableCell className="font-medium">{r.displayName}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.email}</TableCell>
-                      <TableCell>{r.requestedRole ?? '—'}</TableCell>
-                      <TableCell>
+                    <TableRow key={r.googleId} className="record-row">
+                      <TableCell data-label="User" className="font-medium">{r.displayName}</TableCell>
+                      <TableCell data-label="Email" className="text-muted-foreground">{r.email}</TableCell>
+                      <TableCell data-label="Requested">{r.requestedRole ?? '—'}</TableCell>
+                      <TableCell data-label="Grant">
                         <Select
                           items={{ VIEWER: 'Viewer', EDITOR: 'Editor' }}
                           value={grantRoles[r.googleId] ?? 'VIEWER'}
@@ -153,7 +153,7 @@ export function AdminPanel({
                             }))
                           }
                         >
-                          <SelectTrigger size="sm" className="w-[120px]">
+                          <SelectTrigger size="sm" className="w-full md:w-[120px]" aria-label={`Grant role for ${r.displayName}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -162,7 +162,7 @@ export function AdminPanel({
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="record-decision text-right">
                         <div className="flex justify-end gap-2">
                           <Button
                             size="sm"
@@ -288,8 +288,8 @@ function UsersCard({
           <p className="text-sm text-muted-foreground">No users yet.</p>
         )}
         {users && users.length > 0 && (
-          <div className="overflow-hidden rounded-lg border">
-            <Table className="min-w-[560px]">
+          <div className="data-table-frame overflow-hidden rounded-lg border">
+            <Table className="mobile-records min-w-[560px] table-fixed [&_td]:whitespace-normal [&_td]:wrap-anywhere">
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead>User</TableHead>
@@ -304,15 +304,15 @@ function UsersCard({
                   const targetIsAdmin = u.role === 'ADMIN' || u.role === 'OWNER'
                   const locked = isSelf || (targetIsAdmin && !access.isOwner)
                   return (
-                    <TableRow key={u.googleId}>
-                      <TableCell className="font-medium">{u.displayName}</TableCell>
-                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                      <TableCell>
+                    <TableRow key={u.googleId} className="record-row">
+                      <TableCell data-label="User" className="font-medium">{u.displayName}</TableCell>
+                      <TableCell data-label="Email" className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell data-label="Status">
                         <Badge variant="secondary" className="font-normal">
                           {u.accessStatus}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell data-label="Role">
                         {locked ? (
                           <Badge variant="outline">{ROLE_LABELS[u.role]}</Badge>
                         ) : (
@@ -321,7 +321,7 @@ function UsersCard({
                             value={u.role}
                             onValueChange={(v) => v && changeRole(u, v as ConsoleRole)}
                           >
-                            <SelectTrigger size="sm" className="w-[160px]" disabled={busyId === u.googleId}>
+                            <SelectTrigger size="sm" className="w-full md:w-[160px]" disabled={busyId === u.googleId} aria-label={`Role for ${u.displayName}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

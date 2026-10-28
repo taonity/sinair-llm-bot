@@ -34,24 +34,29 @@ export function DevLoginSwitcher() {
   if (hidden || !logins || logins.length === 0) return null
 
   return (
-    <div className="fixed right-3 bottom-3 z-50 flex flex-col gap-1.5 rounded-lg border bg-card/95 p-2 shadow-lg backdrop-blur">
-      <span className="px-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-        Log in as · dev
-      </span>
-      <div className="flex flex-wrap gap-1">
-        {logins.map((l) => (
-          <Button
-            key={l.registrationId}
-            size="xs"
-            variant="outline"
-            onClick={() => {
-              window.location.href = `${backendUrl}/oauth2/authorization/${l.registrationId}`
-            }}
-          >
-            {l.label}
-          </Button>
-        ))}
+    <details className="group mx-auto mt-4 w-fit max-w-full rounded-lg border bg-card/95 p-2 shadow-lg backdrop-blur md:fixed md:right-3 md:bottom-3 md:z-50 md:mt-0 md:max-w-[calc(100%-1.5rem)]">
+      <summary className="flex min-h-11 cursor-pointer items-center px-1 text-xs font-medium text-muted-foreground md:min-h-7">
+        Development logins
+      </summary>
+      <div className="flex flex-col gap-1.5 pt-2">
+        <span className="px-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Log in as · dev
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {logins.map((l) => (
+            <Button
+              key={l.registrationId}
+              size="xs"
+              variant="outline"
+              onClick={() => {
+                window.location.href = `${backendUrl}/oauth2/authorization/${l.registrationId}`
+              }}
+            >
+              {l.label}
+            </Button>
+          ))}
+        </div>
       </div>
-    </div>
+    </details>
   )
 }

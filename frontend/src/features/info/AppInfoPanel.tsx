@@ -106,8 +106,8 @@ function InfoCard({
             {rows.map((row, index) => (
               <div key={row.key}>
                 {index > 0 && <Separator className="my-1.5" />}
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="shrink-0 font-mono text-xs text-muted-foreground">{row.key}</dt>
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-2">
+                  <dt className="min-w-0 font-mono text-xs text-muted-foreground wrap-anywhere">{row.key}</dt>
                   <dd className="min-w-0 break-all text-right text-xs font-medium tabular-nums">
                     <InfoValueCell row={row} />
                   </dd>

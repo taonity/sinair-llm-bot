@@ -101,6 +101,7 @@ const pipelineColumns = (
   },
   {
     key: 'triggerText',
+    mobileContent: true,
     label: 'Message',
     value: (r) => r.triggerText,
     render: (r) => <span className="line-clamp-2">{r.triggerText || '—'}</span>,
@@ -112,7 +113,7 @@ const pipelineColumns = (
     label: 'Outcome',
     value: (r) => r.outcome,
     render: (run) => (
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
         {outcomeBadge(run.outcome, pipelineOutcomeReason(run))}
         <a
           href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/export`}
@@ -121,7 +122,7 @@ const pipelineColumns = (
           aria-label="Export debug bundle"
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
-            'shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/data-row:opacity-100 group-focus-within/data-row:opacity-100 focus-visible:opacity-100',
+            'shrink-0 text-muted-foreground min-[1100px]:opacity-0 transition-opacity group-hover/data-row:opacity-100 group-focus-within/data-row:opacity-100 focus-visible:opacity-100',
           )}
         >
           <Download />
@@ -448,7 +449,7 @@ function UsageChip({ runId, entry, callCommand, responseCommand, focusRevision }
   )
   return (
     <div className="flex flex-col gap-1">
-      <span className="inline-flex items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+      <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
         <span className="font-medium text-foreground/80">{call.tier}</span>
         <span>{call.model}</span>
         <AttemptLabels call={call} />

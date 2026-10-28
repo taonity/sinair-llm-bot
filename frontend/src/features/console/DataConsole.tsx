@@ -93,6 +93,7 @@ const MESSAGE_COLUMNS: Column<ChatMessage>[] = [
   },
   {
     key: 'messageText',
+    mobileContent: true,
     label: 'Message',
     value: (m) => m.messageText,
     cellClassName: 'whitespace-normal break-words leading-snug',
@@ -129,6 +130,7 @@ const EVENT_COLUMNS: Column<ChatEvent>[] = [
   },
   {
     key: 'eventData',
+    mobileContent: true,
     label: 'Data',
     value: (e) => e.eventData ?? '',
     render: (e) => e.eventData ?? '—',
@@ -158,6 +160,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
   },
   {
     key: 'messageText',
+    mobileContent: true,
     label: 'Message',
     value: (m) => m.messageText,
     cellClassName: 'whitespace-normal break-words leading-snug',
@@ -272,13 +275,13 @@ export default function DataConsole() {
       {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
 
       <Tabs value={tab} onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="console-navigation flex flex-wrap items-center justify-between gap-2">
           <Select
             items={tabItems}
             value={tab}
             onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}
           >
-            <SelectTrigger size="sm" className="h-8 w-36 sm:hidden">
+            <SelectTrigger size="sm" className="h-8 w-36 lg:hidden" aria-label="Console section">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -289,7 +292,7 @@ export default function DataConsole() {
               ))}
             </SelectContent>
           </Select>
-          <TabsList variant="line" className="hidden h-9 sm:flex">
+          <TabsList variant="line" className="hidden h-9 lg:flex">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="outbound">Outbound</TabsTrigger>
@@ -299,7 +302,7 @@ export default function DataConsole() {
             {access.isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <UpgradeAccessControl access={access} onUpdated={setAccess} onError={setError} />
             <Badge variant={ROLE_BADGE[access.role]}>{access.role}</Badge>
           </div>
@@ -380,11 +383,11 @@ export default function DataConsole() {
           )}
         </TabsContent>
 
-        <TabsContent value="summaries" className="pt-2" keepMounted>
+        <TabsContent value="summaries" className="console-inset pt-2" keepMounted>
           {visited.has('summaries') && <SummariesTab canEdit={canEdit} onError={setError} />}
         </TabsContent>
 
-        <TabsContent value="config" className="pt-2" keepMounted>
+        <TabsContent value="config" className="console-inset pt-2" keepMounted>
           {visited.has('config') && <ConfigTab canEdit={access.isOwner} onError={setError} />}
         </TabsContent>
 
@@ -394,7 +397,7 @@ export default function DataConsole() {
           </TabsContent>
         )}
 
-        <TabsContent value="about" className="pt-2" keepMounted>
+        <TabsContent value="about" className="console-inset pt-2" keepMounted>
           {visited.has('about') && <AppInfoPanel />}
         </TabsContent>
       </Tabs>

@@ -123,7 +123,7 @@ export function SummariesTab({
             <Skeleton className="h-3 w-44" />
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Textarea readOnly value="" className="min-h-[300px] resize-y font-mono text-xs" />
+            <Textarea readOnly value="" className="min-h-40 resize-y font-mono text-xs sm:min-h-[300px]" />
             {canEdit && <Skeleton className="h-8 w-16" />}
           </CardContent>
         </Card>
@@ -140,13 +140,13 @@ export function SummariesTab({
       {summaries.map((s) => (
         <Card key={s.id}>
           <CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-            <span className="font-medium">{s.roomTarget}</span>
+            <span className="min-w-0 font-medium wrap-anywhere">{s.roomTarget}</span>
             <span className="text-xs text-muted-foreground">
               {s.messageCount} messages · updated {formatTime(s.updatedAt)}
             </span>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            {editor(s.id, s.summary, s.pipelineRunId, s.detailAvailable, 'min-h-[300px]')}
+            {editor(s.id, s.summary, s.pipelineRunId, s.detailAvailable, 'min-h-40 sm:min-h-[300px]')}
 
             {s.history.length > 0 && (
               <div className="flex flex-col gap-1 pt-1">
