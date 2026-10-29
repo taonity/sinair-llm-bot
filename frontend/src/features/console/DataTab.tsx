@@ -53,6 +53,7 @@ type DataTabProps<T> = {
   initialFocusId?: string | null
   locateById?: (id: string, size: number, direction?: string) => Promise<number>
   expand?: (row: T) => React.ReactNode
+  expandOnRowClick?: boolean
   roomAccessor?: (row: T) => string
   canEdit?: boolean
   rowActions?: (row: T) => React.ReactNode
@@ -85,6 +86,7 @@ export function DataTab<T>({
   initialFocusId,
   locateById,
   expand,
+  expandOnRowClick = false,
   roomAccessor,
   canEdit = false,
   rowActions,
@@ -369,7 +371,7 @@ export function DataTab<T>({
                 <TableRow key={`skeleton-${i}`} className="record-row hover:bg-transparent" aria-hidden="true">
                   {expand && <TableCell className="record-toggle w-[40px]" />}
                   {columns.map((c, idx) => (
-                    <TableCell key={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
+                    <TableCell key={c.key} data-column={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
                       <Skeleton
                         className={cn(
                           'h-4',
@@ -409,7 +411,19 @@ export function DataTab<T>({
                         if (element) rowRefs.current.set(id, element)
                         else rowRefs.current.delete(id)
                       }}
-                      className={cn('record-row group/data-row', highlightId === id && 'bg-primary/10')}
+                      className={cn('record-row group/data-row', expandOnRowClick && expand && 'cursor-pointer', highlightId === id && 'bg-primary/10')}
+                      tabIndex={expandOnRowClick && expand ? 0 : undefined}
+                      aria-expanded={expandOnRowClick && expand ? isExpanded : undefined}
+                      onClick={expandOnRowClick && expand ? (event) => {
+                        if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, summary, [role="button"], [role="switch"], [role="combobox"], [contenteditable="true"]')) return
+                        if (window.getSelection()?.toString()) return
+                        toggleExpanded(id)
+                      } : undefined}
+                      onKeyDown={expandOnRowClick && expand ? (event) => {
+                        if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+                        event.preventDefault()
+                        toggleExpanded(id)
+                      } : undefined}
                     >
                       {expand && (
                         <TableCell className="record-toggle w-[40px]">
@@ -419,6 +433,7 @@ export function DataTab<T>({
                             className="text-muted-foreground hover:text-foreground min-[1100px]:size-7 min-[1100px]:p-0"
                             aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                             aria-expanded={isExpanded}
+                            tabIndex={expandOnRowClick ? -1 : undefined}
                             onClick={() => toggleExpanded(id)}
                           >
                             {isExpanded ? <ChevronDown /> : <ChevronRight />}
@@ -427,7 +442,7 @@ export function DataTab<T>({
                         </TableCell>
                       )}
                       {columns.map((c) => (
-                        <TableCell key={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
+                        <TableCell key={c.key} data-column={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
                           {c.render
                             ? c.render(row, { expand: () => setExpandedIds((previous) => new Set(previous).add(id)) })
                             : c.value(row)}

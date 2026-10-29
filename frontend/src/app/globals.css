@@ -359,6 +359,138 @@ html {
   }
 }
 
+.pipeline-records .record-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+@media (width < 1100px) {
+  .pipeline-records .record-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    column-gap: 6px;
+  }
+
+  .pipeline-records td[data-label]::before,
+  .pipeline-records .record-row > .record-toggle,
+  .pipeline-records .pipeline-date-full {
+    display: none;
+  }
+
+  .pipeline-records .pipeline-date-compact,
+  .pipeline-records .pipeline-chevron {
+    display: inline;
+  }
+
+  .pipeline-records .record-row[aria-expanded='true'] .pipeline-chevron {
+    transform: rotate(90deg);
+  }
+
+  .pipeline-records .record-row > td[data-column='triggerSenderLogin'] {
+    grid-column: 1;
+    grid-row: 1;
+    order: 0;
+  }
+
+  .pipeline-records .record-row > td[data-column='createdAt'] {
+    grid-column: 2;
+    grid-row: 1;
+    order: 0;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .pipeline-records .record-row > td[data-column='outcome'] {
+    grid-column: 3;
+    grid-row: 1;
+    order: 0;
+  }
+
+  .pipeline-records .pipeline-outcome {
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .pipeline-records .pipeline-outcome [data-slot='badge'] {
+    display: block;
+    max-width: 104px;
+    overflow: hidden;
+    padding-inline: 4px;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pipeline-records .record-row > td[data-column='triggerText'] {
+    grid-row: 2;
+    color: color-mix(in oklab, var(--foreground) 90%, var(--background));
+  }
+
+  .pipeline-records .record-row > td[data-column='diagnostics'] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .pipeline-records td[data-column='diagnostics']:not(:has(button)) {
+    display: none;
+  }
+
+  .pipeline-records td[data-column='diagnostics'] > div {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+@media (width < 1100px) {
+  .outbound-records .record-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    column-gap: 6px;
+  }
+
+  .outbound-records .record-row > td[data-column='createdAt'] {
+    grid-column: 1;
+    grid-row: 1;
+    order: 0;
+    font-size: 11px;
+  }
+
+  .outbound-records .record-row > td[data-column='status'] {
+    grid-column: 2;
+    grid-row: 1;
+    order: 0;
+  }
+
+  .outbound-records .record-row > .record-actions {
+    grid-column: 3;
+    grid-row: 1;
+    order: 0;
+    align-self: center;
+  }
+
+  .outbound-records .record-row > td[data-column='sentAt'] {
+    display: flex;
+    grid-column: 1 / 3;
+    grid-row: 2;
+    order: 0;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .outbound-records .record-row > .record-locate[data-active] {
+    grid-column: 3;
+    grid-row: 2;
+    order: 0;
+    text-align: right;
+  }
+
+  .outbound-records .record-row > td[data-content] {
+    grid-row: 3;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);

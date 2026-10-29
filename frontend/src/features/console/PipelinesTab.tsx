@@ -39,7 +39,7 @@ function outcomeBadge(outcome: string, clarification?: string | null) {
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
             : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
   return (
-    <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)} title={clarification ?? undefined}>
+    <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)} title={clarification ? `${outcome}: ${clarification}` : outcome}>
       {outcome}
     </Badge>
   )
@@ -86,7 +86,16 @@ const pipelineColumns = (
     key: 'createdAt',
     label: 'When',
     value: (r) => r.createdAt,
-    render: (r) => formatTime(r.createdAt),
+    render: (r) => (
+      <time dateTime={r.createdAt} title={formatTime(r.createdAt)}>
+        <span className="pipeline-date-full">{formatTime(r.createdAt)}</span>
+        <span className="pipeline-date-compact hidden">
+          {new Date(r.createdAt).toLocaleString(undefined, {
+            month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+          })}
+        </span>
+      </time>
+    ),
     cellClassName: 'whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
@@ -95,6 +104,12 @@ const pipelineColumns = (
     key: 'triggerSenderLogin',
     label: 'Trigger',
     value: (r) => r.triggerSenderLogin,
+    render: (r) => (
+      <span className="flex min-w-0 items-center gap-1" title={r.triggerSenderLogin}>
+        <span className="truncate">{r.triggerSenderLogin}</span>
+        <ChevronRight className="pipeline-chevron hidden size-3 shrink-0 transition-transform" aria-hidden="true" />
+      </span>
+    ),
     cellClassName: 'truncate font-medium',
     headClassName: 'w-[130px]',
     searchKey: 'triggerSenderLogin',
@@ -113,7 +128,7 @@ const pipelineColumns = (
     label: 'Outcome',
     value: (r) => r.outcome,
     render: (run) => (
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
+      <div className="pipeline-outcome flex min-w-0 flex-wrap items-center gap-1">
         {outcomeBadge(run.outcome, pipelineOutcomeReason(run))}
         <a
           href={`/api/console/pipeline-runs/${encodeURIComponent(run.id)}/export`}
@@ -790,7 +805,8 @@ export function PipelinesTab({
         diagnostic,
         revision: (previous?.revision ?? 0) + 1,
       })))}
-      tableClassName="min-w-[1000px]"
+      tableClassName="pipeline-records min-w-[1000px]"
+      expandOnRowClick
       rowKey={(r) => r.id}
       load={(page, size, q, field, direction) =>
         consoleApi.listPipelineRuns(page, size, q, field, direction)

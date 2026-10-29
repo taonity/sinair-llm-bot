@@ -11,9 +11,19 @@ import { getRuntimeConfig } from '@/lib/runtimeConfig'
 import { getCookie } from '@/lib/cookies'
 import ErrorNotification from '@/components/ErrorNotification'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import DataConsole from '@/features/console/DataConsole'
 import { DevLoginSwitcher } from '@/features/console/DevLoginSwitcher'
+import type { AccessInfo, ConsoleRole } from '@/features/console/types'
+
+const ROLE_BADGE: Record<ConsoleRole, 'default' | 'secondary' | 'outline'> = {
+  OWNER: 'default',
+  ADMIN: 'default',
+  EDITOR: 'secondary',
+  VIEWER: 'outline',
+  NONE: 'outline',
+}
 
 interface HelloResponse {
   message: string
@@ -22,6 +32,7 @@ interface HelloResponse {
 
 export default function Home() {
   const [hello, setHello] = useState<HelloResponse | null>(null)
+  const [access, setAccess] = useState<AccessInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -71,13 +82,20 @@ export default function Home() {
         <header className="console-header flex items-center justify-between gap-2 border-b pb-2 pr-12 sm:pb-3 min-[1300px]:pr-0">
           <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
             <span className="text-base font-semibold sm:text-lg">Data console</span>
-            {loading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              hello && (
-                <span className="truncate text-xs text-muted-foreground sm:text-sm" title={hello.email}>{hello.email}</span>
-              )
-            )}
+            <div className="flex min-w-0 items-center gap-1.5">
+              {loading ? (
+                <Skeleton className="h-4 w-40" />
+              ) : (
+                hello && (
+                  <span className="truncate text-xs text-muted-foreground sm:text-sm" title={hello.email}>{hello.email}</span>
+                )
+              )}
+              {access && (
+                <Badge variant={ROLE_BADGE[access.role]} className="shrink-0 text-[10px] sm:text-xs" aria-label={`Access role: ${access.role}`}>
+                  {access.role}
+                </Badge>
+              )}
+            </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Log out
@@ -86,7 +104,7 @@ export default function Home() {
 
         <main className="min-w-0 pt-2 sm:pt-4">
           {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
-          {!loading && hello && <DataConsole />}
+          {!loading && hello && <DataConsole onAccessChange={setAccess} />}
         </main>
       </div>
       {!loading && hello && <DevLoginSwitcher />}

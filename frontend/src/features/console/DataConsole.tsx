@@ -32,14 +32,6 @@ import type {
   OutboundMessage,
 } from './types'
 
-const ROLE_BADGE: Record<ConsoleRole, 'default' | 'secondary' | 'outline'> = {
-  OWNER: 'default',
-  ADMIN: 'default',
-  EDITOR: 'secondary',
-  VIEWER: 'outline',
-  NONE: 'outline',
-}
-
 function statusBadge(value: string) {
   return (
     <Badge variant="secondary" className="font-normal">
@@ -187,7 +179,7 @@ type TabKey =
   | 'admin'
   | 'about'
 
-export default function DataConsole() {
+export default function DataConsole({ onAccessChange }: { onAccessChange?: (access: AccessInfo) => void }) {
   const [access, setAccess] = useState<AccessInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -206,15 +198,20 @@ export default function DataConsole() {
     })
   }, [])
 
+  const updateAccess = useCallback((info: AccessInfo) => {
+    setAccess(info)
+    onAccessChange?.(info)
+  }, [onAccessChange])
+
   const loadAccess = useCallback(async () => {
     try {
-      setAccess(await consoleApi.getAccess())
+      updateAccess(await consoleApi.getAccess())
     } catch {
       setError('Failed to load access information.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [updateAccess])
 
   useEffect(() => {
     void loadAccess()
@@ -246,7 +243,7 @@ export default function DataConsole() {
     return (
       <div className="flex flex-col gap-3">
         {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
-        <AccessGate access={access} onUpdated={setAccess} onError={setError} />
+        <AccessGate access={access} onUpdated={updateAccess} onError={setError} />
       </div>
     )
   }
@@ -276,36 +273,14 @@ export default function DataConsole() {
 
       <Tabs value={tab} onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}>
         <div className="console-navigation flex flex-wrap items-center justify-between gap-2">
-          <Select
-            items={tabItems}
-            value={tab}
-            onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}
-          >
-            <SelectTrigger size="sm" className="h-8 w-36 lg:hidden" aria-label="Console section">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(tabItems).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <TabsList variant="line" className="hidden h-9 lg:flex">
-            <TabsTrigger value="messages">Messages</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="outbound">Outbound</TabsTrigger>
-            <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
-            <TabsTrigger value="summaries">Summaries</TabsTrigger>
-            <TabsTrigger value="config">Config</TabsTrigger>
-            {access.isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
-            <TabsTrigger value="about">About</TabsTrigger>
+          <TabsList aria-label="Console sections" className="grid h-auto w-full grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto lg:flex lg:flex-wrap lg:justify-start">
+            {Object.entries(tabItems).map(([value, label]) => (
+              <TabsTrigger key={value} value={value} className="h-9 min-h-11 flex-none border-border px-2 text-xs sm:min-h-9 lg:text-sm">
+                {label}
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <div className="flex flex-wrap items-center gap-2">
-            <UpgradeAccessControl access={access} onUpdated={setAccess} onError={setError} />
-            <Badge variant={ROLE_BADGE[access.role]}>{access.role}</Badge>
-          </div>
+          <UpgradeAccessControl access={access} onUpdated={updateAccess} onError={setError} />
         </div>
 
         <TabsContent value="messages" className="pt-2" keepMounted>
@@ -357,6 +332,7 @@ export default function DataConsole() {
           {visited.has('outbound') && (
             <DataTab<OutboundMessage>
               columns={OUTBOUND_COLUMNS}
+              tableClassName="outbound-records"
               initialFocusId={outboundId}
               locateById={(id, size, direction) => consoleApi.locateOutboundMessage(id, size, direction).then((result) => result.page)}
               rowKey={(m) => m.id}
