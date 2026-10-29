@@ -783,10 +783,12 @@ function StageRow({ stage }: { stage: PipelineStage }) {
 }
 
 export function PipelinesTab({
-  initialPipelineId,
+  selectedPipelineId,
+  onPipelineSelect,
   onError,
 }: {
-  initialPipelineId?: string | null
+  selectedPipelineId: string | null
+  onPipelineSelect: (id: string | null) => void
   onError: (message: string) => void
 }) {
   const [diagnosticFocus, setDiagnosticFocus] = useState<DiagnosticFocus>()
@@ -806,7 +808,9 @@ export function PipelinesTab({
       locate={(r, size, direction) =>
         consoleApi.locatePipelineRun(r.id, size, direction).then((res) => res.page)
       }
-      initialFocusId={initialPipelineId}
+      initialFocusId={selectedPipelineId}
+      selectedRowId={selectedPipelineId}
+      onSelectedRowChange={onPipelineSelect}
       locateById={(id, size, direction) =>
         consoleApi.locatePipelineRun(id, size, direction).then((res) => res.page)
       }

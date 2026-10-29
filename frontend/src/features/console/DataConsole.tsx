@@ -23,6 +23,7 @@ import { formatTime } from './format'
 import { PipelinesTab } from './PipelinesTab'
 import { ResponseDiagnostic } from './ResponseDiagnostic'
 import { RecordTimestamp } from './RecordTimestamp'
+import { consoleLocationUrl, readConsoleLocation, type ConsoleLocation, type TabKey } from './navigation'
 import { SummariesTab } from './SummariesTab'
 import { AppInfoPanel } from '@/features/info/AppInfoPanel'
 import type {
@@ -177,16 +178,6 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
   },
 ]
 
-type TabKey =
-  | 'messages'
-  | 'events'
-  | 'outbound'
-  | 'pipelines'
-  | 'summaries'
-  | 'config'
-  | 'admin'
-  | 'about'
-
 export default function DataConsole({ onAccessChange }: { onAccessChange?: (access: AccessInfo) => void }) {
   const [access, setAccess] = useState<AccessInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -205,6 +196,20 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
       return updated
     })
   }, [])
+
+  const restoreLocation = useCallback((location: ConsoleLocation) => {
+    selectTab(location.tab)
+    setPipelineId(location.pipelineId)
+    setOutboundId(location.outboundId)
+  }, [selectTab])
+
+  const navigate = useCallback((location: ConsoleLocation) => {
+    const url = consoleLocationUrl(window.location.href, location)
+    if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.pushState(null, '', url)
+    }
+    restoreLocation(location)
+  }, [restoreLocation])
 
   const updateAccess = useCallback((info: AccessInfo) => {
     setAccess(info)
@@ -226,17 +231,21 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
   }, [loadAccess])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const requestedPipelineId = params.get('pipeline')
-    const requestedOutboundId = params.get('outbound')
-    if (requestedPipelineId) {
-      setPipelineId(requestedPipelineId)
-      selectTab('pipelines')
-    } else if (requestedOutboundId) {
-      setOutboundId(requestedOutboundId)
-      selectTab('outbound')
+    const restoreFromUrl = () => {
+      let location = readConsoleLocation(window.location.search)
+      if (location.tab === 'admin' && access?.isAdmin === false) {
+        location = { tab: 'messages', pipelineId: null, outboundId: null }
+      }
+      const url = consoleLocationUrl(window.location.href, location)
+      if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+        window.history.replaceState(null, '', url)
+      }
+      restoreLocation(location)
     }
-  }, [selectTab])
+    restoreFromUrl()
+    window.addEventListener('popstate', restoreFromUrl)
+    return () => window.removeEventListener('popstate', restoreFromUrl)
+  }, [access?.isAdmin, restoreLocation])
 
   if (loading) {
     return (
@@ -279,7 +288,11 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
     <div className="flex flex-col gap-3">
       {error && <ErrorNotification message={error} onClose={() => setError(null)} />}
 
-      <Tabs value={tab} onValueChange={(v) => selectTab((v ?? 'messages') as TabKey)}>
+      <Tabs value={tab} onValueChange={(value) => navigate({
+        tab: (value ?? 'messages') as TabKey,
+        pipelineId: value === 'pipelines' ? pipelineId : null,
+        outboundId: value === 'outbound' ? outboundId : null,
+      })}>
         <div className="console-navigation flex flex-wrap items-center justify-between gap-2">
           <TabsList aria-label="Console sections" className="grid h-auto w-full grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto lg:flex lg:flex-wrap lg:justify-start">
             {Object.entries(tabItems).map(([value, label]) => (
@@ -366,7 +379,11 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
 
         <TabsContent value="pipelines" className="pt-2" keepMounted>
           {visited.has('pipelines') && (
-            <PipelinesTab initialPipelineId={pipelineId} onError={setError} />
+            <PipelinesTab
+              selectedPipelineId={pipelineId}
+              onPipelineSelect={(id) => navigate({ tab: 'pipelines', pipelineId: id, outboundId: null })}
+              onError={setError}
+            />
           )}
         </TabsContent>
 

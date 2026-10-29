@@ -54,6 +54,8 @@ type DataTabProps<T> = {
   locateById?: (id: string, size: number, direction?: string) => Promise<number>
   expand?: (row: T) => React.ReactNode
   expandOnRowClick?: boolean
+  selectedRowId?: string | null
+  onSelectedRowChange?: (id: string | null) => void
   roomAccessor?: (row: T) => string
   canEdit?: boolean
   rowActions?: (row: T) => React.ReactNode
@@ -87,6 +89,8 @@ export function DataTab<T>({
   locateById,
   expand,
   expandOnRowClick = false,
+  selectedRowId,
+  onSelectedRowChange,
   roomAccessor,
   canEdit = false,
   rowActions,
@@ -112,6 +116,10 @@ export function DataTab<T>({
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const loadRequest = useRef(0)
+  const focusRequest = useRef(0)
+  const focusId = onSelectedRowChange ? selectedRowId : initialFocusId
+  const lastFocusId = useRef(focusId)
 
   const reload = useCallback(
     async (
@@ -120,20 +128,26 @@ export function DataTab<T>({
       q: string,
       searchField: string,
       dir: string,
-      opts?: { silent?: boolean },
+      opts?: { silent?: boolean; focus?: number },
     ) => {
-      if (opts?.silent) setRefreshing(true)
-      else setLoading(true)
+      const request = ++loadRequest.current
+      const isCurrent = () => request === loadRequest.current
+        && (opts?.focus === undefined || opts.focus === focusRequest.current)
+      setRefreshing(Boolean(opts?.silent))
+      setLoading(!opts?.silent)
       try {
         const result = await load(targetPage, targetSize, q.trim() || undefined, searchField, dir)
+        if (!isCurrent()) return
         setData(result)
         setPage(result.page)
         setSize(result.size)
       } catch {
-        onError('Failed to load data.')
+        if (isCurrent()) onError('Failed to load data.')
       } finally {
-        if (opts?.silent) setRefreshing(false)
-        else setLoading(false)
+        if (request === loadRequest.current) {
+          setRefreshing(false)
+          setLoading(false)
+        }
       }
     },
     [load, onError],
@@ -143,6 +157,7 @@ export function DataTab<T>({
   useEffect(() => {
     if (didInitialLoad.current) return
     didInitialLoad.current = true
+    const request = ++focusRequest.current
     if (!initialFocusId || !locateById) {
       void reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
       return
@@ -151,17 +166,50 @@ export function DataTab<T>({
     const focusInitialRow = async () => {
       try {
         const targetPage = await locateById(initialFocusId, DEFAULT_PAGE_SIZE, 'desc')
-        await reload(targetPage, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
+        if (request !== focusRequest.current) return
+        await reload(targetPage, DEFAULT_PAGE_SIZE, '', 'all', 'desc', { focus: request })
+        if (request !== focusRequest.current) return
         setExpandedIds(new Set([initialFocusId]))
         setHighlightId(initialFocusId)
         highlightTimer.current = setTimeout(() => setHighlightId(null), 3000)
       } catch {
+        if (request !== focusRequest.current) return
         onError('Failed to locate the linked pipeline run.')
         await reload(0, DEFAULT_PAGE_SIZE, '', 'all', 'desc')
       }
     }
     void focusInitialRow()
   }, [initialFocusId, locateById, onError, reload])
+
+  useEffect(() => {
+    if (lastFocusId.current === focusId) return
+    lastFocusId.current = focusId
+    const request = ++focusRequest.current
+    if (!focusId || !locateById) {
+      setHighlightId(null)
+      if (!data) void reload(0, size, activeQuery, field, direction)
+      return
+    }
+    if (data?.content.some((row) => rowKey(row) === focusId)) return
+
+    const locateSelectedRow = async () => {
+      try {
+        const targetPage = await locateById(focusId, size, direction)
+        if (request !== focusRequest.current) return
+        if (searchTimer.current) clearTimeout(searchTimer.current)
+        setQuery('')
+        setActiveQuery('')
+        await reload(targetPage, size, '', field, direction, { focus: request })
+        if (request !== focusRequest.current) return
+        setHighlightId(focusId)
+        if (highlightTimer.current) clearTimeout(highlightTimer.current)
+        highlightTimer.current = setTimeout(() => setHighlightId(null), 3000)
+      } catch {
+        if (request === focusRequest.current) onError('Failed to locate the selected row.')
+      }
+    }
+    void locateSelectedRow()
+  }, [activeQuery, data, direction, field, focusId, locateById, onError, reload, rowKey, size])
 
   useEffect(() => {
     if (!highlightId) return
@@ -223,6 +271,10 @@ export function DataTab<T>({
   const initialLoading = loading && data === null
 
   const toggleExpanded = (id: string) => {
+    if (onSelectedRowChange) {
+      onSelectedRowChange(selectedRowId === id ? null : id)
+      return
+    }
     setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -403,7 +455,7 @@ export function DataTab<T>({
             {!initialLoading &&
               rows.map((row) => {
                 const id = rowKey(row)
-                const isExpanded = expandedIds.has(id)
+                const isExpanded = onSelectedRowChange ? selectedRowId === id : expandedIds.has(id)
                 return (
                   <Fragment key={id}>
                     <TableRow
@@ -444,7 +496,10 @@ export function DataTab<T>({
                       {columns.map((c) => (
                         <TableCell key={c.key} data-column={c.key} data-label={c.label} data-content={c.mobileContent || undefined} className={c.cellClassName}>
                           {c.render
-                            ? c.render(row, { expand: () => setExpandedIds((previous) => new Set(previous).add(id)) })
+                            ? c.render(row, { expand: () => {
+                              if (onSelectedRowChange) onSelectedRowChange(id)
+                              else setExpandedIds((previous) => new Set(previous).add(id))
+                            } })
                             : c.value(row)}
                         </TableCell>
                       ))}
