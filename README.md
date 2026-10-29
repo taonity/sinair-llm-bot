@@ -209,183 +209,65 @@ Configured per the profile set you run.
 
 <!-- mermerd-start -->
 ```mermaid
-erDiagram
-    app_user {
-        character_varying access_status "{NOT_NULL}"
-        character_varying display_name "{NOT_NULL}"
-        character_varying email "{NOT_NULL}"
-        character_varying google_id PK "{NOT_NULL}"
-        character_varying picture_url 
-        character_varying requested_role 
-        character_varying role "{NOT_NULL}"
-    }
-
-    audit_log {
-        character_varying action "{NOT_NULL}"
-        character_varying actor_email "{NOT_NULL}"
-        character_varying actor_google_id "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        timestamp_without_time_zone occurred_at "{NOT_NULL}"
-        character_varying target_id 
-        character_varying target_type "{NOT_NULL}"
-    }
-
-    bot_config_override {
-        character_varying config_key PK "{NOT_NULL}"
-        timestamp_without_time_zone updated_at "{NOT_NULL}"
-        character_varying updated_by "{NOT_NULL}"
-        character_varying value_json "{NOT_NULL}"
-    }
-
-    bot_config_revision {
-        character_varying content_hash UK "{NOT_NULL}"
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        text effective_config_json "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-    }
-
-    bot_config_tier {
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        character_varying created_by "{NOT_NULL}"
-        integer max_tokens "{NOT_NULL}"
-        character_varying model "{NOT_NULL}"
-        character_varying name PK "{NOT_NULL}"
-        double_precision temperature "{NOT_NULL}"
-    }
-
-    chat_event {
-        character_varying dedup_key UK "{NOT_NULL}"
-        text event_data 
-        timestamp_without_time_zone event_time "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        boolean is_girl "{NOT_NULL}"
-        boolean is_moder "{NOT_NULL}"
-        boolean is_owner "{NOT_NULL}"
-        character_varying member_color 
-        integer member_id "{NOT_NULL}"
-        character_varying member_name "{NOT_NULL}"
-        timestamp_without_time_zone received_at "{NOT_NULL}"
-        character_varying room_target "{NOT_NULL}"
-        character_varying status "{NOT_NULL}"
-        integer user_id "{NOT_NULL}"
-    }
-
-    chat_message {
-        character_varying bot_response_category 
-        timestamp_with_time_zone bot_response_deferred_at 
-        text bot_response_detail 
-        timestamp_with_time_zone bot_response_next_attempt_at 
-        character_varying bot_response_outbound_message_id 
-        character_varying bot_response_reason 
-        character_varying bot_response_status 
-        timestamp_with_time_zone bot_response_updated_at 
-        character_varying dedup_key UK "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        character_varying message_style "{NOT_NULL}"
-        text message_text "{NOT_NULL}"
-        timestamp_without_time_zone received_at "{NOT_NULL}"
-        integer recipient_member_id "{NOT_NULL}"
-        character_varying room_target "{NOT_NULL}"
-        character_varying sender_color 
-        character_varying sender_login "{NOT_NULL}"
-        integer sender_member_id "{NOT_NULL}"
-        integer sender_user_id "{NOT_NULL}"
-        timestamp_without_time_zone sent_at "{NOT_NULL}"
-        character_varying source_outbound_match 
-        character_varying source_outbound_message_id 
-    }
-
-    ignored_message {
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        character_varying dedup_key UK "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        character_varying room_target "{NOT_NULL}"
-    }
-
-    outbound_message {
-        timestamp_without_time_zone claimed_at 
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        text message_text "{NOT_NULL}"
-        character_varying reply_to_external_id 
-        character_varying room_target "{NOT_NULL}"
-        timestamp_without_time_zone sent_at 
-        character_varying status "{NOT_NULL}"
-        character_varying trigger_message_id 
-    }
-
-    pending_bot_message {
-        timestamp_with_time_zone available_at "{NOT_NULL}"
-        timestamp_with_time_zone created_at "{NOT_NULL}"
-        character_varying message_id PK,FK "{NOT_NULL}"
-        character_varying room_target "{NOT_NULL}"
-    }
-
-    pipeline_run {
-        character_varying config_revision_id 
-        text context_manifest_json "{NOT_NULL}"
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        integer json_parse_failure_count "{NOT_NULL}"
-        text json_parse_failures_json "{NOT_NULL}"
-        text llm_usage_json "{NOT_NULL}"
-        character_varying outbound_message_id 
-        character_varying outcome "{NOT_NULL}"
-        character_varying outcome_detail 
-        character_varying pipeline_key "{NOT_NULL}"
-        character_varying room_target "{NOT_NULL}"
-        text stages_json "{NOT_NULL}"
-        integer total_tokens "{NOT_NULL}"
-        character_varying trigger_message_id 
-        character_varying trigger_sender_login "{NOT_NULL}"
-        text trigger_text "{NOT_NULL}"
-    }
-
-    room_bot_state {
-        boolean asleep "{NOT_NULL}"
-        boolean muted "{NOT_NULL}"
-        character_varying room_target PK "{NOT_NULL}"
-        timestamp_without_time_zone updated_at "{NOT_NULL}"
-    }
-
-    room_summary {
-        character_varying id PK "{NOT_NULL}"
-        character_varying last_message_id 
-        timestamp_with_time_zone last_message_received_at 
-        integer message_count "{NOT_NULL}"
-        character_varying pipeline_run_id 
-        character_varying room_target UK "{NOT_NULL}"
-        text summary "{NOT_NULL}"
-        timestamp_without_time_zone updated_at "{NOT_NULL}"
-    }
-
-    room_summary_history {
-        timestamp_without_time_zone created_at "{NOT_NULL}"
-        character_varying id PK "{NOT_NULL}"
-        integer message_count "{NOT_NULL}"
-        character_varying pipeline_run_id 
-        character_varying room_target "{NOT_NULL}"
-        text summary "{NOT_NULL}"
-    }
-
-    spring_session {
-        bigint creation_time "{NOT_NULL}"
-        bigint expiry_time "{NOT_NULL}"
-        bigint last_access_time "{NOT_NULL}"
-        integer max_inactive_interval "{NOT_NULL}"
-        character primary_id PK "{NOT_NULL}"
-        character_varying principal_name 
-        character session_id "{NOT_NULL}"
-    }
-
-    spring_session_attributes {
-        bytea attribute_bytes "{NOT_NULL}"
-        character_varying attribute_name PK "{NOT_NULL}"
-        character session_primary_id PK,FK "{NOT_NULL}"
-    }
-
-    pending_bot_message |o--|| chat_message : "message_id"
-    spring_session_attributes }o--|| spring_session : "session_primary_id"
+%%{init: {"theme":"base","look":"classic","htmlLabels":true,"fontFamily":"Verdana, sans-serif","layout":"dagre","themeVariables":{"fontSize":"12px","primaryColor":"#ffffff","primaryBorderColor":"#bcc9d8","primaryTextColor":"#20344d","lineColor":"#7196bd","edgeLabelBackground":"transparent"},"themeCSS":".schema-table{border-collapse:collapse;white-space:nowrap;font:12px/1.3 Verdana,sans-serif;color:light-dark(rgb(32 52 77),rgb(220 229 241));background-color:light-dark(rgb(255 255 255),rgb(24 32 43));border:1px solid light-dark(rgb(188 201 216),rgb(82 97 116));}.schema-table th,.schema-table td{font:12px/1.3 Verdana,sans-serif;}.schema-table th{padding:3px 6px;text-align:center;font-weight:600;background-color:light-dark(rgb(232 238 245),rgb(42 53 68));}.schema-table td{padding:2px 6px;text-align:left;border-top:1px solid light-dark(rgb(229 235 242),rgb(52 65 83));}.schema-table .typeText{background-color:light-dark(rgb(220 245 239),rgb(23 61 56));color:light-dark(rgb(15 118 110),rgb(167 223 210));}.schema-table .typeNumber{background-color:light-dark(rgb(225 237 255),rgb(31 53 87));color:light-dark(rgb(29 78 216),rgb(182 206 255));}.schema-table .typeDateTime{background-color:light-dark(rgb(238 229 255),rgb(56 42 80));color:light-dark(rgb(126 34 206),rgb(217 186 243));}.schema-table .typeBoolean{background-color:light-dark(rgb(255 240 207),rgb(68 54 30));color:light-dark(rgb(146 64 14),rgb(242 208 140));}.schema-table .typeBinary{background-color:light-dark(rgb(252 229 239),rgb(72 38 55));color:light-dark(rgb(190 24 93),rgb(240 186 208));}.schema-table .typeStructured{background-color:light-dark(rgb(232 231 255),rgb(44 43 80));color:light-dark(rgb(67 56 202),rgb(198 195 250));}.schema-table .typeOther{background-color:light-dark(rgb(224 243 252),rgb(34 60 73));color:light-dark(rgb(20 100 126),rgb(176 221 235));}.schema-table .primaryKey{background-color:light-dark(rgb(255 240 207),rgb(68 54 30));color:light-dark(rgb(146 64 14),rgb(242 208 140));}.schema-table .foreignKey{background-color:light-dark(rgb(225 237 255),rgb(31 53 87));color:light-dark(rgb(29 78 216),rgb(182 206 255));}.schema-table .uniqueKey{background-color:light-dark(rgb(238 229 255),rgb(56 42 80));color:light-dark(rgb(126 34 206),rgb(217 186 243));}.schema-edge{display:inline-block;padding:2px 4px;text-align:left;font:12px/1.3 Verdana,sans-serif;color:light-dark(rgb(32 52 77),rgb(220 229 241));background:light-dark(rgb(232 238 245),rgb(42 53 68));}.schema-table,.schema-edge{color-scheme:light dark;}@scope ([data-color-mode=dark],.vscode-dark,.vscode-high-contrast,[data-theme=dark]){.schema-table,.schema-edge{color-scheme:dark;}}@scope ([data-color-mode=light],.vscode-light,.vscode-high-contrast-light,[data-theme=light]){.schema-table,.schema-edge{color-scheme:light;}}","flowchart":{"padding":0.01,"wrappingWidth":100000,"rankSpacing":24,"nodeSpacing":18,"curve":"linear","subGraphTitleMargin":{"top":0,"bottom":0}}}}%%
+flowchart TB
+subgraph row_0[" "]
+direction LR
+table_0["<table class='schema-table'><thead><tr><th colspan='3'>app_user</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>google_id</td><td class='typeText'>varchar</td><td class='primaryKey'>PK</td></tr><tr><td>email</td><td class='typeText'>varchar</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>display_name</td><td class='typeText'>varchar</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>picture_url</td><td class='typeText'>varchar</td><td class='plainConstraint'>—</td></tr><tr><td>role</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>access_status</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>requested_role</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_1["<table class='schema-table'><thead><tr><th colspan='3'>audit_log</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>action</td><td class='typeText'>varchar(40)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>target_type</td><td class='typeText'>varchar(40)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>target_id</td><td class='typeText'>varchar(64)</td><td class='plainConstraint'>—</td></tr><tr><td>actor_google_id</td><td class='typeText'>varchar</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>actor_email</td><td class='typeText'>varchar</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>occurred_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_2["<table class='schema-table'><thead><tr><th colspan='3'>bot_config_override</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>config_key</td><td class='typeText'>varchar(200)</td><td class='primaryKey'>PK</td></tr><tr><td>value_json</td><td class='typeText'>varchar(20000)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>updated_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>updated_by</td><td class='typeText'>varchar(320)</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_0 ~~~ table_1
+table_1 ~~~ table_2
+end
+style row_0 fill:transparent,stroke:transparent
+subgraph row_1[" "]
+direction LR
+table_3["<table class='schema-table'><thead><tr><th colspan='3'>bot_config_revision</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>content_hash</td><td class='typeText'>varchar(64)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>effective_config_json</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_4["<table class='schema-table'><thead><tr><th colspan='3'>bot_config_tier</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>name</td><td class='typeText'>varchar(50)</td><td class='primaryKey'>PK</td></tr><tr><td>model</td><td class='typeText'>varchar(200)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>temperature</td><td class='typeNumber'>float8</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>max_tokens</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_by</td><td class='typeText'>varchar(320)</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_5["<table class='schema-table'><thead><tr><th colspan='3'>chat_event</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>dedup_key</td><td class='typeText'>varchar(255)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>member_id</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>user_id</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>member_name</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>member_color</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>—</td></tr><tr><td>status</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>event_data</td><td class='typeText'>text</td><td class='plainConstraint'>—</td></tr><tr><td>is_girl</td><td class='typeBoolean'>bool</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>is_moder</td><td class='typeBoolean'>bool</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>is_owner</td><td class='typeBoolean'>bool</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>event_time</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>received_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_3 ~~~ table_4
+table_4 ~~~ table_5
+end
+style row_1 fill:transparent,stroke:transparent
+row_0 ~~~ row_1
+subgraph row_2[" "]
+direction LR
+table_6["<table class='schema-table'><thead><tr><th colspan='3'>chat_message</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>dedup_key</td><td class='typeText'>varchar(255)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>sender_member_id</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>sender_login</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>sender_color</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>—</td></tr><tr><td>message_text</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>message_style</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>recipient_member_id</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>sent_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>received_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>sender_user_id</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>source_outbound_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>source_outbound_match</td><td class='typeText'>varchar(32)</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_status</td><td class='typeText'>varchar(32)</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_reason</td><td class='typeText'>varchar(64)</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_detail</td><td class='typeText'>text</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_category</td><td class='typeText'>varchar(64)</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_deferred_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_next_attempt_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_updated_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>—</td></tr><tr><td>bot_response_outbound_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_9["<table class='schema-table'><thead><tr><th colspan='3'>pending_bot_message</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>message_id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK, FK</td></tr><tr><td>room_target</td><td class='typeText'>varchar(255)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>available_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_7["<table class='schema-table'><thead><tr><th colspan='3'>ignored_message</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>dedup_key</td><td class='typeText'>varchar(255)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_9 ~~~ table_7
+end
+style row_2 fill:transparent,stroke:transparent
+row_1 ~~~ row_2
+subgraph row_3[" "]
+direction LR
+table_8["<table class='schema-table'><thead><tr><th colspan='3'>outbound_message</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>message_text</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>reply_to_external_id</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>—</td></tr><tr><td>status</td><td class='typeText'>varchar(20)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>claimed_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>—</td></tr><tr><td>sent_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>—</td></tr><tr><td>trigger_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>pipeline_run_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_10["<table class='schema-table'><thead><tr><th colspan='3'>pipeline_run</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>pipeline_key</td><td class='typeText'>varchar(50)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>trigger_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>trigger_sender_login</td><td class='typeText'>varchar(150)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>trigger_text</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>outcome</td><td class='typeText'>varchar(30)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>outcome_detail</td><td class='typeText'>varchar(255)</td><td class='plainConstraint'>—</td></tr><tr><td>outbound_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>stages_json</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>total_tokens</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>llm_usage_json</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>json_parse_failure_count</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>json_parse_failures_json</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>config_revision_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>context_manifest_json</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_11["<table class='schema-table'><thead><tr><th colspan='3'>room_bot_state</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='primaryKey'>PK</td></tr><tr><td>muted</td><td class='typeBoolean'>bool</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>asleep</td><td class='typeBoolean'>bool</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>updated_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+table_8 ~~~ table_10
+table_10 ~~~ table_11
+end
+style row_3 fill:transparent,stroke:transparent
+row_2 ~~~ row_3
+subgraph row_4[" "]
+direction LR
+table_12["<table class='schema-table'><thead><tr><th colspan='3'>room_summary</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>summary</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>message_count</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>updated_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>pipeline_run_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr><tr><td>last_message_received_at</td><td class='typeDateTime'>timestamptz</td><td class='plainConstraint'>—</td></tr><tr><td>last_message_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_13["<table class='schema-table'><thead><tr><th colspan='3'>room_summary_history</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>id</td><td class='typeText'>varchar(36)</td><td class='primaryKey'>PK</td></tr><tr><td>room_target</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>summary</td><td class='typeText'>text</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>message_count</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>created_at</td><td class='typeDateTime'>timestamp</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>pipeline_run_id</td><td class='typeText'>varchar(36)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_12 ~~~ table_13
+end
+style row_4 fill:transparent,stroke:transparent
+row_3 ~~~ row_4
+subgraph row_5[" "]
+direction LR
+table_14["<table class='schema-table'><thead><tr><th colspan='3'>spring_session</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>primary_id</td><td class='typeText'>char(36)</td><td class='primaryKey'>PK</td></tr><tr><td>session_id</td><td class='typeText'>char(36)</td><td class='uniqueKey'>UK · NOT NULL</td></tr><tr><td>creation_time</td><td class='typeNumber'>bigint</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>last_access_time</td><td class='typeNumber'>bigint</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>max_inactive_interval</td><td class='typeNumber'>int</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>expiry_time</td><td class='typeNumber'>bigint</td><td class='plainConstraint'>NOT NULL</td></tr><tr><td>principal_name</td><td class='typeText'>varchar(100)</td><td class='plainConstraint'>—</td></tr></tbody></table>"]
+table_15["<table class='schema-table'><thead><tr><th colspan='3'>spring_session_attributes</th></tr><tr><th>Column name</th><th>Data type</th><th>Constraints</th></tr></thead><tbody><tr><td>session_primary_id</td><td class='typeText'>char(36)</td><td class='primaryKey'>PK, FK</td></tr><tr><td>attribute_name</td><td class='typeText'>varchar(200)</td><td class='primaryKey'>PK</td></tr><tr><td>attribute_bytes</td><td class='typeBinary'>bytea</td><td class='plainConstraint'>NOT NULL</td></tr></tbody></table>"]
+end
+style row_5 fill:transparent,stroke:transparent
+row_4 ~~~ row_5
+table_15 -->|"<span class='schema-edge'>session_primary_id<br/>0..* → 1</span>"| table_14
+table_9 -->|"<span class='schema-edge'>message_id<br/>0..1 → 1</span>"| table_6
+classDef schemaNode fill:transparent,stroke:transparent
+class table_0,table_1,table_2,table_3,table_4,table_5,table_6,table_7,table_8,table_9,table_10,table_11,table_12,table_13,table_14,table_15 schemaNode
 ```
 <!-- mermerd-end -->
 
