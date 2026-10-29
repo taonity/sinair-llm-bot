@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 import { consoleApi } from './api'
 import { DataTab, type Column } from './DataTab'
 import { ResponseDiagnostic } from './ResponseDiagnostic'
-import { formatTime, formatTokens } from './format'
+import { RecordTimestamp } from './RecordTimestamp'
+import { formatTokens } from './format'
 import { pipelineDiagnostics, pipelineOutcomeReason, type PipelineDiagnostic } from './pipelineDiagnostics'
 import type {
   JsonParseFailure,
@@ -30,14 +31,14 @@ const STATUS_DOT: Record<PipelineStageStatus, string> = {
 function outcomeBadge(outcome: string, clarification?: string | null) {
   const tone =
     outcome === 'REPLIED' || outcome === 'SUMMARY_REFRESHED'
-      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
       : outcome === 'SILENT'
-        ? 'text-muted-foreground'
+        ? 'text-muted-foreground dark:text-foreground/75'
         : outcome === 'FAILED' || outcome === 'SUMMARY_FAILED'
-          ? 'border-red-500/40 bg-red-500/10 text-red-600'
+          ? 'border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400'
           : outcome === 'COOLDOWN' || outcome === 'MUTED'
-            ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
-            : 'border-sky-500/40 bg-sky-500/10 text-sky-600'
+            ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+            : 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400'
   return (
     <Badge variant="outline" className={cn('font-normal whitespace-nowrap', tone)} title={clarification ? `${outcome}: ${clarification}` : outcome}>
       {outcome}
@@ -86,16 +87,7 @@ const pipelineColumns = (
     key: 'createdAt',
     label: 'When',
     value: (r) => r.createdAt,
-    render: (r) => (
-      <time dateTime={r.createdAt} title={formatTime(r.createdAt)}>
-        <span className="pipeline-date-full">{formatTime(r.createdAt)}</span>
-        <span className="pipeline-date-compact hidden">
-          {new Date(r.createdAt).toLocaleString(undefined, {
-            month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-          })}
-        </span>
-      </time>
-    ),
+    render: (r) => <RecordTimestamp value={r.createdAt} />,
     cellClassName: 'whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
@@ -805,7 +797,7 @@ export function PipelinesTab({
         diagnostic,
         revision: (previous?.revision ?? 0) + 1,
       })))}
-      tableClassName="pipeline-records min-w-[1000px]"
+      tableClassName="compact-records pipeline-records min-w-[1000px]"
       expandOnRowClick
       rowKey={(r) => r.id}
       load={(page, size, q, field, direction) =>

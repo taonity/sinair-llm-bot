@@ -774,7 +774,7 @@ function FieldRow({
     return (
       <div
         className={cn(
-          'flex flex-col gap-1.5 px-3 py-2.5',
+          'config-row flex flex-col gap-1.5 px-3 py-2.5',
           field.overridden && 'border-l-2 border-l-amber-500/60',
         )}
       >
@@ -790,7 +790,7 @@ function FieldRow({
   return (
     <div
       className={cn(
-        'config-field grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 md:flex md:gap-3',
+        'config-row config-field grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 md:flex md:gap-3',
         field.type === 'BOOL' && 'flex',
         field.overridden && 'border-l-2 border-l-amber-500/60',
       )}

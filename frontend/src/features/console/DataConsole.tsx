@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Workflow } from 'lucide-react'
+import { ChevronRight, Workflow } from 'lucide-react'
 import ErrorNotification from '@/components/ErrorNotification'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import { DataTab, type Column } from './DataTab'
 import { formatTime } from './format'
 import { PipelinesTab } from './PipelinesTab'
 import { ResponseDiagnostic } from './ResponseDiagnostic'
+import { RecordTimestamp } from './RecordTimestamp'
 import { SummariesTab } from './SummariesTab'
 import { AppInfoPanel } from '@/features/info/AppInfoPanel'
 import type {
@@ -70,7 +71,7 @@ const MESSAGE_COLUMNS: Column<ChatMessage>[] = [
     key: 'sentAt',
     label: 'Sent',
     value: (m) => m.sentAt,
-    render: (m) => formatTime(m.sentAt),
+    render: (m) => <RecordTimestamp value={m.sentAt} />,
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
@@ -79,6 +80,12 @@ const MESSAGE_COLUMNS: Column<ChatMessage>[] = [
     key: 'senderLogin',
     label: 'Sender',
     value: (m) => m.senderLogin,
+    render: (m) => (
+      <span className="record-sender flex min-w-0 items-center gap-1" title={m.senderLogin}>
+        <span className="truncate">{m.senderLogin}</span>
+        <ChevronRight className="record-chevron hidden size-3 shrink-0 transition-transform" aria-hidden="true" />
+      </span>
+    ),
     cellClassName: 'truncate font-medium',
     headClassName: 'w-[120px]',
     searchKey: 'senderLogin',
@@ -98,7 +105,7 @@ const EVENT_COLUMNS: Column<ChatEvent>[] = [
     key: 'eventTime',
     label: 'Time',
     value: (e) => e.eventTime,
-    render: (e) => formatTime(e.eventTime),
+    render: (e) => <RecordTimestamp value={e.eventTime} />,
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
@@ -107,6 +114,7 @@ const EVENT_COLUMNS: Column<ChatEvent>[] = [
     key: 'memberName',
     label: 'Member',
     value: (e) => e.memberName,
+    render: (e) => <span className="block truncate" title={e.memberName}>{e.memberName}</span>,
     cellClassName: 'truncate font-medium',
     headClassName: 'w-[30%]',
     searchKey: 'memberName',
@@ -275,7 +283,7 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
         <div className="console-navigation flex flex-wrap items-center justify-between gap-2">
           <TabsList aria-label="Console sections" className="grid h-auto w-full grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto lg:flex lg:flex-wrap lg:justify-start">
             {Object.entries(tabItems).map(([value, label]) => (
-              <TabsTrigger key={value} value={value} className="h-9 min-h-11 flex-none border-border px-2 text-xs sm:min-h-9 lg:text-sm">
+              <TabsTrigger key={value} value={value} className="h-8 min-h-9 flex-none border-border px-2 text-xs sm:min-h-8 lg:text-sm">
                 {label}
               </TabsTrigger>
             ))}
@@ -287,6 +295,8 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
           {visited.has('messages') && (
             <DataTab<ChatMessage>
               columns={MESSAGE_COLUMNS}
+              tableClassName="compact-records message-records"
+              expandOnRowClick
               expand={(message) => message.botResponse
                 ? <ResponseDiagnostic state={message.botResponse} />
                 : <p className="text-xs text-muted-foreground">No response assessment recorded.</p>}
@@ -311,6 +321,7 @@ export default function DataConsole({ onAccessChange }: { onAccessChange?: (acce
           {visited.has('events') && (
             <DataTab<ChatEvent>
               columns={EVENT_COLUMNS}
+              tableClassName="compact-records event-records"
               rowKey={(e) => e.id}
               load={(page, size, q, field, direction) =>
                 consoleApi.listChatEvents(page, size, q, field, direction)
