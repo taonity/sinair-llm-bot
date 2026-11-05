@@ -1,0 +1,36 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "[#general] James: if something costs 100, take off 20, then add 20%. same as before. maths, done."
+    },
+    {
+      "role": "user",
+      "content": "[#general] Sophia: pretty sure James just invented free money with percentages."
+    },
+    {
+      "role": "user",
+      "content": "[#general] Alice: @yarik a 20% discount and then 20% tax cancel each other out, right?"
+    }
+  ],
+  "response": {
+    "id": "demo-percentage-argument",
+    "object": "chat.completion",
+    "model": "demo/group-chat",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "nope. 100 * 0.8 * 1.2 = 96. that is 4% below the starting price. different bases, different result. the receipt wins this argument."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 162,
+      "completion_tokens": 64,
+      "total_tokens": 226
+    }
+  }
+}

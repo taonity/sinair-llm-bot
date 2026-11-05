@@ -1,0 +1,45 @@
+name: Demo Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'google-stubs/**'
+      - 'llm-stubs/**'
+      - 'templates/docker/flyway/**'
+      - 'pom.xml'
+      - '.github/workflows/demo-screenshots.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: demo-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: app
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: app/pom.xml
+      - uses: taonity/demo-screenshots@v0.1.0
+        with:
+          working-directory: app/frontend
+          lockfile: app/frontend/package-lock.json
+          output-directory: app/screenshots
+          publish-release: ${{ github.ref == 'refs/heads/main' }}
+          report-path: |
+            app/frontend/playwright-report/demo/
+            app/frontend/test-results/demo/

@@ -240,6 +240,12 @@ spring:
   profiles:
     group:
       local: plain-log
+      demo:
+        - h2
+        - stub-google
+        - stub-llm
+        - plain-log
+        - demo-settings
   application:
     name: sinair-llm-bot
   session:

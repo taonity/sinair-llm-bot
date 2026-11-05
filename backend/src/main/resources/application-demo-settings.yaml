@@ -1,0 +1,66 @@
+server:
+  servlet:
+    session:
+      cookie:
+        domain: 127.0.0.1
+        name: JSESSIONID-DEMO
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:sinair-demo;DB_CLOSE_DELAY=-1
+  flyway:
+    clean-disabled: true
+
+app:
+  additional-profiles: ""
+  csrf-cookie-name: XSRF-TOKEN-DEMO
+  cookie:
+    secure: false
+    same-site: Lax
+  console:
+    owner-emails:
+      - alice.morgan@example.com
+    admin-emails: []
+  dev:
+    stub-logins: []
+  observability:
+    openrouter:
+      enabled: false
+  github:
+    token: ""
+    mcp:
+      enabled: false
+    repo-lookup:
+      enabled: false
+  grafana:
+    mcp:
+      enabled: false
+      container-prefix: sinair-demo
+  ingestion:
+    enabled: false
+  llm:
+    base-url: http://127.0.0.1:9562/v1
+    api-key: demo-key
+    tiers:
+      smart-glm:
+        model: demo/group-chat
+        temperature: 0.5
+        max-tokens: 400
+  bot:
+    enabled: false
+    rooms: '#general,#code,#off-topic'
+    persona:
+      name: yarik
+      language: English
+      creator-user-id: 1001
+      aliases:
+        - yarik
+      prompt: >-
+        You are the group's LLM collaborator, not a simulated human.
+        Think through questions, check claims, calculate, explain, and disagree when the reasoning calls for it.
+        Keep a casual, direct English chat voice. Use dry humor or reason-based teasing only when it fits.
+        Answer direct requests fully. Respect requests to stop teasing.
+        Do not interrupt other people's conversations without a useful contribution, and do not invent facts.
+info:
+  app:
+    environment: demo

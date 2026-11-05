@@ -17,7 +17,7 @@ const nextConfig = {
     root: __dirname,
   },
   env: {
-    BUILD_TIME: new Date().toISOString(),
+    BUILD_TIME: process.env.BUILD_TIME || new Date().toISOString(),
     GIT_COMMIT_SHA: process.env.GIT_COMMIT_SHA || git('rev-parse HEAD'),
     GIT_COMMIT_SHORT: process.env.GIT_COMMIT_SHORT || git('rev-parse --short HEAD'),
     GIT_BRANCH: process.env.GIT_BRANCH || git('rev-parse --abbrev-ref HEAD'),

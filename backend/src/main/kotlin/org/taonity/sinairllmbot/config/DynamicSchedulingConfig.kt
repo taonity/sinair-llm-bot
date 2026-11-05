@@ -1,6 +1,7 @@
 package org.taonity.sinairllmbot.config
 
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 import org.springframework.scheduling.Trigger
 import org.springframework.scheduling.annotation.SchedulingConfigurer
 import org.springframework.scheduling.config.ScheduledTaskRegistrar
@@ -9,6 +10,7 @@ import org.taonity.sinairllmbot.chat.service.RetentionCleanupService
 import org.taonity.sinairllmbot.console.service.AuditLogCleanupService
 
 @Configuration
+@Profile("!demo")
 class DynamicSchedulingConfig(
     private val settings: BotSettings,
     private val retentionCleanupService: RetentionCleanupService,

@@ -23,6 +23,7 @@ import { formatTime } from './format'
 import { PipelinesTab } from './PipelinesTab'
 import { ResponseDiagnostic } from './ResponseDiagnostic'
 import { RecordTimestamp } from './RecordTimestamp'
+import { OutboundTimestamp } from './OutboundTimestamp'
 import { consoleLocationUrl, readConsoleLocation, type ConsoleLocation, type TabKey } from './navigation'
 import { SummariesTab } from './SummariesTab'
 import { AppInfoPanel } from '@/features/info/AppInfoPanel'
@@ -145,7 +146,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     key: 'createdAt',
     label: 'Created',
     value: (m) => m.createdAt,
-    render: (m) => formatTime(m.createdAt),
+    render: (m) => <OutboundTimestamp value={m.createdAt} label="Created" />,
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
@@ -171,7 +172,7 @@ const OUTBOUND_COLUMNS: Column<OutboundMessage>[] = [
     key: 'sentAt',
     label: 'Sent',
     value: (m) => m.sentAt ?? '',
-    render: (m) => formatTime(m.sentAt),
+    render: (m) => <OutboundTimestamp value={m.sentAt} label="Sent" createdAt={m.createdAt} />,
     cellClassName: 'overflow-hidden whitespace-nowrap text-muted-foreground tabular-nums',
     headClassName: 'w-[160px]',
     skeleton: 'w-[85%]',
