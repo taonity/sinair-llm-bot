@@ -34,7 +34,7 @@ The phone JSON capture unfolds the request and response panels into one full-hei
 
 In GitHub Actions, run **Demo Screenshots** manually or let it run on relevant changes to `main`. Download and extract the `demo-screenshots` artifact, then open `index.html`. Successful captures on `main` also publish `screenshots.zip` in a commit-specific `portfolio-screenshots-<SHA>` prerelease. This keeps screenshot releases separate from application releases. No generated PNGs are committed.
 
-The caller workflow checks this repository out as `app`, sets up Java, and invokes `taonity/demo-screenshots@v0.1.0`. The shared action handles Node, npm, Chromium, capture execution, artifact uploads, and release packaging. No npm-registry release is required. Browser reports are uploaded as `demo-screenshots-browser-report`. The workflow needs `contents: write` to publish its own releases; it uses GitHub's temporary token.
+The caller workflow checks this repository out as `app`, sets up Java, and invokes `taonity/demo-screenshots@v0.1.1`. The shared action handles Node, npm, Chromium, capture execution, artifact uploads, and release packaging. No npm-registry release is required. Browser reports are uploaded as `demo-screenshots-browser-report`. The workflow needs `contents: write` to publish its own releases; it uses GitHub's temporary token.
 
 The static portfolio in `taonity/taonity-portfolio` checks for new bundles approximately every 15 minutes, validates and imports the PNGs, generates lossless preview sizes, and deploys to GitHub Pages. Run its **Build and deploy portfolio** workflow manually for an immediate refresh. It uses public release downloads, with no cross-repository secret. Failed captures and draft releases cannot replace portfolio images.
 

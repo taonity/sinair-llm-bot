@@ -34,7 +34,7 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: app/pom.xml
-      - uses: taonity/demo-screenshots@v0.1.0
+      - uses: taonity/demo-screenshots@v0.1.1
         with:
           working-directory: app/frontend
           lockfile: app/frontend/package-lock.json
