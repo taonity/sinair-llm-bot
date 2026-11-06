@@ -32,7 +32,7 @@ Captures use lossless PNGs at four device pixels per CSS pixel. Desktop captures
 
 The phone JSON capture unfolds the request and response panels into one full-height image. This makes all payload content accessible when the image is scrolled inside a portfolio device frame. The application itself retains its interactive panel scrolling.
 
-In GitHub Actions, run **Demo Screenshots** manually or let it run on relevant changes to `main`. Download and extract the `demo-screenshots` artifact, then open `index.html`. Successful captures on `main` also publish `screenshots.zip` in a commit-specific `portfolio-screenshots-<SHA>` prerelease. This keeps screenshot releases separate from application releases. No generated PNGs are committed.
+In GitHub Actions, run **Demo Screenshots** manually, or let **Release** call it after `deploy-prod` succeeds. Pushes alone and stage deployments do not trigger captures. Download and extract the `demo-screenshots` artifact, then open `index.html`. Successful captures on `main` also publish `screenshots.zip` in a commit-specific `portfolio-screenshots-<SHA>` prerelease. No generated PNGs are committed.
 
 The caller workflow checks this repository out as `app`, sets up Java, and invokes `taonity/demo-screenshots@v0.1.1`. The shared action handles Node, npm, Chromium, capture execution, artifact uploads, and release packaging. No npm-registry release is required. Browser reports are uploaded as `demo-screenshots-browser-report`. The workflow needs `contents: write` to publish its own releases; it uses GitHub's temporary token.
 

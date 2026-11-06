@@ -2,16 +2,7 @@ name: Demo Screenshots
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - 'google-stubs/**'
-      - 'llm-stubs/**'
-      - 'templates/docker/flyway/**'
-      - 'pom.xml'
-      - '.github/workflows/demo-screenshots.yml'
+  workflow_call:
 
 permissions:
   contents: write
